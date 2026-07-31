@@ -16,13 +16,18 @@
         "title": "EmbedQuickRef",
         "width": 680,
         "height": 500,
-        "resizable": false,
+        "minWidth": 520,
+        "minHeight": 300,
+        "resizable": true,
         "decorations": false,
         "transparent": true,
         "alwaysOnTop": true,
         "skipTaskbar": true,
         "center": true,
-        "visible": true
+        "visible": true,
+        "windowEffects": {
+          "effects": ["acrylic"]
+        }
       }
     ],
     "security": {

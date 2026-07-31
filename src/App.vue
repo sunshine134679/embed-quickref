@@ -29,15 +29,63 @@ const aiError = ref("");
 const aiSaved = ref(false);
 const searchBox = ref(null);
 
+// 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
+const pinned = ref(false);
+// 标签页：打开过的词条固定为标签，直到手动关闭
+const tabs = ref([]);
+const activeTab = ref(null);
+
 watch(query, (q) => {
   results.value = search(q);
   selectedIndex.value = 0;
   if (view.value !== "search") view.value = "search";
 });
 
-function openDetail(term) {
+async function togglePin() {
+  pinned.value = !pinned.value;
+  try {
+    await win.setSkipTaskbar(!pinned.value);
+    await win.setAlwaysOnTop(!pinned.value);
+  } catch (e) {
+    console.error("切换固定模式失败", e);
+  }
+}
+
+function openTab(term) {
+  if (!tabs.value.some((t) => t.abbr === term.abbr)) tabs.value.push(term);
+  activeTab.value = term.abbr;
   currentTerm.value = term;
   view.value = "detail";
+}
+
+function selectTab(abbr) {
+  const t = tabs.value.find((x) => x.abbr === abbr);
+  if (!t) return;
+  activeTab.value = abbr;
+  currentTerm.value = t;
+  view.value = "detail";
+}
+
+function closeTab(abbr) {
+  const i = tabs.value.findIndex((t) => t.abbr === abbr);
+  if (i === -1) return;
+  tabs.value.splice(i, 1);
+  if (activeTab.value === abbr) {
+    if (tabs.value.length) {
+      selectTab(tabs.value[Math.min(i, tabs.value.length - 1)].abbr);
+    } else {
+      activeTab.value = null;
+      view.value = "search";
+      focusInput();
+    }
+  }
+}
+
+function cycleTab(step) {
+  if (!tabs.value.length) return;
+  const i = tabs.value.findIndex((t) => t.abbr === activeTab.value);
+  const next = (i + step + tabs.value.length) % tabs.value.length;
+  selectTab(tabs.value[next].abbr);
 }
 
 async function runAi(q) {
@@ -60,17 +108,27 @@ async function runAi(q) {
     });
     aiStatus.value = "done";
     const parsed = parseAnswer(answer);
-    if (parsed) aiSaved.value = await addUserTerm(parsed);
+    if (parsed) {
+      aiSaved.value = await addUserTerm(parsed);
+      // AI 结果静默加入标签页，方便回看
+      if (!tabs.value.some((t) => t.abbr === parsed.abbr)) tabs.value.push(parsed);
+    }
   } catch (e) {
     aiStatus.value = "error";
     aiError.value = String(e.message || e);
   }
 }
 
+async function dismissWindow() {
+  // 固定模式最小化（保留任务栏图标），弹窗模式直接隐藏
+  if (pinned.value) await win.minimize();
+  else await win.hide();
+}
+
 function goBack() {
   if (view.value === "search") {
     if (query.value) query.value = "";
-    else win.hide();
+    else dismissWindow();
   } else {
     view.value = "search";
     focusInput();
@@ -81,6 +139,16 @@ function onKeydown(e) {
   if (e.key === "Escape") {
     e.preventDefault();
     goBack();
+    return;
+  }
+  if (e.ctrlKey && (e.key === "w" || e.key === "W")) {
+    e.preventDefault();
+    if (activeTab.value) closeTab(activeTab.value);
+    return;
+  }
+  if (e.ctrlKey && e.key === "Tab") {
+    e.preventDefault();
+    cycleTab(e.shiftKey ? -1 : 1);
     return;
   }
   if (view.value === "detail") {
@@ -103,7 +171,7 @@ function onKeydown(e) {
         (selectedIndex.value - 1 + results.value.length) % results.value.length;
   } else if (e.key === "Enter") {
     e.preventDefault();
-    if (results.value.length) openDetail(results.value[selectedIndex.value]);
+    if (results.value.length) openTab(results.value[selectedIndex.value]);
     else if (query.value.trim()) runAi(query.value);
   } else if (e.key === "Tab") {
     e.preventDefault();
@@ -116,14 +184,30 @@ async function focusInput() {
   searchBox.value?.focus();
 }
 
+async function showAndFocus() {
+  await win.show();
+  await win.setFocus();
+  focusInput();
+}
+
 async function toggleWindow() {
-  if (await win.isVisible()) {
+  if (pinned.value) {
+    // 固定模式：热键在 最小化 <-> 还原聚焦 间切换
+    if (await win.isMinimized()) {
+      await win.unminimize();
+      await win.setFocus();
+      focusInput();
+    } else if (await win.isFocused()) {
+      await win.minimize();
+    } else {
+      await win.setFocus();
+      focusInput();
+    }
+  } else if (await win.isVisible()) {
     await win.hide();
   } else {
     await win.center();
-    await win.show();
-    await win.setFocus();
-    focusInput();
+    await showAndFocus();
   }
 }
 
@@ -190,7 +274,7 @@ onMounted(async () => {
     console.error("托盘创建失败", e);
   }
   await win.onFocusChanged(({ payload: focused }) => {
-    if (!focused) win.hide();
+    if (!focused && !pinned.value) win.hide();
   });
   window.addEventListener("keydown", onKeydown);
   focusInput();
@@ -201,6 +285,19 @@ onMounted(async () => {
   <div class="shell">
     <header class="topbar" data-tauri-drag-region>
       <SearchBox ref="searchBox" v-model="query" />
+      <button
+        class="icon-btn"
+        :class="{ active: pinned }"
+        :title="pinned ? '取消固定（恢复弹窗模式）' : '固定窗口（显示任务栏图标）'"
+        @click="togglePin"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M12 17v5" />
+          <path
+            d="M9 3h6l-.6 6.2a4 4 0 0 0 1.7 3.7l1.4 1a.8.8 0 0 1-.5 1.4H7a.8.8 0 0 1-.5-1.4l1.4-1a4 4 0 0 0 1.7-3.7z"
+          />
+        </svg>
+      </button>
       <button
         class="icon-btn"
         title="设置"
@@ -214,6 +311,19 @@ onMounted(async () => {
         </svg>
       </button>
     </header>
+    <nav v-if="tabs.length" class="tabbar">
+      <button
+        v-for="t in tabs"
+        :key="t.abbr"
+        class="tab"
+        :class="{ active: view === 'detail' && activeTab === t.abbr }"
+        @click="selectTab(t.abbr)"
+        @mousedown.middle.prevent="closeTab(t.abbr)"
+      >
+        <span class="tab-label">{{ t.abbr }}</span>
+        <span class="tab-close" title="关闭" @click.stop="closeTab(t.abbr)">×</span>
+      </button>
+    </nav>
     <main class="content">
       <template v-if="view === 'search'">
         <ResultList
@@ -221,7 +331,7 @@ onMounted(async () => {
           :results="results"
           :selected-index="selectedIndex"
           @hover="selectedIndex = $event"
-          @open="openDetail"
+          @open="openTab"
         />
         <div v-else-if="query.trim()" class="empty">
           本地词库未命中，按 <kbd>Enter</kbd> 或 <kbd>Tab</kbd> 问 AI
@@ -246,9 +356,10 @@ onMounted(async () => {
     </main>
     <footer class="statusbar">
       <span><kbd>↑↓</kbd> 选择</span>
-      <span><kbd>Enter</kbd> 详情</span>
+      <span><kbd>Enter</kbd> 打开标签</span>
       <span><kbd>Tab</kbd> 问 AI</span>
-      <span><kbd>Esc</kbd> 返回 / 隐藏</span>
+      <span><kbd>Ctrl+W</kbd> 关标签</span>
+      <span><kbd>Esc</kbd> 返回 / 收起</span>
     </footer>
   </div>
 </template>
@@ -275,24 +386,25 @@ body {
   overflow: hidden;
 }
 
+/* 玻璃外壳：Acrylic 负责底层磨砂，这里叠一层浅色半透明表面 */
 .shell {
   display: flex;
   flex-direction: column;
   width: 100vw;
   height: 100vh;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: rgba(250, 251, 253, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 12px;
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
   overflow: hidden;
 }
 
 .topbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   padding: 12px 14px;
-  border-bottom: 1px solid #eef2f6;
+  background: rgba(255, 255, 255, 0.42);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.55);
 }
 
 .icon-btn {
@@ -310,8 +422,13 @@ body {
 }
 
 .icon-btn:hover {
-  background: #f1f5f9;
+  background: rgba(241, 245, 249, 0.85);
   color: #475569;
+}
+
+.icon-btn.active {
+  background: rgba(82, 112, 143, 0.14);
+  color: #52708f;
 }
 
 .icon-btn svg {
@@ -319,10 +436,67 @@ body {
   height: 18px;
 }
 
+.tabbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabbar::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 6px 0 12px;
+  border: 1px solid rgba(219, 226, 234, 0.7);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab:hover {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.tab.active {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: rgba(143, 168, 196, 0.8);
+  color: #334155;
+  font-weight: 600;
+}
+
+.tab-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  color: #a3aebc;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.tab-close:hover {
+  background: rgba(226, 232, 240, 0.9);
+  color: #475569;
+}
+
 .content {
   flex: 1;
   overflow-y: auto;
-  background: #f9fafb;
+  background: transparent;
 }
 
 .content::-webkit-scrollbar {
@@ -330,7 +504,7 @@ body {
 }
 
 .content::-webkit-scrollbar-thumb {
-  background: #d7dde4;
+  background: rgba(215, 221, 228, 0.9);
   border-radius: 3px;
 }
 
@@ -346,10 +520,10 @@ body {
 
 .statusbar {
   display: flex;
-  gap: 16px;
+  gap: 14px;
   padding: 8px 16px;
-  border-top: 1px solid #eef2f6;
-  background: #ffffff;
+  border-top: 1px solid rgba(238, 242, 246, 0.7);
+  background: rgba(255, 255, 255, 0.42);
   color: #94a3b8;
   font-size: 12px;
 }
@@ -357,10 +531,10 @@ body {
 kbd {
   display: inline-block;
   padding: 1px 5px;
-  border: 1px solid #dbe2ea;
+  border: 1px solid rgba(219, 226, 234, 0.9);
   border-bottom-width: 2px;
   border-radius: 4px;
-  background: #f8fafc;
+  background: rgba(248, 250, 252, 0.85);
   color: #64748b;
   font-family: inherit;
   font-size: 11px;
@@ -370,7 +544,7 @@ kbd {
   flex: none;
   padding: 2px 8px;
   border-radius: 10px;
-  background: #eef2f7;
+  background: rgba(238, 242, 247, 0.85);
   color: #64748b;
   font-size: 11px;
   white-space: nowrap;
