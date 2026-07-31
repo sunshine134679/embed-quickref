@@ -1,21 +1,40 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref, watch, nextTick } from "vue";
 
 const props = defineProps({
   query: { type: String, required: true },
-  text: { type: String, default: "" },
+  messages: { type: Array, default: () => [] },
   status: { type: String, default: "idle" },
   error: { type: String, default: "" },
   saved: { type: Boolean, default: false },
 });
 
+const emit = defineEmits(["follow-up"]);
+
+const followText = ref("");
+const followInput = ref(null);
+const bottomEl = ref(null);
+
+// 去掉 system 后的对话线程
+const thread = computed(() => props.messages.filter((m) => m.role !== "system"));
+// 首条 AI 回答（固定格式，解析成结构化卡片）
+const firstAnswer = computed(() => thread.value.find((m) => m.role === "assistant")?.content ?? "");
+// 首答之后的追问问答对（自由文本）
+const followUps = computed(() => {
+  const i = thread.value.findIndex((m) => m.role === "assistant");
+  return i === -1 ? [] : thread.value.slice(i + 1);
+});
+const busy = computed(() => props.status === "loading" || props.status === "streaming");
+// 当前正在流式输出的是否是首答
+const streamingFirst = computed(() => busy.value && followUps.value.length === 0);
+
 const FIELD_RE = /^(缩写|全称|中文名|分类|定义)[:：]\s*(.*)$/;
 
-// AI 回答是固定结构的纯文本，流式过程中逐行解析成结构化字段
+// AI 首答是固定结构的纯文本，流式过程中逐行解析成结构化字段
 const parsed = computed(() => {
   const out = { abbr: "", full: "", zh: "", category: "", definition: "", points: [], extra: [] };
   let hasField = false;
-  for (const raw of props.text.split("\n")) {
+  for (const raw of firstAnswer.value.split("\n")) {
     const line = raw.trim();
     if (!line || /^要点[:：]?$/.test(line)) continue;
     const m = line.match(FIELD_RE);
@@ -35,6 +54,32 @@ const parsed = computed(() => {
   }
   return hasField ? out : null;
 });
+
+function send() {
+  const t = followText.value.trim();
+  if (!t || busy.value) return;
+  emit("follow-up", t);
+  followText.value = "";
+}
+
+// 流式输出时保持滚动到底部；回答完成后聚焦追问输入框
+watch(
+  () => thread.value.map((m) => m.content.length).join(","),
+  async () => {
+    await nextTick();
+    bottomEl.value?.scrollIntoView({ block: "end" });
+  }
+);
+
+watch(
+  () => props.status,
+  async (s) => {
+    if (s === "done") {
+      await nextTick();
+      followInput.value?.focus();
+    }
+  }
+);
 </script>
 
 <template>
@@ -47,8 +92,9 @@ const parsed = computed(() => {
       <span v-else-if="status === 'done'" class="state done">完成</span>
       <span v-if="saved" class="tag saved">已存入个人词库</span>
     </div>
-    <p v-if="status === 'error'" class="error">{{ error }}</p>
-    <template v-else-if="text">
+
+    <!-- 首答：结构化卡片 -->
+    <template v-if="firstAnswer">
       <article v-if="parsed" class="card">
         <div class="title-row">
           <span class="abbr">{{ parsed.abbr || "…" }}</span>
@@ -61,17 +107,57 @@ const parsed = computed(() => {
           <li v-for="(p, i) in parsed.points" :key="i">{{ p }}</li>
         </ul>
         <p v-for="(l, i) in parsed.extra" :key="'x' + i" class="extra">{{ l }}</p>
-        <span v-if="status === 'streaming'" class="caret"></span>
+        <span v-if="streamingFirst && status === 'streaming'" class="caret"></span>
       </article>
-      <pre v-else class="answer">{{ text }}</pre>
+      <pre v-else class="answer">{{ firstAnswer }}</pre>
     </template>
-    <div v-else class="loading-dots"><i></i><i></i><i></i></div>
+    <div v-else-if="streamingFirst" class="loading-dots"><i></i><i></i><i></i></div>
+
+    <!-- 追问问答对 -->
+    <template v-for="(m, i) in followUps" :key="i">
+      <div v-if="m.role === 'user'" class="q-row">
+        <div class="q-bubble">{{ m.content }}</div>
+      </div>
+      <div
+        v-else-if="!m.content && busy && i === followUps.length - 1"
+        class="loading-dots"
+      >
+        <i></i><i></i><i></i>
+      </div>
+      <pre v-else class="answer follow">{{ m.content }}<span
+        v-if="status === 'streaming' && i === followUps.length - 1"
+        class="caret"
+      ></span></pre>
+    </template>
+
+    <p v-if="status === 'error'" class="error">{{ error }}</p>
+    <div ref="bottomEl" class="bottom-anchor"></div>
+
+    <!-- 追问输入 -->
+    <div class="follow-bar">
+      <input
+        ref="followInput"
+        v-model="followText"
+        class="follow-input"
+        type="text"
+        placeholder="继续追问，如：它和 FLL 有什么区别？"
+        :disabled="status === 'error' && !firstAnswer"
+        @keydown.enter.prevent="send"
+        @keydown.esc.stop="followText = ''"
+      />
+      <button class="follow-send" :disabled="!followText.trim() || busy" @click="send">
+        追问
+      </button>
+    </div>
   </div>
 </template>
 
 <style scoped>
 .ai-answer {
-  padding: 18px 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 18px 24px 14px;
   user-select: text;
 }
 
@@ -196,6 +282,24 @@ const parsed = computed(() => {
   line-height: 1.7;
 }
 
+/* 追问的问题：右对齐浅蓝灰气泡 */
+.q-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.q-bubble {
+  max-width: 82%;
+  padding: 8px 14px;
+  border-radius: 10px 10px 3px 10px;
+  background: rgba(82, 112, 143, 0.12);
+  color: #3b556e;
+  font-size: 13px;
+  line-height: 1.7;
+  word-break: break-word;
+}
+
 /* 流式输出光标 */
 .caret {
   display: inline-block;
@@ -213,7 +317,7 @@ const parsed = computed(() => {
   }
 }
 
-/* 非固定格式时的纯文本兜底 */
+/* 追问回答 / 非固定格式首答的纯文本样式 */
 .answer {
   margin-top: 14px;
   padding: 14px 16px;
@@ -225,6 +329,12 @@ const parsed = computed(() => {
   font-family: inherit;
   line-height: 1.8;
   color: #334155;
+}
+
+.answer.follow {
+  margin-top: 10px;
+  border-radius: 3px 10px 10px 10px;
+  font-size: 13px;
 }
 
 .error {
@@ -241,7 +351,7 @@ const parsed = computed(() => {
 .loading-dots {
   display: flex;
   gap: 6px;
-  padding: 28px 4px;
+  padding: 20px 4px;
 }
 
 .loading-dots i {
@@ -269,5 +379,62 @@ const parsed = computed(() => {
   40% {
     opacity: 1;
   }
+}
+
+.bottom-anchor {
+  flex: 1;
+}
+
+/* 底部追问输入条 */
+.follow-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 10px;
+}
+
+.follow-input {
+  flex: 1;
+  height: 34px;
+  padding: 0 12px;
+  border: 1px solid rgba(219, 226, 234, 0.9);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #334155;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+
+.follow-input:focus {
+  border-color: rgba(143, 168, 196, 0.9);
+}
+
+.follow-input::placeholder {
+  color: #a3aebc;
+}
+
+.follow-send {
+  flex: none;
+  height: 34px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(82, 112, 143, 0.14);
+  color: #52708f;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.follow-send:hover:not(:disabled) {
+  background: rgba(82, 112, 143, 0.22);
+}
+
+.follow-send:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 </style>

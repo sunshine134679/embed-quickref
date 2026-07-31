@@ -9,25 +9,29 @@ import SearchBox from "./components/SearchBox.vue";
 import ResultList from "./components/ResultList.vue";
 import TermCard from "./components/TermCard.vue";
 import AiAnswer from "./components/AiAnswer.vue";
+import AiHistory from "./components/AiHistory.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import { initSettings, useSettings } from "./composables/useSettings";
 import { initUserTerms, search, addUserTerm } from "./composables/useSearch";
-import { askAi, parseAnswer } from "./composables/useAi";
+import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
 import { load } from "@tauri-apps/plugin-store";
 
 const win = getCurrentWindow();
 const { settings, saveSettings } = useSettings();
 
-const view = ref("search"); // search | detail | ai | settings
+const view = ref("search"); // search | detail | ai | history | settings
 const query = ref("");
 const results = ref([]);
 const selectedIndex = ref(0);
 const currentTerm = ref(null);
 const aiQuery = ref("");
-const aiText = ref("");
+const aiMessages = ref([]); // 含 system 的完整多轮会话
 const aiStatus = ref("idle"); // idle | loading | streaming | done | error
 const aiError = ref("");
 const aiSaved = ref(false);
+const aiSessions = ref([]); // AI 解释历史，新的在前
+let aiSessionId = null;
+let aiStore = null;
 const searchBox = ref(null);
 
 // 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
@@ -124,6 +128,67 @@ function cycleTab(step) {
   selectTab(tabs.value[next].abbr);
 }
 
+// ---------- AI 解释：多轮会话 + 历史持久化 ----------
+
+async function initAiHistory() {
+  aiStore = await load("ai-history.json", { autoSave: false });
+  const saved = await aiStore.get("sessions");
+  if (Array.isArray(saved)) aiSessions.value = saved;
+}
+
+// 每轮回答完成后把当前会话写入历史（同一会话覆盖更新），最多保留 50 条
+async function saveAiSession() {
+  if (!aiStore || !aiSessionId) return;
+  const messages = aiMessages.value
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role, content: m.content }));
+  if (!messages.some((m) => m.role === "assistant")) return;
+  const record = { id: aiSessionId, query: aiQuery.value, time: Date.now(), messages };
+  const i = aiSessions.value.findIndex((s) => s.id === aiSessionId);
+  if (i === -1) aiSessions.value.unshift(record);
+  else aiSessions.value[i] = record;
+  if (aiSessions.value.length > 50) aiSessions.value = aiSessions.value.slice(0, 50);
+  try {
+    await aiStore.set("sessions", aiSessions.value);
+    await aiStore.save();
+  } catch (e) {
+    console.error("AI 历史保存失败", e);
+  }
+}
+
+// 发起请求并流式写入会话末尾的 assistant 消息
+async function streamAi(isFirstAnswer) {
+  aiStatus.value = "loading";
+  aiError.value = "";
+  const payload = aiMessages.value.map((m) => ({ role: m.role, content: m.content }));
+  aiMessages.value.push({ role: "assistant", content: "" });
+  const idx = aiMessages.value.length - 1;
+  try {
+    const answer = await askAi(payload, settings.value, (t) => {
+      aiMessages.value[idx].content = t;
+      aiStatus.value = "streaming";
+    });
+    aiMessages.value[idx].content = answer;
+    aiStatus.value = "done";
+    if (isFirstAnswer) {
+      const parsed = parseAnswer(answer);
+      if (parsed) {
+        aiSaved.value = await addUserTerm(parsed);
+        // AI 结果静默加入标签页，方便回看
+        if (!tabs.value.some((t) => t.abbr === parsed.abbr)) {
+          tabs.value.push(parsed);
+          persistState();
+        }
+      }
+    }
+    await saveAiSession();
+  } catch (e) {
+    aiMessages.value.splice(idx, 1); // 失败的空占位不留在会话里
+    aiStatus.value = "error";
+    aiError.value = String(e.message || e);
+  }
+}
+
 async function runAi(q) {
   const text = q.trim();
   if (!text) return;
@@ -132,29 +197,47 @@ async function runAi(q) {
     return;
   }
   aiQuery.value = text;
-  aiText.value = "";
+  aiSaved.value = false;
+  aiSessionId = Date.now();
+  aiMessages.value = createSession(text);
+  view.value = "ai";
+  await streamAi(true);
+}
+
+async function runFollowUp(q) {
+  const text = q.trim();
+  if (!text || aiStatus.value === "loading" || aiStatus.value === "streaming") return;
+  aiMessages.value.push({ role: "user", content: text });
+  await streamAi(false);
+}
+
+// 从历史打开会话：还原上下文，可继续追问
+function openAiSession(s) {
+  aiSessionId = s.id;
+  aiQuery.value = s.query;
+  aiMessages.value = restoreSession(s.messages.map((m) => ({ ...m })));
+  aiStatus.value = "done";
   aiError.value = "";
   aiSaved.value = false;
-  aiStatus.value = "loading";
   view.value = "ai";
+}
+
+async function removeAiSession(id) {
+  aiSessions.value = aiSessions.value.filter((s) => s.id !== id);
   try {
-    const answer = await askAi(text, settings.value, (t) => {
-      aiText.value = t;
-      aiStatus.value = "streaming";
-    });
-    aiStatus.value = "done";
-    const parsed = parseAnswer(answer);
-    if (parsed) {
-      aiSaved.value = await addUserTerm(parsed);
-      // AI 结果静默加入标签页，方便回看
-      if (!tabs.value.some((t) => t.abbr === parsed.abbr)) {
-        tabs.value.push(parsed);
-        persistState();
-      }
-    }
+    await aiStore.set("sessions", aiSessions.value);
+    await aiStore.save();
   } catch (e) {
-    aiStatus.value = "error";
-    aiError.value = String(e.message || e);
+    console.error("AI 历史保存失败", e);
+  }
+}
+
+function toggleHistory() {
+  if (view.value === "history") {
+    view.value = "search";
+    focusInput();
+  } else {
+    view.value = "history";
   }
 }
 
@@ -162,6 +245,11 @@ async function dismissWindow() {
   // 固定模式最小化（保留任务栏图标），弹窗模式直接隐藏
   if (pinned.value) await win.minimize();
   else await win.hide();
+}
+
+// 关闭按钮：同普通窗口的 ×，直接退出程序
+function closeApp() {
+  win.destroy();
 }
 
 // 拖动手柄 / 空白栏按下即拖动窗口
@@ -183,6 +271,11 @@ function onKeydown(e) {
   if (e.key === "Escape") {
     e.preventDefault();
     goBack();
+    return;
+  }
+  if (e.ctrlKey && (e.key === "h" || e.key === "H")) {
+    e.preventDefault();
+    toggleHistory();
     return;
   }
   if (e.ctrlKey && (e.key === "w" || e.key === "W")) {
@@ -313,6 +406,11 @@ onMounted(async () => {
     console.error("状态恢复失败", e);
   }
   try {
+    await initAiHistory();
+  } catch (e) {
+    console.error("AI 历史加载失败", e);
+  }
+  try {
     await applyShortcut(settings.value.shortcut);
   } catch (e) {
     console.error("热键注册失败", e);
@@ -371,6 +469,18 @@ onMounted(async () => {
       </button>
       <button
         class="icon-btn"
+        :class="{ active: view === 'history' }"
+        title="AI 解释历史 (Ctrl+H)"
+        @click="toggleHistory"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
+          <path d="M3.5 3.5V9H9" />
+          <path d="M12 8v4.2l3 1.8" />
+        </svg>
+      </button>
+      <button
+        class="icon-btn"
         title="设置"
         @click="view = view === 'settings' ? 'search' : 'settings'"
       >
@@ -379,6 +489,21 @@ onMounted(async () => {
           <path
             d="M19.4 15a1.6 1.6 0 0 0 .32 1.77l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.6 1.6 0 0 0-1.77-.32 1.6 1.6 0 0 0-1 1.47V21a2 2 0 1 1-4 0v-.09a1.6 1.6 0 0 0-1-1.47 1.6 1.6 0 0 0-1.77.32l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.6 1.6 0 0 0 .32-1.77 1.6 1.6 0 0 0-1.47-1H3a2 2 0 1 1 0-4h.09a1.6 1.6 0 0 0 1.47-1 1.6 1.6 0 0 0-.32-1.77l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.6 1.6 0 0 0 1.77.32h.09a1.6 1.6 0 0 0 1-1.47V3a2 2 0 1 1 4 0v.09a1.6 1.6 0 0 0 1 1.47 1.6 1.6 0 0 0 1.77-.32l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.6 1.6 0 0 0-.32 1.77v.09a1.6 1.6 0 0 0 1.47 1H21a2 2 0 1 1 0 4h-.09a1.6 1.6 0 0 0-1.47 1z"
           />
+        </svg>
+      </button>
+      <span class="topbar-sep"></span>
+      <button
+        class="icon-btn"
+        :title="pinned ? '最小化到任务栏' : '收起窗口（热键或托盘可唤回）'"
+        @click="dismissWindow"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M5 12h14" />
+        </svg>
+      </button>
+      <button class="icon-btn close-btn" title="关闭" @click="closeApp">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path d="M6 6l12 12M18 6L6 18" />
         </svg>
       </button>
     </header>
@@ -413,10 +538,17 @@ onMounted(async () => {
       <AiAnswer
         v-else-if="view === 'ai'"
         :query="aiQuery"
-        :text="aiText"
+        :messages="aiMessages"
         :status="aiStatus"
         :error="aiError"
         :saved="aiSaved"
+        @follow-up="runFollowUp"
+      />
+      <AiHistory
+        v-else-if="view === 'history'"
+        :sessions="aiSessions"
+        @open="openAiSession"
+        @remove="removeAiSession"
       />
       <SettingsPanel
         v-else-if="view === 'settings'"
@@ -429,7 +561,7 @@ onMounted(async () => {
       <span><kbd>↑↓</kbd> 选择</span>
       <span><kbd>Enter</kbd> 打开标签</span>
       <span><kbd>Tab</kbd> 问 AI</span>
-      <span><kbd>Ctrl+W</kbd> 关标签</span>
+      <span><kbd>Ctrl+H</kbd> AI 历史</span>
       <span><kbd>Esc</kbd> 返回 / 收起</span>
     </footer>
   </div>
@@ -526,6 +658,20 @@ body {
 .icon-btn.active {
   background: rgba(82, 112, 143, 0.14);
   color: #52708f;
+}
+
+/* 收起/关闭与功能按钮之间的分隔线 */
+.topbar-sep {
+  flex: none;
+  width: 1px;
+  height: 18px;
+  margin: 0 2px;
+  background: rgba(219, 226, 234, 0.9);
+}
+
+.close-btn:hover {
+  background: rgba(224, 82, 82, 0.12);
+  color: #c05252;
 }
 
 .icon-btn svg {
