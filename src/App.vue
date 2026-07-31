@@ -13,6 +13,7 @@ import SettingsPanel from "./components/SettingsPanel.vue";
 import { initSettings, useSettings } from "./composables/useSettings";
 import { initUserTerms, search, addUserTerm } from "./composables/useSearch";
 import { askAi, parseAnswer } from "./composables/useAi";
+import { load } from "@tauri-apps/plugin-store";
 
 const win = getCurrentWindow();
 const { settings, saveSettings } = useSettings();
@@ -31,9 +32,34 @@ const searchBox = ref(null);
 
 // 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
 const pinned = ref(false);
-// 标签页：打开过的词条固定为标签，直到手动关闭
+// 指针是否在窗口内：点击边框缩放/拖动会瞬时失焦，此时不能隐藏窗口
+let pointerInside = false;
+let hideTimer = null;
+// 标签页：打开过的词条固定为标签，直到手动关闭；随 pinned 一起持久化，重启不丢
 const tabs = ref([]);
 const activeTab = ref(null);
+let stateStore = null;
+
+async function persistState() {
+  if (!stateStore) return;
+  try {
+    await stateStore.set("tabs", tabs.value);
+    await stateStore.set("pinned", pinned.value);
+    await stateStore.save();
+  } catch (e) {
+    console.error("状态保存失败", e);
+  }
+}
+
+async function restoreState() {
+  stateStore = await load("state.json", { autoSave: false });
+  const savedTabs = await stateStore.get("tabs");
+  if (Array.isArray(savedTabs) && savedTabs.length) tabs.value = savedTabs;
+  if ((await stateStore.get("pinned")) === true) {
+    pinned.value = true;
+    await applyPinned();
+  }
+}
 
 watch(query, (q) => {
   results.value = search(q);
@@ -41,18 +67,27 @@ watch(query, (q) => {
   if (view.value !== "search") view.value = "search";
 });
 
+async function applyPinned() {
+  // 固定 = 置顶最前 + 显示任务栏图标 + 不随失焦隐藏
+  await win.setAlwaysOnTop(true);
+  await win.setSkipTaskbar(!pinned.value);
+}
+
 async function togglePin() {
   pinned.value = !pinned.value;
   try {
-    await win.setSkipTaskbar(!pinned.value);
-    await win.setAlwaysOnTop(!pinned.value);
+    await applyPinned();
   } catch (e) {
     console.error("切换固定模式失败", e);
   }
+  persistState();
 }
 
 function openTab(term) {
-  if (!tabs.value.some((t) => t.abbr === term.abbr)) tabs.value.push(term);
+  if (!tabs.value.some((t) => t.abbr === term.abbr)) {
+    tabs.value.push(term);
+    persistState();
+  }
   activeTab.value = term.abbr;
   currentTerm.value = term;
   view.value = "detail";
@@ -70,6 +105,7 @@ function closeTab(abbr) {
   const i = tabs.value.findIndex((t) => t.abbr === abbr);
   if (i === -1) return;
   tabs.value.splice(i, 1);
+  persistState();
   if (activeTab.value === abbr) {
     if (tabs.value.length) {
       selectTab(tabs.value[Math.min(i, tabs.value.length - 1)].abbr);
@@ -111,7 +147,10 @@ async function runAi(q) {
     if (parsed) {
       aiSaved.value = await addUserTerm(parsed);
       // AI 结果静默加入标签页，方便回看
-      if (!tabs.value.some((t) => t.abbr === parsed.abbr)) tabs.value.push(parsed);
+      if (!tabs.value.some((t) => t.abbr === parsed.abbr)) {
+        tabs.value.push(parsed);
+        persistState();
+      }
     }
   } catch (e) {
     aiStatus.value = "error";
@@ -123,6 +162,11 @@ async function dismissWindow() {
   // 固定模式最小化（保留任务栏图标），弹窗模式直接隐藏
   if (pinned.value) await win.minimize();
   else await win.hide();
+}
+
+// 拖动手柄 / 空白栏按下即拖动窗口
+function startDrag(e) {
+  if (e.buttons === 1) win.startDragging();
 }
 
 function goBack() {
@@ -264,6 +308,11 @@ onMounted(async () => {
   await initSettings();
   await initUserTerms();
   try {
+    await restoreState();
+  } catch (e) {
+    console.error("状态恢复失败", e);
+  }
+  try {
     await applyShortcut(settings.value.shortcut);
   } catch (e) {
     console.error("热键注册失败", e);
@@ -274,21 +323,43 @@ onMounted(async () => {
     console.error("托盘创建失败", e);
   }
   await win.onFocusChanged(({ payload: focused }) => {
-    if (!focused && !pinned.value) win.hide();
+    if (focused) {
+      clearTimeout(hideTimer);
+      return;
+    }
+    if (pinned.value) return;
+    // 点击边框缩放/拖动会先触发一次失焦：延迟确认，指针仍在窗口内则不隐藏
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(async () => {
+      if (pinned.value || pointerInside) return;
+      if (await win.isFocused()) return;
+      win.hide();
+    }, 200);
   });
   window.addEventListener("keydown", onKeydown);
+  document.addEventListener("mouseenter", () => (pointerInside = true));
+  document.addEventListener("mouseleave", () => (pointerInside = false));
+  // mousemove 兜底：避免错过 mouseenter 导致状态不准
+  document.addEventListener("mousemove", () => (pointerInside = true));
   focusInput();
 });
 </script>
 
 <template>
   <div class="shell">
-    <header class="topbar" data-tauri-drag-region>
+    <header class="topbar">
+      <div class="grip" title="按住拖动窗口" @mousedown.prevent="startDrag">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="9" cy="6" r="1.4" /><circle cx="15" cy="6" r="1.4" />
+          <circle cx="9" cy="12" r="1.4" /><circle cx="15" cy="12" r="1.4" />
+          <circle cx="9" cy="18" r="1.4" /><circle cx="15" cy="18" r="1.4" />
+        </svg>
+      </div>
       <SearchBox ref="searchBox" v-model="query" />
       <button
         class="icon-btn"
         :class="{ active: pinned }"
-        :title="pinned ? '取消固定（恢复弹窗模式）' : '固定窗口（显示任务栏图标）'"
+        :title="pinned ? '取消固定（恢复弹窗模式）' : '固定置顶（始终最前 + 任务栏图标）'"
         @click="togglePin"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -354,7 +425,7 @@ onMounted(async () => {
         @cancel="view = 'search'; focusInput()"
       />
     </main>
-    <footer class="statusbar">
+    <footer class="statusbar" title="按住拖动窗口" @mousedown.self="startDrag">
       <span><kbd>↑↓</kbd> 选择</span>
       <span><kbd>Enter</kbd> 打开标签</span>
       <span><kbd>Tab</kbd> 问 AI</span>
@@ -405,6 +476,32 @@ body {
   padding: 12px 14px;
   background: rgba(255, 255, 255, 0.42);
   border-bottom: 1px solid rgba(226, 232, 240, 0.55);
+}
+
+.grip {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 34px;
+  border-radius: 6px;
+  color: #c2ccd8;
+  cursor: grab;
+}
+
+.grip:hover {
+  background: rgba(241, 245, 249, 0.85);
+  color: #94a3b8;
+}
+
+.grip:active {
+  cursor: grabbing;
+}
+
+.grip svg {
+  width: 14px;
+  height: 14px;
 }
 
 .icon-btn {
