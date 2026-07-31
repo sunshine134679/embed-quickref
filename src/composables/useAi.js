@@ -1,0 +1,85 @@
+import { fetch } from "@tauri-apps/plugin-http";
+
+const SYSTEM_PROMPT = `你是嵌入式 Linux 领域的资深专家，专门解释网络协议、总线/通信协议、内核机制、构建工具链、硬件与存储、文件系统相关的术语与缩写。
+用户会给你一个术语或问题，你必须严格按以下纯文本格式回答，不要使用 Markdown 标记，不要输出任何多余内容：
+缩写: <术语的常用缩写，没有则写术语本身>
+全称: <英文全称，没有则写 ->
+中文名: <中文名称>
+分类: <网络协议|总线协议|内核与系统|构建与工具链|硬件与存储|文件系统|其他>
+定义: <一句话准确定义>
+要点:
+- <要点1，优先包含关键参数、速率、层级或典型场景>
+- <要点2>
+- <要点3>`;
+
+// DeepSeek OpenAI 兼容接口，SSE 流式；走 tauri http 插件绕开 CORS
+export async function askAi(query, settings, onDelta) {
+  const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${settings.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      stream: true,
+      temperature: 0.2,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: query },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 200)}` : ""}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      const data = line.trim();
+      if (!data.startsWith("data:")) continue;
+      const payload = data.slice(5).trim();
+      if (payload === "[DONE]") continue;
+      try {
+        const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          onDelta(fullText);
+        }
+      } catch {
+        // 忽略跨分片的不完整 JSON
+      }
+    }
+  }
+  return fullText;
+}
+
+// 将固定格式的 AI 回答解析为词条对象，解析失败返回 null
+export function parseAnswer(text) {
+  const get = (label) => {
+    const m = text.match(new RegExp(`^${label}[:：]\\s*(.+)$`, "m"));
+    return m ? m[1].trim() : "";
+  };
+  const abbr = get("缩写");
+  if (!abbr) return null;
+  const points = [...text.matchAll(/^[-•]\s*(.+)$/gm)].map((m) => m[1].trim());
+  const full = get("全称");
+  return {
+    abbr,
+    full: full === "-" ? "" : full,
+    zh: get("中文名"),
+    category: get("分类") || "其他",
+    definition: get("定义"),
+    points,
+  };
+}
