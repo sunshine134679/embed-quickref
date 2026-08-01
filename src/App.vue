@@ -257,6 +257,12 @@ function startDrag(e) {
   if (e.buttons === 1) win.startDragging();
 }
 
+// 未命中空态入口：点击按钮直接问 AI（无 API Key 引导去设置）
+function askAiFromEmpty() {
+  if (!query.value.trim()) return;
+  runAi(query.value);
+}
+
 function goBack() {
   if (view.value === "search") {
     if (query.value) query.value = "";
@@ -529,8 +535,24 @@ onMounted(async () => {
           @hover="selectedIndex = $event"
           @open="openTab"
         />
-        <div v-else-if="query.trim()" class="empty">
-          本地词库未命中，按 <kbd>Enter</kbd> 或 <kbd>Tab</kbd> 问 AI
+        <div v-else-if="query.trim()" class="empty empty-ai">
+          <p class="empty-title">本地词库未命中</p>
+          <p class="empty-hint">
+            “{{ query.trim() }}” 不在词库里，可以让 AI 来解释
+          </p>
+          <button class="ask-ai-btn" @click="askAiFromEmpty">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+            >
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v8M8 12h8" />
+            </svg>
+            问 AI：{{ query.trim().slice(0, 18) }}{{ query.trim().length > 18 ? "…" : "" }}
+          </button>
+          <p class="empty-tip">或按 <kbd>Enter</kbd> / <kbd>Tab</kbd> 直接询问</p>
         </div>
         <div v-else class="empty muted">输入缩写或关键词，如 I2C、MQTT、DTS</div>
       </template>
@@ -755,6 +777,62 @@ body {
   padding: 48px 20px;
   text-align: center;
   color: #64748b;
+}
+
+.empty-ai {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.empty-hint {
+  max-width: 380px;
+  color: #94a3b8;
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.ask-ai-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 9px 18px;
+  border: 1px solid rgba(143, 168, 196, 0.65);
+  border-radius: 10px;
+  background: rgba(82, 112, 143, 0.1);
+  color: #52708f;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ask-ai-btn:hover {
+  background: rgba(82, 112, 143, 0.18);
+  border-color: rgba(82, 112, 143, 0.8);
+}
+
+.ask-ai-btn:active {
+  transform: translateY(1px);
+}
+
+.ask-ai-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.empty-tip {
+  color: #a3aebc;
+  font-size: 12px;
 }
 
 .empty.muted {
