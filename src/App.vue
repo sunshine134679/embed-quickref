@@ -40,6 +40,8 @@ const form = ref("expanded");
 // 界面模式：floating(悬浮圆点，默认) | popup(弹窗) | pinned(固定)
 const mode = ref("floating");
 const dotPosition = ref(null);
+// 展开前的圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
+let dotRestorePos = null;
 const DOT_SIZE = 64;
 const EXPAND_W = 680;
 const EXPAND_H = 500;
@@ -48,6 +50,10 @@ async function onMainLeave() {
   try {
     await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
     await win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
+    if (dotRestorePos) {
+      await win.setPosition(new PhysicalPosition(dotRestorePos.x, dotRestorePos.y));
+      dotRestorePos = null;
+    }
   } catch (e) {
     console.error("缩回圆点失败", e);
   }
@@ -110,6 +116,10 @@ async function enterCompact(animate = true) {
   try {
     await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
     await win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
+    if (dotRestorePos) {
+      await win.setPosition(new PhysicalPosition(dotRestorePos.x, dotRestorePos.y));
+      dotRestorePos = null;
+    }
   } catch (e) {
     console.error("缩回圆点失败", e);
   }
@@ -118,6 +128,15 @@ async function enterCompact(animate = true) {
 
 // 展开主界面：680×500，就地展开并纠正到可见区
 async function enterExpanded(initialView = "search") {
+  // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
+  if (form.value === "compact") {
+    try {
+      const pos = await win.outerPosition();
+      dotRestorePos = { x: pos.x, y: pos.y };
+    } catch (e) {
+      console.error("记录圆点位置失败", e);
+    }
+  }
   try {
     await win.setMinSize(new LogicalSize(520, 300));
     await win.setSize(new LogicalSize(EXPAND_W, EXPAND_H));
