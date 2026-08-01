@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from "vue";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { TrayIcon } from "@tauri-apps/api/tray";
@@ -119,7 +119,7 @@ async function enterExpanded(initialView = "search") {
 // 窗口位置纠正到当前显示器可见范围（保守 clamp，物理像素）
 async function clampToVisible() {
   try {
-    const mon = await win.currentMonitor();
+    const mon = await currentMonitor();
     if (!mon) return;
     const p = await win.outerPosition();
     const maxX = Math.max(0, mon.size.width - 320);
@@ -629,7 +629,7 @@ onMounted(async () => {
       }
       if (mode.value !== "floating" || form.value !== "compact") return;
       try {
-        const mon = await win.currentMonitor();
+        const mon = await currentMonitor();
         if (!mon) return;
         const scale = mon.scaleFactor || 1;
         const dotPx = Math.round(DOT_SIZE * scale);
