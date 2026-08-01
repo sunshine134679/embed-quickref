@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { TrayIcon } from "@tauri-apps/api/tray";
 import { Menu } from "@tauri-apps/api/menu";
@@ -11,6 +12,7 @@ import TermCard from "./components/TermCard.vue";
 import AiAnswer from "./components/AiAnswer.vue";
 import AiHistory from "./components/AiHistory.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
+import FloatingDot from "./components/FloatingDot.vue";
 import { initSettings, useSettings } from "./composables/useSettings";
 import { initUserTerms, search, addUserTerm } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
@@ -33,6 +35,14 @@ const aiSessions = ref([]); // AI 解释历史，新的在前
 let aiSessionId = null;
 let aiStore = null;
 const searchBox = ref(null);
+// 悬浮圆点模式：compact(圆点) | expanded(主界面)
+const form = ref("expanded");
+// 界面模式：floating(悬浮圆点，默认) | popup(弹窗) | pinned(固定)
+const mode = ref("floating");
+const dotPosition = ref(null);
+const DOT_SIZE = 64;
+const EXPAND_W = 680;
+const EXPAND_H = 500;
 
 // 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
 const pinned = ref(false);
@@ -49,6 +59,8 @@ async function persistState() {
   try {
     await stateStore.set("tabs", tabs.value);
     await stateStore.set("pinned", pinned.value);
+    await stateStore.set("mode", mode.value);
+    await stateStore.set("dotPosition", dotPosition.value);
     await stateStore.save();
   } catch (e) {
     console.error("状态保存失败", e);
@@ -63,6 +75,12 @@ async function restoreState() {
     pinned.value = true;
     await applyPinned();
   }
+  const savedMode = await stateStore.get("mode");
+  if (["floating", "popup", "pinned"].includes(savedMode)) mode.value = savedMode;
+  const savedPos = await stateStore.get("dotPosition");
+  if (savedPos && typeof savedPos.x === "number" && typeof savedPos.y === "number") {
+    dotPosition.value = { x: savedPos.x, y: savedPos.y };
+  }
 }
 
 watch(query, (q) => {
@@ -70,6 +88,74 @@ watch(query, (q) => {
   selectedIndex.value = 0;
   if (view.value !== "search") view.value = "search";
 });
+
+// ---------- 悬浮圆点模式：形态切换与位置管理 ----------
+
+// 缩回圆点态：64×64 小窗
+async function enterCompact() {
+  try {
+    await win.setMinSize(DOT_SIZE, DOT_SIZE);
+    await win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
+  } catch (e) {
+    console.error("缩回圆点失败", e);
+  }
+  form.value = "compact";
+}
+
+// 展开主界面：680×500，就地展开并纠正到可见区
+async function enterExpanded(initialView = "search") {
+  try {
+    await win.setMinSize(520, 300);
+    await win.setSize(new LogicalSize(EXPAND_W, EXPAND_H));
+    await clampToVisible();
+  } catch (e) {
+    console.error("展开失败", e);
+  }
+  form.value = "expanded";
+  view.value = initialView;
+  if (initialView === "search") focusInput();
+}
+
+// 窗口位置纠正到当前显示器可见范围（保守 clamp，物理像素）
+async function clampToVisible() {
+  try {
+    const mon = await win.currentMonitor();
+    if (!mon) return;
+    const p = await win.outerPosition();
+    const maxX = Math.max(0, mon.size.width - 320);
+    const maxY = Math.max(0, mon.size.height - 320);
+    const x = Math.min(Math.max(p.x, 0), maxX);
+    const y = Math.min(Math.max(p.y, 0), maxY);
+    if (x !== p.x || y !== p.y) {
+      await win.setPosition(new PhysicalPosition(x, y));
+    }
+  } catch (e) {
+    console.error("位置纠正失败", e);
+  }
+}
+
+// 应用记忆的圆点位置
+async function applyDotPosition(p) {
+  try {
+    await win.setPosition(new PhysicalPosition(Math.max(0, p.x), Math.max(0, p.y)));
+  } catch (e) {
+    console.error("恢复圆点位置失败", e);
+  }
+}
+
+// 圆点点击展开（FloatingDot 事件）
+async function onDotExpand() {
+  await win.show();
+  await enterExpanded();
+  await win.setFocus();
+}
+
+// 圆点右键 → 设置：展开并打开设置面板
+async function onDotSettings() {
+  await win.show();
+  await enterExpanded("settings");
+  await win.setFocus();
+}
 
 async function applyPinned() {
   // 固定 = 置顶最前 + 显示任务栏图标 + 不随失焦隐藏
@@ -316,6 +402,7 @@ function fmtWhen(ts) {
 function goBack() {
   if (view.value === "search") {
     if (query.value) query.value = "";
+    else if (mode.value === "floating" && form.value === "expanded") enterCompact();
     else dismissWindow();
   } else {
     view.value = "search";
@@ -384,6 +471,17 @@ async function showAndFocus() {
 }
 
 async function toggleWindow() {
+  if (mode.value === "floating") {
+    // 悬浮模式：热键在 展开 <-> 圆点 间切换
+    if (form.value === "expanded") {
+      await enterCompact();
+    } else {
+      await win.show();
+      await enterExpanded();
+      await win.setFocus();
+    }
+    return;
+  }
   if (pinned.value) {
     // 固定模式：热键在 最小化 <-> 还原聚焦 间切换
     if (await win.isMinimized()) {
@@ -461,6 +559,11 @@ onMounted(async () => {
   } catch (e) {
     console.error("状态恢复失败", e);
   }
+  // 悬浮模式：启动即为圆点态并恢复记忆位置
+  if (mode.value === "floating") {
+    await enterCompact();
+    if (dotPosition.value) await applyDotPosition(dotPosition.value);
+  }
   try {
     await initAiHistory();
   } catch (e) {
@@ -481,6 +584,17 @@ onMounted(async () => {
       clearTimeout(hideTimer);
       return;
     }
+    if (mode.value === "floating") {
+      // 圆点态常驻桌面；仅展开态失焦后缩回圆点
+      if (form.value !== "expanded") return;
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(async () => {
+        if (form.value !== "expanded" || pointerInside) return;
+        if (await win.isFocused()) return;
+        await enterCompact();
+      }, 200);
+      return;
+    }
     if (pinned.value) return;
     // 点击边框缩放/拖动会先触发一次失焦：延迟确认，指针仍在窗口内则不隐藏
     clearTimeout(hideTimer);
@@ -489,6 +603,31 @@ onMounted(async () => {
       if (await win.isFocused()) return;
       win.hide();
     }, 200);
+  });
+  // 悬浮模式：窗口移动后防抖保存位置 + 水平边缘吸附（80px 内贴边）
+  let moveTimer = null;
+  await win.onMoved(async ({ payload: pos }) => {
+    clearTimeout(moveTimer);
+    moveTimer = setTimeout(async () => {
+      dotPosition.value = { x: pos.x, y: pos.y };
+      if (stateStore) {
+        await stateStore.set("dotPosition", dotPosition.value);
+        await stateStore.save();
+      }
+      if (mode.value !== "floating" || form.value !== "compact") return;
+      try {
+        const mon = await win.currentMonitor();
+        if (!mon) return;
+        const scale = mon.scaleFactor || 1;
+        const dotPx = Math.round(DOT_SIZE * scale);
+        let nx = pos.x;
+        if (pos.x < 80 * scale) nx = 0;
+        else if (mon.size.width - pos.x - dotPx < 80 * scale) nx = mon.size.width - dotPx;
+        if (nx !== pos.x) await win.setPosition(new PhysicalPosition(nx, pos.y));
+      } catch (e) {
+        console.error("吸附失败", e);
+      }
+    }, 400);
   });
   window.addEventListener("keydown", onKeydown);
   document.addEventListener("mouseenter", () => (pointerInside = true));
@@ -500,7 +639,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="shell">
+  <div class="shell" :class="{ compact: form === 'compact' }">
+    <FloatingDot
+      v-if="form === 'compact'"
+      @expand="onDotExpand"
+      @settings="onDotSettings"
+      @quit="closeApp"
+    />
+    <template v-else>
     <header class="topbar">
       <div class="grip" title="按住拖动窗口" @mousedown.prevent="startDrag">
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -664,6 +810,7 @@ onMounted(async () => {
       <span><kbd>Ctrl+H</kbd> AI 历史</span>
       <span><kbd>Esc</kbd> 返回 / 收起</span>
     </footer>
+    </template>
   </div>
 </template>
 
@@ -699,6 +846,12 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 12px;
   overflow: hidden;
+}
+
+.shell.compact {
+  background: transparent;
+  border: none;
+  overflow: visible;
 }
 
 .topbar {
