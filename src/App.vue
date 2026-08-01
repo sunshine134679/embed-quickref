@@ -509,6 +509,19 @@ async function applyShortcut(shortcut) {
   });
 }
 
+// 界面模式切换：立即生效并持久化（floating 即时缩为圆点，其它模式即时展开）
+async function onModeChange(m) {
+  if (mode.value === m) return;
+  mode.value = m;
+  persistState();
+  if (m === "floating") {
+    await enterCompact();
+  } else if (form.value === "compact") {
+    await enterExpanded();
+    await win.setFocus();
+  }
+}
+
 async function onSaveSettings(next) {
   const prev = settings.value.shortcut;
   await saveSettings(next);
@@ -799,8 +812,10 @@ onMounted(async () => {
       <SettingsPanel
         v-else-if="view === 'settings'"
         :settings="settings"
+        :mode="mode"
         @save="onSaveSettings"
         @cancel="view = 'search'; focusInput()"
+        @update:mode="onModeChange"
       />
     </main>
     <footer class="statusbar" title="按住拖动窗口" @mousedown.self="startDrag">
