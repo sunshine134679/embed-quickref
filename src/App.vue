@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
 import { TrayIcon } from "@tauri-apps/api/tray";
@@ -261,6 +261,56 @@ function startDrag(e) {
 function askAiFromEmpty() {
   if (!query.value.trim()) return;
   runAi(query.value);
+}
+
+// 归一化：小写 + 去空白，用于历史会话与搜索词的模糊匹配
+function norm(s) {
+  return (s || "").toLowerCase().replace(/\s+/g, "");
+}
+
+// 查找与某词相关的最近一次 AI 解释会话（新的在前，返回最先命中）
+function findAiSession(text) {
+  const t = norm(text);
+  if (!t) return null;
+  return (
+    aiSessions.value.find((s) => {
+      const q = norm(s.query);
+      if (!q) return false;
+      if (q === t) return true;
+      if (t.length >= 2 && q.includes(t)) return true;
+      if (q.length >= 2 && t.includes(q)) return true;
+      return false;
+    }) || null
+  );
+}
+
+// 详情页对应词条的历史 AI 解释（先用缩写匹配，再尝试全称）
+const termAiSession = computed(() => {
+  if (view.value !== "detail" || !currentTerm.value) return null;
+  return (
+    findAiSession(currentTerm.value.abbr) ||
+    (currentTerm.value.full ? findAiSession(currentTerm.value.full) : null) ||
+    null
+  );
+});
+
+// 搜索空态对应搜索词的历史 AI 解释
+const emptyAiSession = computed(() => {
+  if (view.value !== "search" || !query.value.trim()) return null;
+  return findAiSession(query.value);
+});
+
+// 历史时间的人类可读格式：今天/昨天 HH:MM，更早显示日期
+function fmtWhen(ts) {
+  const d = new Date(ts);
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  if (d.toDateString() === now.toDateString()) return `今天 ${hm}`;
+  const y = new Date(now);
+  y.setDate(now.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return `昨天 ${hm}`;
+  return `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
 }
 
 function goBack() {
@@ -540,7 +590,21 @@ onMounted(async () => {
           <p class="empty-hint">
             “{{ query.trim() }}” 不在词库里，可以让 AI 来解释
           </p>
-          <button class="ask-ai-btn" @click="askAiFromEmpty">
+          <template v-if="emptyAiSession">
+            <button class="ask-ai-btn" @click="openAiSession(emptyAiSession)">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+              >
+                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+              </svg>
+              查看上次 AI 解释 · {{ fmtWhen(emptyAiSession.time) }}
+            </button>
+            <button class="ask-ai-btn ghost" @click="askAiFromEmpty">重新问 AI</button>
+          </template>
+          <button v-else class="ask-ai-btn" @click="askAiFromEmpty">
             <svg
               viewBox="0 0 24 24"
               fill="none"
@@ -556,7 +620,21 @@ onMounted(async () => {
         </div>
         <div v-else class="empty muted">输入缩写或关键词，如 I2C、MQTT、DTS</div>
       </template>
-      <TermCard v-else-if="view === 'detail'" :term="currentTerm" />
+      <div v-else-if="view === 'detail'" class="detail-wrap">
+        <button
+          v-if="termAiSession"
+          class="ai-entry"
+          title="打开之前的 AI 解释会话"
+          @click="openAiSession(termAiSession)"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+          </svg>
+          <span class="ai-entry-text">已用 AI 解释过 · {{ fmtWhen(termAiSession.time) }}</span>
+          <span class="ai-entry-arrow">查看解释 ›</span>
+        </button>
+        <TermCard :term="currentTerm" />
+      </div>
       <AiAnswer
         v-else-if="view === 'ai'"
         :query="aiQuery"
@@ -833,6 +911,71 @@ body {
 .empty-tip {
   color: #a3aebc;
   font-size: 12px;
+}
+
+/* 空态有历史解释时：主按钮查看历史，副按钮重新问 */
+.ask-ai-btn.ghost {
+  margin-top: 2px;
+  padding: 7px 16px;
+  background: transparent;
+  border-color: rgba(219, 226, 234, 0.95);
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.ask-ai-btn.ghost:hover {
+  background: rgba(241, 245, 249, 0.85);
+  border-color: rgba(143, 168, 196, 0.7);
+}
+
+/* 详情页顶部：历史 AI 解释入口条 */
+.detail-wrap {
+  padding: 14px 24px 0;
+}
+
+.ai-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 9px 14px;
+  border: 1px solid rgba(143, 168, 196, 0.55);
+  border-radius: 10px;
+  background: rgba(82, 112, 143, 0.08);
+  color: #52708f;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ai-entry:hover {
+  background: rgba(82, 112, 143, 0.16);
+  border-color: rgba(82, 112, 143, 0.75);
+}
+
+.ai-entry:active {
+  transform: translateY(1px);
+}
+
+.ai-entry svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.ai-entry-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-entry-arrow {
+  flex: none;
+  font-weight: 600;
 }
 
 .empty.muted {
