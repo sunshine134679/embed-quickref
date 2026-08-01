@@ -22,6 +22,8 @@ const win = getCurrentWindow();
 const { settings, saveSettings } = useSettings();
 
 const view = ref("search"); // search | detail | ai | history | settings
+// 记录进入 AI 页面前的视图，Esc 从 AI 页逐级返回（ai -> detail/history -> search）
+const aiFromView = ref("search");
 const query = ref("");
 const results = ref([]);
 const selectedIndex = ref(0);
@@ -323,6 +325,7 @@ async function runAi(q) {
   aiQuery.value = text;
   aiSaved.value = false;
   aiSessionId = Date.now();
+  aiFromView.value = view.value; // 记录来源视图，供 Esc 逐级返回
   aiMessages.value = createSession(text);
   view.value = "ai";
   await streamAi(true);
@@ -339,6 +342,7 @@ async function runFollowUp(q) {
 function openAiSession(s) {
   aiSessionId = s.id;
   aiQuery.value = s.query;
+  aiFromView.value = view.value; // 记录来源视图（history/search），供 Esc 逐级返回
   aiMessages.value = restoreSession(s.messages.map((m) => ({ ...m })));
   aiStatus.value = "done";
   aiError.value = "";
@@ -442,10 +446,20 @@ function goBack() {
     if (query.value) query.value = "";
     else if (mode.value === "floating" && form.value === "expanded") enterCompact();
     else dismissWindow();
+  } else if (view.value === "ai") {
+    // 逐级返回：回到进入 AI 页前的视图（detail/history），否则回搜索
+    const back = ["detail", "history"].includes(aiFromView.value) ? aiFromView.value : "search";
+    view.value = back;
+    if (back === "search") focusInput();
   } else {
     view.value = "search";
     focusInput();
   }
+}
+
+// 点击/聚焦搜索框：从任何页面切回搜索结果视图（保留已输入的搜索词）
+function onSearchFocus() {
+  if (view.value !== "search") view.value = "search";
 }
 
 function onKeydown(e) {
@@ -706,7 +720,7 @@ onMounted(async () => {
           <circle cx="9" cy="18" r="1.4" /><circle cx="15" cy="18" r="1.4" />
         </svg>
       </div>
-      <SearchBox ref="searchBox" v-model="query" />
+      <SearchBox ref="searchBox" v-model="query" @focus="onSearchFocus" />
       <button
         class="icon-btn"
         :class="{ active: pinned }"

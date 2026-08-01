@@ -2,7 +2,7 @@
 import { ref } from "vue";
 
 defineProps({ modelValue: { type: String, default: "" } });
-const emit = defineEmits(["update:modelValue"]);
+const emit = defineEmits(["update:modelValue", "focus"]);
 
 const input = ref(null);
 
@@ -25,6 +25,8 @@ defineExpose({ focus });
     autocomplete="off"
     autofocus
     @input="emit('update:modelValue', $event.target.value)"
+    @focus="emit('focus')"
+    @click="emit('focus')"
   />
 </template>
 
