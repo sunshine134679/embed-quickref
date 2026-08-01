@@ -46,9 +46,43 @@ const dotPosition = ref(null);
 let dotRestorePos = null;
 // 圆点挂载时机：动画路径下缩窗完成前不挂载，避免圆点在大窗口内淡入后跳变
 const dotReady = ref(false);
+// 收起飞行动画样式（CSS transform 缩放+平移，GPU 合成 60fps，替代窗口 resize 动画）
+const animStyle = ref(null);
 const DOT_SIZE = 64;
 const EXPAND_W = 680;
 const EXPAND_H = 500;
+// 进行中的平滑缩窗任务与取消标志（动画路径：淡出与缩窗并行）
+let shrinkTask = null;
+let shrinkCancel = false;
+
+// 收起飞行动画：main-view 用 CSS transform 从展开位置缩放+平移到圆点位置（GPU 合成，帧率远高于逐帧 resize），
+// 动画结束后内容已完全透明，瞬时缩窗无感知；与主界面淡出并行
+async function animateShrink() {
+  try {
+    const scale = await win.scaleFactor();
+    const wPos = await win.outerPosition();
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const s = DOT_SIZE / w; // 缩放比：展开宽 -> 圆点宽
+    // 目标：内容中心移到圆点中心（物理像素 -> 逻辑 px 换算）
+    const endPos = dotRestorePos || wPos;
+    const dx = (endPos.x + DOT_SIZE / 2 - (wPos.x + (w * scale) / 2)) / scale;
+    const dy = (endPos.y + DOT_SIZE / 2 - (wPos.y + (h * scale) / 2)) / scale;
+    animStyle.value = {
+      transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${s.toFixed(4)})`,
+      opacity: "0",
+      transition: "transform 220ms cubic-bezier(0.5, 0, 0.75, 0.4), opacity 200ms ease",
+      transformOrigin: "center center",
+    };
+    await new Promise((r) => setTimeout(r, 230));
+  } catch (e) {
+    console.error("飞行动画计算失败", e);
+  } finally {
+    animStyle.value = null; // 清除动画样式（内容已透明，恢复无感知）
+    await shrinkToDot(); // 瞬时缩窗：内容不可见，无跳变
+  }
+}
+
 // 窗口缩为 64×64 并还原到圆点位置（setMinSize 必须先于 setSize，之后缩放与移动并行）
 async function shrinkToDot() {
   try {
@@ -65,10 +99,10 @@ async function shrinkToDot() {
   dotRestorePos = null;
 }
 
-// 主界面淡出完成（Transition after-leave）：此刻窗口内容已不可见，缩窗无跳变感
+// 主界面淡出完成（Transition after-leave）：等待并行的平滑缩窗完成后挂载圆点
 async function onMainLeave() {
   if (form.value !== "compact") return;
-  await shrinkToDot();
+  if (shrinkTask) await shrinkTask; // 淡出与缩窗并行，此处等缩窗收尾
   dotReady.value = true; // 缩窗完成后才挂载圆点并淡入
 }
 
@@ -121,12 +155,15 @@ watch(query, (q) => {
 
 // 缩回圆点态：64×64 小窗
 async function enterCompact(animate = true) {
-  // 动画路径：先切圆点态触发主界面淡出，after-leave 回调里缩窗后再挂圆点
+  // 动画路径：切圆点态触发淡出的同时并行平滑缩窗，消除"淡出完才瞬跳"的卡顿
   if (animate && form.value === "expanded") {
     dotReady.value = false; // 先卸载圆点，避免在大窗口内淡入
-    form.value = "compact";
+    form.value = "compact"; // 触发主界面淡出
+    shrinkCancel = false;
+    shrinkTask = animateShrink(); // 并行开始平滑缩窗（不等待）
     return;
   }
+  shrinkCancel = false;
   await shrinkToDot();
   form.value = "compact";
   dotReady.value = true;
@@ -134,6 +171,9 @@ async function enterCompact(animate = true) {
 
 // 展开主界面：680×500，就地展开并纠正到可见区
 async function enterExpanded(initialView = "search") {
+  // 中断进行中的原生平滑缩窗动画（若用户在收起动画期间展开）
+  shrinkCancel = true;
+  shrinkTask = null;
   // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
   if (form.value === "compact") {
     try {
@@ -711,7 +751,7 @@ onMounted(async () => {
       @settings="onDotSettings"
       @quit="closeApp"
     />
-    <Transition name="fade" @after-leave="onMainLeave"><div v-show="form === `expanded`" class="main-view">
+    <Transition name="fade" @after-leave="onMainLeave"><div v-show="form === `expanded`" class="main-view" :style="animStyle">
     <header class="topbar">
       <div class="grip" title="按住拖动窗口" @mousedown.prevent="startDrag">
         <svg viewBox="0 0 24 24" fill="currentColor">
