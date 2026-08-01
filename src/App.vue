@@ -43,6 +43,15 @@ const dotPosition = ref(null);
 const DOT_SIZE = 64;
 const EXPAND_W = 680;
 const EXPAND_H = 500;
+async function onMainLeave() {
+  if (form.value !== "compact") return;
+  try {
+    await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
+    await win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
+  } catch (e) {
+    console.error("缩回圆点失败", e);
+  }
+}
 
 // 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
 const pinned = ref(false);
@@ -92,7 +101,12 @@ watch(query, (q) => {
 // ---------- 悬浮圆点模式：形态切换与位置管理 ----------
 
 // 缩回圆点态：64×64 小窗
-async function enterCompact() {
+async function enterCompact(animate = true) {
+  // 动画路径：先切圆点态触发主界面淡出，after-leave 回调里缩窗
+  if (animate && form.value === "expanded") {
+    form.value = "compact";
+    return;
+  }
   try {
     await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
     await win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
@@ -574,7 +588,7 @@ onMounted(async () => {
   }
   // 悬浮模式：启动即为圆点态并恢复记忆位置
   if (mode.value === "floating") {
-    await enterCompact();
+    await enterCompact(false);
     if (dotPosition.value) await applyDotPosition(dotPosition.value);
   }
   try {
@@ -659,7 +673,7 @@ onMounted(async () => {
       @settings="onDotSettings"
       @quit="closeApp"
     />
-    <template v-else>
+    <Transition name="fade" @after-leave="onMainLeave"><div v-show="form === `expanded`" class="main-view">
     <header class="topbar">
       <div class="grip" title="按住拖动窗口" @mousedown.prevent="startDrag">
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -825,7 +839,7 @@ onMounted(async () => {
       <span><kbd>Ctrl+H</kbd> AI 历史</span>
       <span><kbd>Esc</kbd> 返回 / 收起</span>
     </footer>
-    </template>
+    </div></Transition>
   </div>
 </template>
 
@@ -867,6 +881,24 @@ body {
   background: transparent;
   border: none;
   overflow: visible;
+}
+
+.main-view {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* 主界面展开/收起淡入淡出 */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 250ms ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 
 .topbar {
