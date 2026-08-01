@@ -149,14 +149,15 @@ async function enterExpanded(initialView = "search") {
   if (initialView === "search") focusInput();
 }
 
-// 窗口位置纠正到当前显示器可见范围（保守 clamp，物理像素）
+// 窗口位置纠正到当前显示器可见范围（完整可见 clamp，物理像素）
 async function clampToVisible() {
   try {
     const mon = await currentMonitor();
     if (!mon) return;
     const p = await win.outerPosition();
-    const maxX = Math.max(0, mon.size.width - 320);
-    const maxY = Math.max(0, mon.size.height - 320);
+    const s = await win.outerSize();
+    const maxX = Math.max(0, mon.size.width - s.width);
+    const maxY = Math.max(0, mon.size.height - s.height);
     const x = Math.min(Math.max(p.x, 0), maxX);
     const y = Math.min(Math.max(p.y, 0), maxY);
     if (x !== p.x || y !== p.y) {
