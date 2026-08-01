@@ -26,10 +26,17 @@ export async function addUserTerm(term) {
 }
 
 // 匹配优先级：缩写精确 > 缩写前缀 > 缩写包含 > 全称/中文包含 > 定义包含
+// 后缀词条（abbr 不带点）额外支持带点号输入："main.c" -> c、".h" -> h、"a.b.py" -> py
 export function search(query) {
   const raw = query.trim();
   const q = raw.toLowerCase();
   if (!q) return [];
+  // 提取带点号输入的末段作为后缀候选
+  let suffix = null;
+  if (q.includes(".")) {
+    const parts = q.split(".").filter(Boolean);
+    if (parts.length) suffix = parts[parts.length - 1];
+  }
   const scored = [];
   for (const term of allTerms()) {
     const abbr = (term.abbr || "").toLowerCase();
@@ -41,6 +48,10 @@ export function search(query) {
     else if (abbr.includes(q)) score = 65;
     else if (full.includes(q) || zh.includes(raw)) score = 50;
     else if ((term.definition || "").toLowerCase().includes(q)) score = 25;
+    // 带点号输入：末段与后缀词条精确匹配（以点开头视为明确搜后缀）
+    if (suffix && abbr === suffix) {
+      score = Math.max(score, q.startsWith(".") ? 100 : 75);
+    }
     if (score > 0) scored.push({ term, score });
   }
   scored.sort(

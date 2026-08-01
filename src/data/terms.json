@@ -2758,5 +2758,605 @@
       "内核常用：make -j$(nproc) zImage dtbs modules",
       "变量、模式规则、伪目标是 Makefile 进阶三件套"
     ]
+  },
+  {
+    "abbr": "c",
+    "full": "C Source File",
+    "zh": "C 源文件",
+    "category": "文件后缀",
+    "definition": "C 语言源代码文件，嵌入式工程的主要源文件。",
+    "points": [
+      "编译流程：预处理 -> 编译 -> 汇编 -> 链接",
+      "常与同名 .h 头文件配对（如 main.c / main.h）",
+      "gcc -c main.c 生成目标文件 main.o"
+    ]
+  },
+  {
+    "abbr": "h",
+    "full": "Header File",
+    "zh": "头文件",
+    "category": "文件后缀",
+    "definition": "C/C++ 头文件，声明函数、宏、类型与全局变量，供多个源文件共享。",
+    "points": [
+      "用 #ifndef/#define/#endif 或 #pragma once 防止重复包含",
+      "声明放 .h，定义放 .c/.cpp",
+      "嵌入式中寄存器地址、外设结构体常在此定义"
+    ]
+  },
+  {
+    "abbr": "cpp",
+    "full": "C++ Source File",
+    "zh": "C++ 源文件",
+    "category": "文件后缀",
+    "definition": "C++ 源代码文件，支持类、模板、重载等面向对象特性。",
+    "points": [
+      "编译用 g++ / arm-none-eabi-g++",
+      "常与 .hpp 头文件配对",
+      "嵌入式 C++ 需注意异常与 RTTI 带来的体积开销"
+    ]
+  },
+  {
+    "abbr": "hpp",
+    "full": "C++ Header File",
+    "zh": "C++ 头文件",
+    "category": "文件后缀",
+    "definition": "C++ 头文件，声明类、模板、函数与命名空间。",
+    "points": [
+      "模板实现常直接写在头文件内",
+      "与 .cpp 源文件配对",
+      "现代风格用 .hpp 与 C 头文件 .h 区分"
+    ]
+  },
+  {
+    "abbr": "cc",
+    "full": "C++ Source File (Alternative)",
+    "zh": "C++ 源文件（替代扩展名）",
+    "category": "文件后缀",
+    "definition": "C++ 源文件的另一种扩展名，常见于 Unix/Linux 工程。",
+    "points": [
+      "编译器按扩展名识别语言",
+      "与 .cpp 完全等价",
+      "Makefile 常用 %.cc 模式规则"
+    ]
+  },
+  {
+    "abbr": "s",
+    "full": "Assembly Source (GNU)",
+    "zh": "汇编源文件（GNU）",
+    "category": "文件后缀",
+    "definition": "GNU 语法汇编源文件，常用于启动文件、中断向量表与底层初始化。",
+    "points": [
+      "arm-none-eabi 工具链用 .s 编写启动代码",
+      "U-Boot、Linux 内核均有汇编入口",
+      "配合链接脚本控制段布局"
+    ]
+  },
+  {
+    "abbr": "asm",
+    "full": "Assembly Source",
+    "zh": "汇编源文件",
+    "category": "文件后缀",
+    "definition": "汇编语言源文件，面向特定处理器架构编写底层代码。",
+    "points": [
+      "x86 常用 .asm（MASM/NASM 语法）",
+      "ARM 常用 .s/.S（GNU 语法）",
+      "用于启动、中断、上下文切换等关键路径"
+    ]
+  },
+  {
+    "abbr": "i",
+    "full": "Preprocessed C Source",
+    "zh": "预处理后的 C 源文件",
+    "category": "文件后缀",
+    "definition": "C 源文件经预处理（宏展开、头文件包含）后的中间产物。",
+    "points": [
+      "gcc -E main.c -o main.i 生成",
+      "用于排查宏展开问题",
+      "预处理阶段不检查语法"
+    ]
+  },
+  {
+    "abbr": "d",
+    "full": "Make Dependency File",
+    "zh": "make 依赖文件",
+    "category": "文件后缀",
+    "definition": "make 自动生成的依赖描述文件，记录源文件与头文件的依赖关系。",
+    "points": [
+      "gcc -MM main.c 生成",
+      "头文件变更时自动触发重新编译",
+      "配合 -include 自动引入"
+    ]
+  },
+  {
+    "abbr": "o",
+    "full": "Object File (Unix)",
+    "zh": "目标文件（Unix）",
+    "category": "文件后缀",
+    "definition": "编译后未链接的目标文件，Linux/Unix 下扩展名为 .o。",
+    "points": [
+      "链接后成为可执行文件或库",
+      "nm/objdump 可查看符号与反汇编",
+      "ELF 格式，与 .a/.so 同族"
+    ]
+  },
+  {
+    "abbr": "obj",
+    "full": "Object File (Windows)",
+    "zh": "目标文件（Windows）",
+    "category": "文件后缀",
+    "definition": "编译后未链接的目标文件，Windows 下扩展名为 .obj，COFF 格式。",
+    "points": [
+      "MSVC 编译器生成",
+      "link.exe 将其组合为 .exe/.dll",
+      "dumpbin 工具可查看内容"
+    ]
+  },
+  {
+    "abbr": "a",
+    "full": "Static Library (Unix)",
+    "zh": "静态库（Unix）",
+    "category": "文件后缀",
+    "definition": "Unix/Linux 静态链接库，由多个 .o 打包而成，链接时整体拷贝进可执行文件。",
+    "points": [
+      "ar rcs libxxx.a xxx.o 创建",
+      "命名规则：lib 前缀 + .a 后缀",
+      "链接期解析，运行时不依赖"
+    ]
+  },
+  {
+    "abbr": "lib",
+    "full": "Library File (Windows)",
+    "zh": "库文件（Windows）",
+    "category": "文件后缀",
+    "definition": "Windows 静态库或导入库：静态库含代码，导入库仅为 DLL 提供符号。",
+    "points": [
+      "静态库与导入库扩展名均为 .lib",
+      "链接器搜索路径由 LIB 环境变量控制",
+      "与 .dll 配套发布"
+    ]
+  },
+  {
+    "abbr": "so",
+    "full": "Shared Object",
+    "zh": "动态库（Linux）",
+    "category": "文件后缀",
+    "definition": "Linux 动态链接库，运行时加载，多个进程共享同一份代码。",
+    "points": [
+      "命名规则 libxxx.so.主版本号",
+      "ldd 查看依赖，LD_LIBRARY_PATH 控制搜索",
+      "嵌入式交叉编译注意架构匹配"
+    ]
+  },
+  {
+    "abbr": "dll",
+    "full": "Dynamic Link Library",
+    "zh": "动态链接库（Windows）",
+    "category": "文件后缀",
+    "definition": "Windows 动态链接库，运行时按需加载，导出函数供其他程序调用。",
+    "points": [
+      "导出用 __declspec(dllexport) 或 .def 文件",
+      "DLL 搜索顺序影响加载",
+      "依赖缺失常报 0xc000007b 等错误"
+    ]
+  },
+  {
+    "abbr": "exe",
+    "full": "Executable File (Windows)",
+    "zh": "可执行文件（Windows）",
+    "category": "文件后缀",
+    "definition": "Windows 可执行程序，PE 格式，双击或命令行直接运行。",
+    "points": [
+      "PE 头含入口点、导入导出表",
+      "dumpbin /headers 可查看结构",
+      "由链接器将 .obj 与 .lib 链接生成"
+    ]
+  },
+  {
+    "abbr": "axf",
+    "full": "ARM Executable File (MDK)",
+    "zh": "ARM 可执行文件（MDK）",
+    "category": "文件后缀",
+    "definition": "Keil MDK 生成的 ARM 可执行文件，本质是带调试信息的 ELF 变体，可直接烧录。",
+    "points": [
+      "MDK 编译产物，含调试符号",
+      "J-Link 可直接下载 .axf 调试",
+      "可转成 .hex/.bin 量产烧录"
+    ]
+  },
+  {
+    "abbr": "bin",
+    "full": "Raw Binary Image",
+    "zh": "二进制镜像",
+    "category": "文件后缀",
+    "definition": "纯二进制数据镜像，无格式头，从链接地址开始逐字节排列，是烧录 Flash 的常用格式。",
+    "points": [
+      "objcopy -O binary 从 ELF 生成",
+      "烧录地址必须与链接地址一致",
+      "大小即固件体积，size 命令查看"
+    ]
+  },
+  {
+    "abbr": "hex",
+    "full": "Intel HEX File",
+    "zh": "Intel HEX 烧录文件",
+    "category": "文件后缀",
+    "definition": "Intel HEX 格式固件文件，ASCII 文本按行描述地址与数据，带校验和。",
+    "points": [
+      "每行格式 :LLAAAATT...CC",
+      "支持非连续地址段，适合分块烧录",
+      "相比 .bin 可记录加载地址"
+    ]
+  },
+  {
+    "abbr": "uf2",
+    "full": "USB Flashing Format",
+    "zh": "UF2 烧录格式",
+    "category": "文件后缀",
+    "definition": "USB 拖拽烧录格式，RP2040/树莓派 Pico 等可直接拖入 U 盘烧录。",
+    "points": [
+      "块大小 512 字节，带魔术字与校验",
+      "bootrom 模式拖入即烧录并复位",
+      "uf2conv.py 可将 .bin/.hex 转换"
+    ]
+  },
+  {
+    "abbr": "map",
+    "full": "Linker Map File",
+    "zh": "链接映射文件",
+    "category": "文件后缀",
+    "definition": "链接器生成的符号与段布局清单，展示每个符号的地址、大小与来源。",
+    "points": [
+      "链接时加 -Map=xxx.map 生成",
+      "排查内存溢出（.bss/.data 超限）的关键",
+      "可查看函数/变量在 Flash 与 RAM 的分布"
+    ]
+  },
+  {
+    "abbr": "ld",
+    "full": "GNU Linker Script",
+    "zh": "GNU 链接脚本",
+    "category": "文件后缀",
+    "definition": "GNU 链接脚本，描述内存区域划分、段布局与入口点，嵌入式工程必备。",
+    "points": [
+      "MEMORY 定义 Flash/RAM 区域",
+      "SECTIONS 控制 .text/.data/.bss 放置",
+      "STM32 工程的 .ld 由芯片厂商提供"
+    ]
+  },
+  {
+    "abbr": "mk",
+    "full": "Makefile Fragment",
+    "zh": "Makefile 片段",
+    "category": "文件后缀",
+    "definition": "Makefile 片段/规则文件，被主 Makefile 包含，用于组织构建规则。",
+    "points": [
+      "Linux 内核 Kbuild 大量使用 *.mk",
+      "常见于模块化构建系统",
+      "命名如 rules.mk、common.mk"
+    ]
+  },
+  {
+    "abbr": "img",
+    "full": "Disk/Firmware Image",
+    "zh": "镜像文件",
+    "category": "文件后缀",
+    "definition": "磁盘或固件镜像，含文件系统或分区结构的完整映像，可直接写入存储介质。",
+    "points": [
+      "dd 写入：dd if=xxx.img of=/dev/sdX",
+      "树莓派系统镜像为 .img",
+      "固件镜像常用于离线升级包"
+    ]
+  },
+  {
+    "abbr": "iso",
+    "full": "Optical Disc Image",
+    "zh": "光盘镜像",
+    "category": "文件后缀",
+    "definition": "光盘镜像文件，完整保存 ISO 9660 文件系统内容，可挂载或刻录。",
+    "points": [
+      "mount -o loop xxx.iso 直接挂载",
+      "Linux 发行版安装介质常用",
+      "可含引导信息（El Torito）"
+    ]
+  },
+  {
+    "abbr": "s19",
+    "full": "Motorola S-Record",
+    "zh": "S19 烧录文件（S-Record）",
+    "category": "文件后缀",
+    "definition": "Motorola S-Record 格式固件文件，ASCII 文本按 S 记录描述地址与数据，常用于单片机烧录。",
+    "points": [
+      "S0 头记录、S1/S2/S3 数据记录、S9 结束记录",
+      "飞思卡尔/NXP 工具链常用",
+      "与 HEX 类似，带地址与校验信息"
+    ]
+  },
+  {
+    "abbr": "dtsi",
+    "full": "Device Tree Source Include",
+    "zh": "设备树包含文件",
+    "category": "文件后缀",
+    "definition": "设备树包含文件，存放可复用的 SoC 级定义，被 .dts 通过 #include 引用。",
+    "points": [
+      "SoC 厂商提供公共定义（如 imx8mp.dtsi）",
+      "板级 .dts 覆盖或追加节点",
+      "支持 C 预处理器语法"
+    ]
+  },
+  {
+    "abbr": "ko",
+    "full": "Kernel Object",
+    "zh": "Linux 内核模块",
+    "category": "文件后缀",
+    "definition": "Linux 内核可加载模块，运行时动态插入内核，扩展驱动或功能。",
+    "points": [
+      "insmod/modprobe 加载，rmmod 卸载",
+      "编译需内核源码与配置",
+      "驱动开发常用，如 USB、GPIO 驱动"
+    ]
+  },
+  {
+    "abbr": "patch",
+    "full": "Patch File",
+    "zh": "补丁文件",
+    "category": "文件后缀",
+    "definition": "记录文件差异的补丁文件，用于应用代码变更或内核补丁。",
+    "points": [
+      "diff -u 生成，patch -p1 应用",
+      "内核社区以 patch 形式提交",
+      "git format-patch 生成 git 补丁"
+    ]
+  },
+  {
+    "abbr": "py",
+    "full": "Python Script",
+    "zh": "Python 脚本",
+    "category": "文件后缀",
+    "definition": "Python 语言脚本，嵌入式开发中常用于构建、烧录、测试自动化。",
+    "points": [
+      "esptool、pyOCD、OpenOCD 生态基于 Python",
+      "脚本化串口调试、批量烧录、CI 测试",
+      "解释执行，无需编译"
+    ]
+  },
+  {
+    "abbr": "js",
+    "full": "JavaScript File",
+    "zh": "JavaScript 脚本",
+    "category": "文件后缀",
+    "definition": "JavaScript 脚本文件，网页与 Node.js 环境运行，也用于构建工具链。",
+    "points": [
+      "Vite/webpack 等前端构建工具",
+      "Node.js 运行服务端脚本",
+      "Tauri/Electron 桌面应用前端"
+    ]
+  },
+  {
+    "abbr": "ts",
+    "full": "TypeScript File",
+    "zh": "TypeScript 脚本",
+    "category": "文件后缀",
+    "definition": "TypeScript 是 JavaScript 的超集，增加静态类型检查，编译后输出 JS。",
+    "points": [
+      "tsc 编译或 Vite 内联转译",
+      "类型系统在编译期发现错误",
+      "现代前端项目主流选择"
+    ]
+  },
+  {
+    "abbr": "json",
+    "full": "JavaScript Object Notation",
+    "zh": "JSON 数据文件",
+    "category": "文件后缀",
+    "definition": "轻量级数据交换格式，键值对结构，广泛应用于配置文件与 API 数据。",
+    "points": [
+      "Tauri 配置与插件配置均用 JSON",
+      "JSON Schema 可定义校验规则",
+      "相比 XML 更简洁、解析更快"
+    ]
+  },
+  {
+    "abbr": "md",
+    "full": "Markdown Document",
+    "zh": "Markdown 文档",
+    "category": "文件后缀",
+    "definition": "轻量级标记语言文档，纯文本书写结构，广泛用于 README 与文档。",
+    "points": [
+      "GitHub README、docs 均用 md",
+      "代码块、表格、链接语法简单",
+      "可渲染为 HTML/PDF"
+    ]
+  },
+  {
+    "abbr": "txt",
+    "full": "Plain Text File",
+    "zh": "纯文本文件",
+    "category": "文件后缀",
+    "definition": "无格式纯文本文件，用于说明、配置、日志等简单内容。",
+    "points": [
+      "通用性最强，任何编辑器可打开",
+      "注意编码（UTF-8/GBK）差异",
+      "常作为程序输出/日志格式"
+    ]
+  },
+  {
+    "abbr": "sh",
+    "full": "Shell Script",
+    "zh": "Shell 脚本",
+    "category": "文件后缀",
+    "definition": "Unix/Linux Shell 脚本，以 #!/bin/sh 或 #!/bin/bash 开头，批量执行命令。",
+    "points": [
+      "chmod +x 后可直接执行",
+      "嵌入式开发常用：刷机、构建、环境配置",
+      "注意引号与转义"
+    ]
+  },
+  {
+    "abbr": "bat",
+    "full": "Batch File (Windows)",
+    "zh": "批处理文件（Windows）",
+    "category": "文件后缀",
+    "definition": "Windows 批处理脚本，cmd.exe 逐行执行命令，常用于构建与部署自动化。",
+    "points": [
+      "以 @echo off 开头抑制命令回显",
+      "%1 表示命令行参数",
+      "与 .cmd 基本等价"
+    ]
+  },
+  {
+    "abbr": "cmd",
+    "full": "Batch File (cmd.exe)",
+    "zh": "批处理文件（cmd）",
+    "category": "文件后缀",
+    "definition": "Windows 批处理脚本的另一种扩展名，同样由 cmd.exe 执行，行为与 .bat 基本一致。",
+    "points": [
+      "与 .bat 语法相同",
+      "现代自动化更推荐 PowerShell",
+      "双击运行于命令行窗口"
+    ]
+  },
+  {
+    "abbr": "ps1",
+    "full": "PowerShell Script",
+    "zh": "PowerShell 脚本",
+    "category": "文件后缀",
+    "definition": "PowerShell 脚本文件，对象化管道的现代 shell，适合 Windows 自动化。",
+    "points": [
+      "执行策略默认限制脚本运行（Set-ExecutionPolicy）",
+      "跨系统管理能力强",
+      "开发工具链常用"
+    ]
+  },
+  {
+    "abbr": "yml",
+    "full": "YAML Configuration (.yml)",
+    "zh": "YAML 配置",
+    "category": "文件后缀",
+    "definition": "YAML 配置文件的 .yml 扩展名，缩进表达层级，人类可读性好。",
+    "points": [
+      ".yaml 与 .yml 等价",
+      "GitHub Actions、Docker Compose 均用",
+      "缩进不能混用 Tab 与空格"
+    ]
+  },
+  {
+    "abbr": "yaml",
+    "full": "YAML Configuration (.yaml)",
+    "zh": "YAML 配置（.yaml）",
+    "category": "文件后缀",
+    "definition": "YAML 配置文件的 .yaml 扩展名，与 .yml 完全相同，两种写法皆可。",
+    "points": [
+      "列表用 - 开头，映射用 key: value",
+      "锚点与别名支持复用",
+      "常用于 CI/CD 与微服务配置"
+    ]
+  },
+  {
+    "abbr": "toml",
+    "full": "Tom's Obvious Minimal Language",
+    "zh": "TOML 配置",
+    "category": "文件后缀",
+    "definition": "TOML 配置文件格式，语法接近 INI 但类型完整，广泛用于现代项目配置。",
+    "points": [
+      "Cargo.toml、pyproject.toml 等",
+      "键值对 + 数组 + 表结构",
+      "类型明确，解析歧义少"
+    ]
+  },
+  {
+    "abbr": "ini",
+    "full": "Initialization File",
+    "zh": "INI 配置文件",
+    "category": "文件后缀",
+    "definition": "INI 配置文件格式，[节] + key=value 结构，历史悠久、简单直观。",
+    "points": [
+      "Windows 传统配置格式",
+      "Python configparser 可解析",
+      "值都是字符串，无类型系统"
+    ]
+  },
+  {
+    "abbr": "cfg",
+    "full": "Configuration File",
+    "zh": "配置文件",
+    "category": "文件后缀",
+    "definition": "通用配置文件，具体格式由程序定义，常见于工具与系统配置。",
+    "points": [
+      "OpenOCD、gdb 等工具常用",
+      "格式随程序而异（行式/键值式）",
+      "注意结尾换行与注释符号"
+    ]
+  },
+  {
+    "abbr": "conf",
+    "full": "Configuration File (System)",
+    "zh": "配置文件（系统）",
+    "category": "文件后缀",
+    "definition": "系统服务配置文件，常用于 Linux /etc 目录下服务与守护进程配置。",
+    "points": [
+      "nginx.conf、sshd_config 等",
+      "修改后通常需重启服务",
+      "注释用 # 开头"
+    ]
+  },
+  {
+    "abbr": "xml",
+    "full": "Extensible Markup Language",
+    "zh": "XML 标记文件",
+    "category": "文件后缀",
+    "definition": "可扩展标记语言文件，用标签描述结构化数据，注重通用性与校验。",
+    "points": [
+      "DTD/XSD 定义合法结构",
+      "常见于配置文件与数据交换",
+      "相比 JSON 冗长，解析开销大"
+    ]
+  },
+  {
+    "abbr": "csv",
+    "full": "Comma-Separated Values",
+    "zh": "CSV 表格数据",
+    "category": "文件后缀",
+    "definition": "逗号分隔值文件，表格数据的纯文本表示，广泛用于数据交换与导出。",
+    "points": [
+      "Excel/WPS 可直接打开",
+      "字段含逗号/引号时需转义",
+      "嵌入式测试数据常用 CSV 存储"
+    ]
+  },
+  {
+    "abbr": "log",
+    "full": "Log File",
+    "zh": "日志文件",
+    "category": "文件后缀",
+    "definition": "日志文件，程序运行时输出的记录，用于调试与问题排查。",
+    "points": [
+      "常见轮转策略：按大小或时间切分",
+      "串口调试信息常重定向到 log 文件",
+      "分析用 grep/tail 过滤关键信息"
+    ]
+  },
+  {
+    "abbr": "proto",
+    "full": "Protocol Buffers Definition",
+    "zh": "protobuf 定义文件",
+    "category": "文件后缀",
+    "definition": "Protocol Buffers 消息定义文件，声明结构化数据的字段与类型，可生成多语言代码。",
+    "points": [
+      "protoc 编译生成 C/C++/Python 等代码",
+      "字段号（tag）一经发布不可修改",
+      "嵌入式与云端通信常选 protobuf 压缩体积"
+    ]
+  },
+  {
+    "abbr": "lst",
+    "full": "Assembly Listing File",
+    "zh": "汇编列表文件",
+    "category": "文件后缀",
+    "definition": "编译生成的列表文件，同时展示 C 源码、汇编指令与地址，用于深入分析。",
+    "points": [
+      "arm-none-eabi-gcc 加 -Wa,-adhln 生成",
+      "查看每条 C 语句对应的机器码",
+      "优化排查与裸机调试利器"
+    ]
   }
 ]
