@@ -37,12 +37,8 @@ export function search(query) {
     const parts = q.split(".").filter(Boolean);
     if (parts.length) suffix = parts[parts.length - 1];
   }
-  // 提取带空格输入的首段作为命令候选："ls -l" -> ls、"tar czf" -> tar、"i2c 协议" -> I2C
-  let cmd = null;
-  if (q.includes(" ")) {
-    const first = q.split(/\s+/)[0];
-    if (first && first !== q) cmd = first;
-  }
+  // 提取带空格输入的前缀组合作为命令候选："git commit -m" -> ["git commit -m","git commit","git"]、"ls -l" -> ["ls -l","ls"]
+  const qTokens = q.includes(" ") ? q.split(/\s+/) : null;
   const scored = [];
   for (const term of allTerms()) {
     const abbr = (term.abbr || "").toLowerCase();
@@ -58,9 +54,15 @@ export function search(query) {
     if (suffix && abbr === suffix) {
       score = Math.max(score, q.startsWith(".") ? 100 : 75);
     }
-    // 命令+参数输入：首段与词条精确匹配（"ls -l" -> ls），优先级高于前缀匹配
-    if (cmd && abbr === cmd) {
-      score = Math.max(score, 95);
+    // 命令+参数输入：前缀组合与词条精确匹配（"git commit -m" -> git commit、"ls -l" -> ls）；段数越多分越高
+    if (qTokens) {
+      for (let k = qTokens.length; k >= 1; k--) {
+        const cand = qTokens.slice(0, k).join(" ");
+        if (abbr === cand) {
+          score = Math.max(score, 94 + k);
+          break;
+        }
+      }
     }
     if (score > 0) scored.push({ term, score });
   }

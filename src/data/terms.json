@@ -7058,5 +7058,2487 @@
       "配合模式规则 % 使用最常见",
       "注意与 Shell 的 $@（所有参数）区分"
     ]
+  },
+  {
+    "abbr": "@",
+    "full": "Silent Prefix",
+    "zh": "命令静默前缀",
+    "category": "Make 语法",
+    "usage": "@命令   （命令前加 @ 不打印命令本身）",
+    "definition": "命令行的 @ 前缀：执行命令时不回显命令本身，只显示命令输出。",
+    "points": [
+      "@echo 'Building...' 只显示输出",
+      "make -s 全局静默等效",
+      "常用于清理无意义的过程输出"
+    ]
+  },
+  {
+    "abbr": "-",
+    "full": "Ignore Error Prefix",
+    "zh": "忽略错误前缀",
+    "category": "Make 语法",
+    "usage": "-命令   （命令前加 - 忽略失败）",
+    "definition": "命令前加 -：该命令返回非零时不中断构建（默认任何命令失败即终止）。",
+    "points": [
+      "-rm -f *.o 文件不存在也不报错",
+      "与 .IGNORE 特殊目标等效",
+      "慎用：会掩盖真实错误"
+    ]
+  },
+  {
+    "abbr": "=",
+    "full": "Variable Assignment",
+    "zh": "变量赋值",
+    "category": "Make 语法",
+    "usage": "VAR = 值（递归展开）  VAR := 值（立即展开）  VAR ?= 值（条件）  VAR += 值（追加）",
+    "definition": "Makefile 四种赋值方式，决定变量展开时机与行为。",
+    "points": [
+      ":= 立即展开，读取时求值（推荐）",
+      "= 递归展开，使用时才求值",
+      "?= 未定义才赋值；+= 追加（自动加空格）"
+    ]
+  },
+  {
+    "abbr": "$(shell ...)",
+    "full": "Shell Function",
+    "zh": "shell 函数",
+    "category": "Make 语法",
+    "usage": "$(shell 命令)",
+    "definition": "执行 shell 命令并把输出（含换行）作为函数结果。",
+    "points": [
+      "DATE := $(shell date) 取当前时间",
+      "CFLAGS += $(shell pkg-config --cflags xxx)",
+      "构建期探测系统/工具链信息"
+    ]
+  },
+  {
+    "abbr": "$(patsubst ...)",
+    "full": "Pattern Substitute",
+    "zh": "模式替换函数",
+    "category": "Make 语法",
+    "usage": "$(patsubst 模式,替换,文本)",
+    "definition": "将文本中匹配模式的部分替换为新串，% 为通配符。",
+    "points": [
+      "OBJS := $(patsubst %.c,%.o,$(SRCS))",
+      "$(SRCS:.c=.o) 是同一功能的简化写法",
+      "与模式规则 % 同义"
+    ]
+  },
+  {
+    "abbr": "Tab",
+    "full": "Tab-indented Command",
+    "zh": "命令行 Tab 前缀",
+    "category": "Make 语法",
+    "usage": "<Tab>命令   （规则命令必须以 Tab 开头，不能是空格）",
+    "definition": "Makefile 规则命令行的硬性要求：每行命令必须以 Tab 字符开头。",
+    "points": [
+      "空格缩进会报 missing separator 错误",
+      "编辑器把 Tab 转空格常导致此问题",
+      "vim 中 :set noexpandtab 避免"
+    ]
+  },
+  {
+    "abbr": "-j",
+    "full": "Parallel Jobs",
+    "zh": "并行构建",
+    "category": "Make 语法",
+    "usage": "make -j N   （并行任务数；-j 不带 N 为不限）",
+    "definition": "make 命令行选项：并行执行 N 个任务，大幅缩短构建时间。",
+    "points": [
+      "make -j$(nproc) 常用写法",
+      "内核构建标配 make -j16",
+      "其他常用：-n 演练、-B 强制重编、-C 切换目录、-f 指定 Makefile"
+    ]
+  },
+  {
+    "abbr": "$(MAKE)",
+    "full": "Recursive Make",
+    "zh": "递归 make 变量",
+    "category": "Make 语法",
+    "usage": "$(MAKE) -C 子目录",
+    "definition": "递归构建子目录时必须用 $(MAKE) 而非 make，保证命令行选项与变量正确传递。",
+    "points": [
+      "子目录构建：$(MAKE) -C lib",
+      "直接写 make 会丢失 -j 等选项",
+      "配合 export 向子 make 传变量"
+    ]
+  },
+  {
+    "abbr": ".DEFAULT_GOAL",
+    "full": "Default Goal",
+    "zh": "默认目标",
+    "category": "Make 语法",
+    "usage": ".DEFAULT_GOAL := 目标名   （不设置时取第一个目标）",
+    "definition": "指定 make 无参数时的默认构建目标。",
+    "points": [
+      "不设置时默认第一个目标",
+      "显式声明提高可读性",
+      "make 目标名 可临时覆盖"
+    ]
+  },
+  {
+    "abbr": "$(foreach ...)",
+    "full": "Loop Function",
+    "zh": "循环函数",
+    "category": "Make 语法",
+    "usage": "$(foreach 变量,列表,表达式)",
+    "definition": "遍历空格分隔的列表，对每个元素求值表达式并拼接结果。",
+    "points": [
+      "DIRS := $(foreach d,$(SUBDIRS),$(d)/build)",
+      "配合 $(eval) 动态生成规则",
+      "列表元素以空格分隔"
+    ]
+  },
+  {
+    "abbr": "$(notdir ...)",
+    "full": "Strip Directory",
+    "zh": "去目录函数",
+    "category": "Make 语法",
+    "usage": "$(notdir 路径...)",
+    "definition": "去掉路径中的目录部分，只保留文件名。",
+    "points": [
+      "$(notdir src/main.c) -> main.c",
+      "同族：$(dir) 取目录、$(basename) 去后缀",
+      "与 $(addprefix) 搭配重构路径"
+    ]
+  },
+  {
+    "abbr": "$$",
+    "full": "Current Shell PID",
+    "zh": "当前 shell PID",
+    "category": "Shell 脚本",
+    "usage": "$$   （当前 shell 进程 PID）",
+    "definition": "展开为当前 shell 进程的进程号，常用于生成唯一临时文件名。",
+    "points": [
+      "tmp=/tmp/x$$.log 每次运行唯一",
+      "与 $!（后台进程 PID）区分",
+      "子 shell 中为子 shell 的 PID"
+    ]
+  },
+  {
+    "abbr": "set -u",
+    "full": "Nounset",
+    "zh": "未定义变量报错",
+    "category": "Shell 脚本",
+    "usage": "set -u   （引用未定义变量即报错）",
+    "definition": "开启后引用未定义变量报 unbound variable 并退出，防止变量名拼写错误。",
+    "points": [
+      "配合 set -e 更健壮",
+      "${var:-} 安全引用可能未定义的变量",
+      "脚本头部三件套：set -euo pipefail"
+    ]
+  },
+  {
+    "abbr": "getopts",
+    "full": "Parse Options",
+    "zh": "命令行选项解析",
+    "category": "Shell 脚本",
+    "usage": "getopts 选项串 变量名   （如 getopts 'ab:c:' opt）",
+    "definition": "内建命令，逐个解析 -a -b value 形式的命令行选项。",
+    "points": [
+      "选项串中冒号表示该选项带参数",
+      "while getopts ...; do case $opt in ... esac; done",
+      "解析后 shift $((OPTIND-1)) 处理剩余位置参数"
+    ]
+  },
+  {
+    "abbr": "array",
+    "full": "Bash Array",
+    "zh": "bash 数组",
+    "category": "Shell 脚本",
+    "usage": "arr=(a b c)   ${arr[0]}   \"${arr[@]}\"   ${#arr[@]}",
+    "definition": "bash 数组：整数下标从 0 开始，支持整体引用、切片与追加。",
+    "points": [
+      "\"${arr[@]}\" 全部元素（遍历用）",
+      "${#arr[@]} 元素个数",
+      "arr+=('new') 追加元素"
+    ]
+  },
+  {
+    "abbr": "add_custom_command",
+    "full": "Custom Command",
+    "zh": "自定义命令",
+    "category": "CMake 语法",
+    "usage": "add_custom_command(TARGET 目标 POST_BUILD COMMAND 命令...)   /   (OUTPUT 文件 COMMAND 命令 DEPENDS 依赖)",
+    "definition": "为目标附加构建后命令，或声明由命令生成的文件（烧录/拷贝/后处理）。",
+    "points": [
+      "POST_BUILD 链接后自动执行（烧录脚本常用）",
+      "OUTPUT 形式声明自定义生成文件",
+      "交叉编译产物拷贝/尺寸统计常用"
+    ]
+  },
+  {
+    "abbr": "install",
+    "full": "Install Rules",
+    "zh": "安装规则",
+    "category": "CMake 语法",
+    "usage": "install(TARGETS 目标 RUNTIME DESTINATION bin)   install(FILES 文件 DESTINATION 目录)",
+    "definition": "声明 make install 时的安装目标位置。",
+    "points": [
+      "cmake --install build --prefix /usr 执行安装",
+      "嵌入式 SDK 头文件/库部署常用",
+      "可指定 PERMISSIONS 权限"
+    ]
+  },
+  {
+    "abbr": "file()",
+    "full": "File Operations",
+    "zh": "文件操作",
+    "category": "CMake 语法",
+    "usage": "file(GLOB 变量 模式...)   file(READ/WRITE/COPY/REMOVE...)",
+    "definition": "文件系统操作集合：收集文件、读写内容、拷贝删除。",
+    "points": [
+      "file(GLOB SRCS *.c) 收集源文件",
+      "CONFIGURE_DEPENDS 自动跟踪新增文件",
+      "file(READ) 读取内容到变量"
+    ]
+  },
+  {
+    "abbr": "list()",
+    "full": "List Operations",
+    "zh": "列表操作",
+    "category": "CMake 语法",
+    "usage": "list(APPEND 变量 值...)   list(LENGTH 变量 输出)   list(GET 变量 下标 输出)",
+    "definition": "对分号分隔的列表变量进行增删查改。",
+    "points": [
+      "list(APPEND LIBS m pthread) 追加",
+      "list(FILTER ... REGEX) 正则过滤",
+      "CMake 列表即分号分隔字符串"
+    ]
+  },
+  {
+    "abbr": "objdump",
+    "full": "Dump Object Files",
+    "zh": "反汇编/查看目标文件",
+    "category": "构建与工具链",
+    "usage": "objdump [选项] 文件",
+    "definition": "查看目标文件/可执行文件的内容：反汇编、段表、头信息。",
+    "options": [
+      {
+        "o": "-d",
+        "d": "反汇编可执行段（最常用）"
+      },
+      {
+        "o": "-S",
+        "d": "反汇编并混排 C 源码（需 -g 编译）"
+      },
+      {
+        "o": "-h",
+        "d": "显示段表"
+      },
+      {
+        "o": "-t",
+        "d": "显示符号表"
+      },
+      {
+        "o": "-x",
+        "d": "显示全部头信息"
+      }
+    ],
+    "points": [
+      "交叉工具链：arm-none-eabi-objdump -d app.elf",
+      "验证启动代码/优化结果的首选",
+      "与 readelf 互补"
+    ]
+  },
+  {
+    "abbr": "readelf",
+    "full": "Read ELF File",
+    "zh": "读取 ELF 信息",
+    "category": "构建与工具链",
+    "usage": "readelf [选项] ELF文件",
+    "definition": "解析 ELF 文件结构：头、段、符号、重定位、调试信息。",
+    "options": [
+      {
+        "o": "-h",
+        "d": "ELF 头"
+      },
+      {
+        "o": "-S",
+        "d": "段表"
+      },
+      {
+        "o": "-s",
+        "d": "符号表"
+      },
+      {
+        "o": "-A",
+        "d": "架构属性（ARM 特有）"
+      },
+      {
+        "o": "-l",
+        "d": "程序头（段加载）"
+      }
+    ],
+    "points": [
+      "readelf -h app.elf 查入口地址",
+      "readelf -S 看 .text/.data 加载地址",
+      "objdump/readelf/nm/size 是 binutils 四件套"
+    ]
+  },
+  {
+    "abbr": "nm",
+    "full": "List Symbols",
+    "zh": "符号表",
+    "category": "构建与工具链",
+    "usage": "nm [选项] 文件",
+    "definition": "列出目标文件中的符号（函数/全局变量）及地址。",
+    "points": [
+      "nm app.elf | grep main 查地址",
+      "T 已定义、U 未定义、t 局部",
+      "排查符号缺失/重复定义"
+    ]
+  },
+  {
+    "abbr": "size",
+    "full": "Section Sizes",
+    "zh": "段大小",
+    "category": "构建与工具链",
+    "usage": "size [选项] 文件",
+    "definition": "显示各段（text/data/bss）与总大小，评估固件体积。",
+    "points": [
+      "size app.elf 三列：text data bss",
+      "嵌入式内存预算评估利器",
+      "-A 逐段详细输出"
+    ]
+  },
+  {
+    "abbr": "ar",
+    "full": "Archive",
+    "zh": "静态库打包",
+    "category": "构建与工具链",
+    "usage": "ar [选项] 库文件 目标文件...   （ar rcs libx.a a.o b.o）",
+    "definition": "将多个 .o 目标文件打包为 .a 静态库。",
+    "points": [
+      "ar rcs libmylib.a foo.o bar.o 创建",
+      "ar t lib.a 列出成员",
+      "ar x lib.a 解包"
+    ]
+  },
+  {
+    "abbr": "strip",
+    "full": "Strip Symbols",
+    "zh": "剥离符号",
+    "category": "构建与工具链",
+    "usage": "strip [选项] 文件",
+    "definition": "删除符号与调试信息，显著减小可执行文件/库体积。",
+    "points": [
+      "量产固件：strip app.elf 缩小体积",
+      "交叉工具链 strip 处理嵌入式产物",
+      "调试用副本保留未 strip 版本"
+    ]
+  },
+  {
+    "abbr": "addr2line",
+    "full": "Address to Line",
+    "zh": "地址转源码行",
+    "category": "构建与工具链",
+    "usage": "addr2line -f -e 程序 地址",
+    "definition": "将崩溃/回溯中的地址转换为文件名与行号（需保留调试信息）。",
+    "points": [
+      "配合 backtrace 地址定位崩溃点",
+      "addr2line -e app.elf 0x8001234",
+      "嵌入式 Oops/断言回溯调试利器"
+    ]
+  },
+  {
+    "abbr": "as",
+    "full": "GNU Assembler",
+    "zh": "GNU 汇编器",
+    "category": "构建与工具链",
+    "usage": "as [选项] 汇编文件",
+    "definition": "GNU 汇编器：将 .s/.S 汇编源码汇编为目标文件 .o。",
+    "points": [
+      "gcc 内部调用 as 处理汇编",
+      "arm-none-eabi-as 交叉汇编",
+      "与 .s 后缀词条配套"
+    ]
+  },
+  {
+    "abbr": "man",
+    "full": "Manual Pages",
+    "zh": "手册",
+    "category": "Linux 命令",
+    "usage": "man [章节] 命令   （man ls、man 2 open）",
+    "definition": "查看命令/系统调用的完整手册页，Linux 学习第一工具。",
+    "options": [
+      {
+        "o": "章节",
+        "d": "1 命令、2 系统调用、3 库函数、5 文件格式、8 系统管理"
+      },
+      {
+        "o": "搜索",
+        "d": "man -k 关键字 按主题搜索（apropos）"
+      },
+      {
+        "o": "导航",
+        "d": "/ 搜索、q 退出、空格翻页"
+      }
+    ],
+    "points": [
+      "man 2 open 查系统调用（区别于 man 1）",
+      "嵌入式开发查 read/write/ioctl 标准行为",
+      "info 命令可看更详细文档"
+    ]
+  },
+  {
+    "abbr": "vim",
+    "full": "Vi Improved",
+    "zh": "vim 编辑器",
+    "category": "Linux 命令",
+    "usage": "vim [选项] 文件",
+    "definition": "最流行的终端编辑器，模态编辑（命令/插入/可视模式）。",
+    "options": [
+      {
+        "o": "模式",
+        "d": "i 插入、Esc 回命令、v 可视、: 命令行"
+      },
+      {
+        "o": "保存退出",
+        "d": ":w 保存、:q 退出、:wq 保存退出、:q! 放弃"
+      },
+      {
+        "o": "搜索",
+        "d": "/关键字 查找、n/N 下一个/上一个"
+      },
+      {
+        "o": "配置",
+        "d": "~/.vimrc 持久化设置"
+      }
+    ],
+    "points": [
+      "嵌入式改配置/内核代码必备",
+      "sudo vim /etc/xxx 改系统文件",
+      "学习曲线陡但效率极高"
+    ]
+  },
+  {
+    "abbr": "git",
+    "full": "Version Control",
+    "zh": "git 版本控制",
+    "category": "Linux 命令",
+    "usage": "git [子命令] [选项]",
+    "definition": "分布式版本控制系统，Linux 内核与绝大多数开源项目的标配。",
+    "options": [
+      {
+        "o": "本地",
+        "d": "git init/add/commit/status/log/diff"
+      },
+      {
+        "o": "分支",
+        "d": "git branch/checkout/merge/rebase"
+      },
+      {
+        "o": "远程",
+        "d": "git clone/push/pull/fetch"
+      },
+      {
+        "o": "历史",
+        "d": "git log --oneline、git show 提交"
+      }
+    ],
+    "points": [
+      "git add -A && git commit -m 'msg' 常规提交",
+      "git reset 撤销、git stash 暂存",
+      "内核开发用 git format-patch 提补丁"
+    ]
+  },
+  {
+    "abbr": "rsync",
+    "full": "Remote Sync",
+    "zh": "远程同步",
+    "category": "Linux 命令",
+    "usage": "rsync [选项] 源 目标   （支持本地/ssh 远程）",
+    "definition": "增量同步文件/目录，只传差异部分，备份与部署利器。",
+    "options": [
+      {
+        "o": "-a",
+        "d": "归档模式（保留属性递归）"
+      },
+      {
+        "o": "-v",
+        "d": "显示传输过程"
+      },
+      {
+        "o": "-z",
+        "d": "传输压缩"
+      },
+      {
+        "o": "--delete",
+        "d": "删除目标端多余文件（保持镜像）"
+      },
+      {
+        "o": "-n",
+        "d": "演练：只预览不执行"
+      }
+    ],
+    "points": [
+      "rsync -avz ./ user@host:/opt/app 部署",
+      "增量备份比 cp 高效",
+      "嵌入式交叉编译产物同步到板子常用"
+    ]
+  },
+  {
+    "abbr": "tcpdump",
+    "full": "Packet Capture",
+    "zh": "抓包工具",
+    "category": "Linux 命令",
+    "usage": "tcpdump [选项] [表达式]",
+    "definition": "命令行抓包分析工具，网络调试与协议分析核心。",
+    "options": [
+      {
+        "o": "-i",
+        "d": "指定网卡：-i eth0"
+      },
+      {
+        "o": "-n",
+        "d": "不解析主机名/端口"
+      },
+      {
+        "o": "-w",
+        "d": "写入 pcap 文件（Wireshark 打开）"
+      },
+      {
+        "o": "-c",
+        "d": "抓 N 个包后退出"
+      },
+      {
+        "o": "表达式",
+        "d": "host/port/tcp/udp 过滤：tcpdump tcp port 80"
+      }
+    ],
+    "points": [
+      "tcpdump -i eth0 -w cap.pcap 保存分析",
+      "验证嵌入式设备网络协议报文",
+      "板子上无 Wireshark 时抓包靠它"
+    ]
+  },
+  {
+    "abbr": "lsof",
+    "full": "List Open Files",
+    "zh": "文件占用",
+    "category": "Linux 命令",
+    "usage": "lsof [选项] [文件名/PID]",
+    "definition": "列出打开的文件及占用进程，排查文件忙与端口占用。",
+    "options": [
+      {
+        "o": "-i",
+        "d": "网络连接：lsof -i :8080 查端口占用"
+      },
+      {
+        "o": "-p",
+        "d": "指定进程打开的文件"
+      },
+      {
+        "o": "-u",
+        "d": "指定用户"
+      }
+    ],
+    "points": [
+      "lsof +D /dir 目录内打开文件",
+      "设备节点占用：lsof /dev/ttyUSB0",
+      "嵌入式调试 device busy 首选"
+    ]
+  },
+  {
+    "abbr": "lsmod",
+    "full": "List Modules",
+    "zh": "列出内核模块",
+    "category": "Linux 命令",
+    "usage": "lsmod",
+    "definition": "列出当前已加载的内核模块及依赖关系。",
+    "points": [
+      "输出：模块名 大小 被谁使用",
+      "配合 modinfo 查模块信息",
+      "驱动是否加载成功的直接检查"
+    ]
+  },
+  {
+    "abbr": "modprobe",
+    "full": "Module Load/Unload",
+    "zh": "内核模块管理",
+    "category": "Linux 命令",
+    "usage": "modprobe 模块名   modprobe -r 模块名",
+    "definition": "加载/卸载内核模块，自动解析依赖（替代 insmod/rmmod）。",
+    "options": [
+      {
+        "o": "-r",
+        "d": "卸载模块"
+      },
+      {
+        "o": "-n",
+        "d": "演练不实际加载"
+      },
+      {
+        "o": "--show-depends",
+        "d": "显示依赖"
+      }
+    ],
+    "points": [
+      "modprobe 从 /lib/modules/$(uname -r)/ 加载",
+      "insmod 加载指定路径 .ko，rmmod 卸载",
+      "嵌入式驱动调试：insmod mydrv.ko"
+    ]
+  },
+  {
+    "abbr": "systemctl",
+    "full": "System Control",
+    "zh": "systemd 服务管理",
+    "category": "Linux 命令",
+    "usage": "systemctl [子命令] [单元]",
+    "definition": "管理 systemd 服务：启动/停止/开机自启/状态。",
+    "options": [
+      {
+        "o": "start/stop/restart",
+        "d": "启停服务"
+      },
+      {
+        "o": "enable/disable",
+        "d": "开机自启开关"
+      },
+      {
+        "o": "status",
+        "d": "服务状态与最近日志"
+      },
+      {
+        "o": "list-units",
+        "d": "列出所有单元"
+      },
+      {
+        "o": "daemon-reload",
+        "d": "重载 unit 文件"
+      }
+    ],
+    "points": [
+      "systemctl enable ssh 开机自启 SSH",
+      "嵌入式定制系统服务管理",
+      "unit 文件在 /etc/systemd/system/"
+    ]
+  },
+  {
+    "abbr": "journalctl",
+    "full": "Journal Logs",
+    "zh": "systemd 日志",
+    "category": "Linux 命令",
+    "usage": "journalctl [选项] [单元]",
+    "definition": "查询 systemd 日志（替代 /var/log/messages）。",
+    "options": [
+      {
+        "o": "-u",
+        "d": "指定服务：journalctl -u ssh"
+      },
+      {
+        "o": "-f",
+        "d": "实时跟踪"
+      },
+      {
+        "o": "-b",
+        "d": "本次启动日志"
+      },
+      {
+        "o": "-k",
+        "d": "内核日志"
+      },
+      {
+        "o": "--since",
+        "d": "时间过滤：--since '1 hour ago'"
+      }
+    ],
+    "points": [
+      "journalctl -u app -f 跟踪应用日志",
+      "嵌入式 systemd 系统排障入口",
+      "日志持久化需配置 Storage=persistent"
+    ]
+  },
+  {
+    "abbr": "date",
+    "full": "Show/Set Date",
+    "zh": "日期时间",
+    "category": "Linux 命令",
+    "usage": "date [选项] [+格式]",
+    "definition": "显示或设置系统时间，支持自定义输出格式。",
+    "options": [
+      {
+        "o": "+格式",
+        "d": "date '+%Y-%m-%d %H:%M:%S'"
+      },
+      {
+        "o": "-s",
+        "d": "设置时间：date -s '2026-08-01 12:00'"
+      },
+      {
+        "o": "-u",
+        "d": "UTC 时间"
+      }
+    ],
+    "points": [
+      "日志时间戳：date +%s 秒级",
+      "脚本中取文件名：$(date +%Y%m%d)",
+      "嵌入式 RTC 校时常用"
+    ]
+  },
+  {
+    "abbr": "id",
+    "full": "User Identity",
+    "zh": "用户身份",
+    "category": "Linux 命令",
+    "usage": "id [用户]",
+    "definition": "显示用户/组 ID 与所属组，判断当前权限。",
+    "points": [
+      "id 显示 uid/gid/groups",
+      "whoami 只显示用户名",
+      "脚本权限检查：if [ $(id -u) -eq 0 ]"
+    ]
+  },
+  {
+    "abbr": "shutdown",
+    "full": "Power Off/Reboot",
+    "zh": "关机重启",
+    "category": "Linux 命令",
+    "usage": "shutdown [选项] 时间   （reboot/poweroff 为快捷方式）",
+    "definition": "关机/重启系统，可定时执行。",
+    "options": [
+      {
+        "o": "-h",
+        "d": "关机（默认）"
+      },
+      {
+        "o": "-r",
+        "d": "重启"
+      },
+      {
+        "o": "时间",
+        "d": "shutdown -r now 立即重启、+5 五分钟"
+      },
+      {
+        "o": "-c",
+        "d": "取消已排定的关机"
+      }
+    ],
+    "points": [
+      "嵌入式板子 reboot 重启",
+      "关机前先 sync 落盘",
+      "远程操作服务器常用 shutdown -h now"
+    ]
+  },
+  {
+    "abbr": "tree",
+    "full": "Directory Tree",
+    "zh": "目录树",
+    "category": "Linux 命令",
+    "usage": "tree [选项] [目录]",
+    "definition": "以树形显示目录结构。",
+    "options": [
+      {
+        "o": "-L",
+        "d": "限制深度：-L 2"
+      },
+      {
+        "o": "-d",
+        "d": "只显示目录"
+      },
+      {
+        "o": "-h",
+        "d": "显示文件大小"
+      }
+    ],
+    "points": [
+      "查看源码/rootfs 目录结构直观",
+      "嵌入式工程文件组织一目了然",
+      "最小系统可能需 apt install tree"
+    ]
+  },
+  {
+    "abbr": "tee",
+    "full": "Split Output",
+    "zh": "输出分流",
+    "category": "Linux 命令",
+    "usage": "命令 | tee [选项] 文件",
+    "definition": "同时输出到屏幕与文件，日志记录标配。",
+    "options": [
+      {
+        "o": "-a",
+        "d": "追加模式"
+      },
+      {
+        "o": "-i",
+        "d": "忽略中断信号"
+      }
+    ],
+    "points": [
+      "cmd 2>&1 | tee -a log.txt 记录日志",
+      "sudo tee /etc/file 写系统文件（重定向权限问题）",
+      "配合管道保留屏幕输出"
+    ]
+  },
+  {
+    "abbr": "lspci",
+    "full": "List PCI Devices",
+    "zh": "PCI 设备列表",
+    "category": "Linux 命令",
+    "usage": "lspci [选项]",
+    "definition": "列出 PCI/PCIe 总线上的设备。",
+    "options": [
+      {
+        "o": "-v/-vv",
+        "d": "详细信息"
+      },
+      {
+        "o": "-n",
+        "d": "数字 ID"
+      },
+      {
+        "o": "-t",
+        "d": "树状拓扑"
+      }
+    ],
+    "points": [
+      "lspci | grep -i eth 找网卡",
+      "lsusb 查 USB 设备（同族）",
+      "嵌入式主机板排查外设枚举"
+    ]
+  },
+  {
+    "abbr": "lscpu",
+    "full": "CPU Info",
+    "zh": "CPU 信息",
+    "category": "Linux 命令",
+    "usage": "lscpu [选项]",
+    "definition": "显示 CPU 架构、核数、频率、缓存等详细信息。",
+    "points": [
+      "lscpu 看核数与架构",
+      "交叉编译前确认目标架构",
+      "配合 uname -m 判断"
+    ]
+  },
+  {
+    "abbr": "md5sum",
+    "full": "Checksum",
+    "zh": "文件校验",
+    "category": "Linux 命令",
+    "usage": "md5sum 文件...   （sha256sum 同用法）",
+    "definition": "计算文件 MD5 校验值，验证完整性。",
+    "options": [
+      {
+        "o": "-c",
+        "d": "按校验清单校验：md5sum -c CHECKSUM"
+      },
+      {
+        "o": "-b",
+        "d": "二进制模式"
+      }
+    ],
+    "points": [
+      "固件下载后校验防损坏",
+      "md5sum app.bin 与发布值对比",
+      "sha256sum 更安全（推荐）"
+    ]
+  },
+  {
+    "abbr": "traceroute",
+    "full": "Trace Route",
+    "zh": "路由追踪",
+    "category": "Linux 命令",
+    "usage": "traceroute [选项] 目标",
+    "definition": "探测到目标经过的每一跳路由与延迟。",
+    "options": [
+      {
+        "o": "-n",
+        "d": "不解析主机名"
+      },
+      {
+        "o": "-m",
+        "d": "最大跳数（默认 30）"
+      },
+      {
+        "o": "-w",
+        "d": "等待超时"
+      },
+      {
+        "o": "-I",
+        "d": "ICMP 探测（默认 UDP）"
+      }
+    ],
+    "points": [
+      "网络不通定位到具体哪一跳",
+      "ping 通但 traceroute 超时常见",
+      "嵌入式跨网段调试"
+    ]
+  },
+  {
+    "abbr": "route",
+    "full": "Routing Table",
+    "zh": "路由表",
+    "category": "Linux 命令",
+    "usage": "route [-n]   route add/del 目标 via 网关",
+    "definition": "查看/操作内核路由表（新系统推荐 ip route）。",
+    "options": [
+      {
+        "o": "-n",
+        "d": "数字显示不解析"
+      },
+      {
+        "o": "add",
+        "d": "添加路由：route add default gw 192.168.1.1"
+      },
+      {
+        "o": "del",
+        "d": "删除路由"
+      }
+    ],
+    "points": [
+      "route -n 看默认网关",
+      "嵌入式多网卡路由配置",
+      "ip route 是现代替代"
+    ]
+  },
+  {
+    "abbr": "watch",
+    "full": "Periodic Execution",
+    "zh": "周期执行",
+    "category": "Linux 命令",
+    "usage": "watch [选项] 命令",
+    "definition": "定时重复执行命令并刷新显示，监控变化利器。",
+    "options": [
+      {
+        "o": "-n",
+        "d": "间隔秒数：watch -n 2 cmd"
+      },
+      {
+        "o": "-d",
+        "d": "高亮变化内容"
+      }
+    ],
+    "points": [
+      "watch -n 1 free -h 监控内存",
+      "watch -d 'ls /dev' 看设备热插拔",
+      "watch cat /proc/interrupts 查中断"
+    ]
+  },
+  {
+    "abbr": "time",
+    "full": "Measure Time",
+    "zh": "命令计时",
+    "category": "Linux 命令",
+    "usage": "time 命令",
+    "definition": "测量命令执行耗时（real/user/sys 三行）。",
+    "points": [
+      "time make 编译耗时",
+      "shell 内建 time 与 /usr/bin/time 输出不同",
+      "性能对比标准工具"
+    ]
+  },
+  {
+    "abbr": "screen",
+    "full": "Terminal Multiplexer",
+    "zh": "终端复用",
+    "category": "Linux 命令",
+    "usage": "screen [选项]   （tmux 为同类工具）",
+    "definition": "会话保持的终端复用器：SSH 断开后任务继续。",
+    "options": [
+      {
+        "o": "-S",
+        "d": "会话名：screen -S work"
+      },
+      {
+        "o": "分离/恢复",
+        "d": "Ctrl+A D 分离；screen -r 恢复"
+      },
+      {
+        "o": "-ls",
+        "d": "列出会话"
+      }
+    ],
+    "points": [
+      "长时间编译/刷机不怕断线",
+      "串口调试：screen /dev/ttyUSB0 115200",
+      "tmux 功能更强，语法不同"
+    ]
+  },
+  {
+    "abbr": "crontab",
+    "full": "Cron Table",
+    "zh": "定时任务",
+    "category": "Linux 命令",
+    "usage": "crontab [选项]",
+    "definition": "管理用户定时任务（分 时 日 月 周 命令）。",
+    "options": [
+      {
+        "o": "-e",
+        "d": "编辑任务表"
+      },
+      {
+        "o": "-l",
+        "d": "列出任务"
+      },
+      {
+        "o": "-r",
+        "d": "清空任务"
+      },
+      {
+        "o": "格式",
+        "d": "0 2 * * * cmd 每天 2 点执行"
+      }
+    ],
+    "points": [
+      "嵌入式设备定时上报/清理日志",
+      "日志轮转 logrotate 依赖 cron",
+      "cron 服务需运行：systemctl enable cron"
+    ]
+  },
+  {
+    "abbr": "iptables",
+    "full": "Netfilter Firewall",
+    "zh": "防火墙",
+    "category": "Linux 命令",
+    "usage": "iptables [选项] 链 规则   （-A INPUT -p tcp --dport 22 -j ACCEPT）",
+    "definition": "Linux 内核防火墙规则管理（Netfilter）。",
+    "options": [
+      {
+        "o": "-A/-D",
+        "d": "追加/删除规则"
+      },
+      {
+        "o": "-L",
+        "d": "列出规则"
+      },
+      {
+        "o": "-p",
+        "d": "协议：tcp/udp/icmp"
+      },
+      {
+        "o": "--dport",
+        "d": "目标端口"
+      },
+      {
+        "o": "-j",
+        "d": "动作：ACCEPT/DROP/REJECT"
+      }
+    ],
+    "points": [
+      "iptables -L -n 查看规则",
+      "新系统用 nftables（nft 命令）",
+      "嵌入式网关/安全策略配置"
+    ]
+  },
+  {
+    "abbr": "iperf",
+    "full": "Bandwidth Test",
+    "zh": "网络测速",
+    "category": "Linux 命令",
+    "usage": "iperf -s（服务端）  iperf -c 主机（客户端）",
+    "definition": "TCP/UDP 吞吐量测试工具，评估网络性能。",
+    "options": [
+      {
+        "o": "-s",
+        "d": "服务端模式"
+      },
+      {
+        "o": "-c",
+        "d": "客户端模式指向服务端"
+      },
+      {
+        "o": "-u",
+        "d": "UDP 测试"
+      },
+      {
+        "o": "-i",
+        "d": "间隔报告"
+      },
+      {
+        "o": "-b",
+        "d": "UDP 带宽限制"
+      }
+    ],
+    "points": [
+      "板子 iperf -s，PC iperf -c ip 测吞吐",
+      "验证网卡协商速率是否达标",
+      "iperf3 为新一代版本"
+    ]
+  },
+  {
+    "abbr": "hostname",
+    "full": "Host Name",
+    "zh": "主机名",
+    "category": "Linux 命令",
+    "usage": "hostname [名称]",
+    "definition": "查看或临时设置主机名。",
+    "points": [
+      "hostname 显示当前主机名",
+      "持久化在 /etc/hostname",
+      "嵌入式设备命名/网络标识"
+    ]
+  },
+  {
+    "abbr": "stat",
+    "full": "File Status",
+    "zh": "文件状态",
+    "category": "Linux 命令",
+    "usage": "stat [选项] 文件",
+    "definition": "显示文件详细信息：大小、inode、权限、时间戳（含纳秒）。",
+    "points": [
+      "stat file 比 ls -l 信息全",
+      "stat -c '%Y' file 取修改时间戳",
+      "atime/mtime/ctime 区别排查"
+    ]
+  },
+  {
+    "abbr": "readlink",
+    "full": "Resolve Symlink",
+    "zh": "符号链接解析",
+    "category": "Linux 命令",
+    "usage": "readlink [选项] 文件",
+    "definition": "显示符号链接指向的真实路径。",
+    "points": [
+      "readlink -f 递归解析到最终路径",
+      "脚本中取真实路径：$(readlink -f $0)",
+      "排查链接链断裂"
+    ]
+  },
+  {
+    "abbr": "env",
+    "full": "Environment",
+    "zh": "环境变量",
+    "category": "Linux 命令",
+    "usage": "env [选项] [变量=值] 命令",
+    "definition": "查看环境变量，或为命令指定临时环境执行。",
+    "points": [
+      "env 列出全部环境变量",
+      "env | grep PATH 过滤查看",
+      "交叉编译临时环境：env PATH=... make"
+    ]
+  },
+  {
+    "abbr": "apt",
+    "full": "Package Manager",
+    "zh": "包管理",
+    "category": "Linux 命令",
+    "usage": "apt [子命令] 包名   （update/install/remove/search）",
+    "definition": "Debian/Ubuntu 系软件包管理（dpkg 为底层工具）。",
+    "options": [
+      {
+        "o": "update",
+        "d": "更新软件源索引"
+      },
+      {
+        "o": "install",
+        "d": "安装：apt install gcc"
+      },
+      {
+        "o": "remove",
+        "d": "卸载"
+      },
+      {
+        "o": "search",
+        "d": "搜索包"
+      },
+      {
+        "o": "dpkg",
+        "d": "底层：dpkg -i 包.deb 安装、dpkg -l 列出"
+      }
+    ],
+    "points": [
+      "apt update 后才能 apt install",
+      "嵌入式开发机装交叉工具链/库",
+      "板子上用 apt 装包需网络与源配置"
+    ]
+  },
+  {
+    "abbr": "hexdump",
+    "full": "Hex View",
+    "zh": "十六进制查看",
+    "category": "Linux 命令",
+    "usage": "hexdump [选项] 文件",
+    "definition": "以十六进制/ASCII 查看文件内容，二进制分析利器。",
+    "options": [
+      {
+        "o": "-C",
+        "d": "规范格式（十六进制+ASCII 双列）"
+      },
+      {
+        "o": "-n",
+        "d": "只显示前 N 字节"
+      },
+      {
+        "o": "-s",
+        "d": "跳过开头 N 字节"
+      }
+    ],
+    "points": [
+      "hexdump -C app.bin | head 看固件头",
+      "xxd 功能类似（vim 内置）",
+      "比对二进制文件差异"
+    ]
+  },
+  {
+    "abbr": "dig",
+    "full": "DNS Lookup",
+    "zh": "DNS 查询",
+    "category": "Linux 命令",
+    "usage": "dig [选项] 域名   （nslookup 为简化版）",
+    "definition": "DNS 解析查询工具，查看域名解析全过程。",
+    "options": [
+      {
+        "o": "@服务器",
+        "d": "指定 DNS 服务器：dig @8.8.8.8"
+      },
+      {
+        "o": "类型",
+        "d": "A/AAAA/MX/TXT 记录：dig example.com MX"
+      },
+      {
+        "o": "+short",
+        "d": "简短输出"
+      }
+    ],
+    "points": [
+      "dig example.com +short 快速解析",
+      "nslookup 简单查询",
+      "DNS 故障排查核心工具"
+    ]
+  },
+  {
+    "abbr": "FreeRTOS",
+    "full": "Real-Time Operating System",
+    "zh": "FreeRTOS 实时操作系统",
+    "category": "内核与系统",
+    "usage": "FreeRTOS   （任务/队列/信号量/定时器 API）",
+    "definition": "最流行的开源嵌入式实时操作系统，任务调度、IPC、内存管理。",
+    "options": [
+      {
+        "o": "任务",
+        "d": "xTaskCreate 创建、vTaskDelay 延时、vTaskDelete 删除"
+      },
+      {
+        "o": "IPC",
+        "d": "xQueueSend/Receive 队列、xSemaphoreTake/Give 信号量"
+      },
+      {
+        "o": "调度",
+        "d": "优先级抢占 + 时间片轮转；configMAX_PRIORITIES 配置"
+      },
+      {
+        "o": "内存",
+        "d": "heap_1..heap_5 五种堆实现可选"
+      }
+    ],
+    "points": [
+      "configTICK_RATE_HZ 配置系统节拍",
+      "移植需提供 SysTick 与 PendSV 中断",
+      "Amazon 收购后改名 FreeRTOS Kernel"
+    ]
+  },
+  {
+    "abbr": "RPMsg",
+    "full": "Remote Processor Messaging",
+    "zh": "核间消息通信",
+    "category": "内核与系统",
+    "usage": "RPMsg   （virtio 之上的核间消息框架）",
+    "definition": "Linux 与协处理器（MCU/DSP）之间的消息传递框架，基于 virtio。",
+    "points": [
+      "rproc 加载固件后通过 RPMsg 通信",
+      "传输层可由共享内存 + 中断实现",
+      "AMP 异构多核方案的通信骨干"
+    ]
+  },
+  {
+    "abbr": "Mailbox",
+    "full": "Inter-Processor Mailbox",
+    "zh": "核间邮箱",
+    "category": "内核与系统",
+    "usage": "Mailbox   （硬件邮箱寄存器 + 中断）",
+    "definition": "核间通信的硬件邮箱机制：发送消息并触发对方中断。",
+    "points": [
+      "Linux mailbox framework：mbox_send_message",
+      "底层依赖 SoC 邮箱硬件（如 IMX MU）",
+      "常作为 RPMsg 的底层传输"
+    ]
+  },
+  {
+    "abbr": "LLDP",
+    "full": "Link Layer Discovery Protocol",
+    "zh": "链路层发现协议",
+    "category": "网络协议",
+    "usage": "LLDP   （IEEE 802.1AB）",
+    "definition": "设备向邻居通告自身能力（名称、端口、VLAN、能力）的链路层协议。",
+    "points": [
+      "交换机/网管设备自动发现拓扑",
+      "嵌入式交换机芯片常支持",
+      "替代厂商私有 CDP"
+    ]
+  },
+  {
+    "abbr": "STP",
+    "full": "Spanning Tree Protocol",
+    "zh": "生成树协议",
+    "category": "网络协议",
+    "usage": "STP（IEEE 802.1D）/ RSTP（802.1w）/ MSTP（802.1s）",
+    "definition": "通过阻塞冗余链路消除二层环路，防止广播风暴。",
+    "points": [
+      "根桥选举 + BPDU 交换",
+      "RSTP 收敛更快（毫秒级）",
+      "嵌入式交换芯片必须支持"
+    ]
+  },
+  {
+    "abbr": "RMII",
+    "full": "Reduced Media Independent Interface",
+    "zh": "精简介质无关接口",
+    "category": "总线协议",
+    "usage": "RMII   （10/100M 以太网 MAC-PHY 接口，7 根线）",
+    "definition": "以太网 MAC 与 PHY 之间的精简接口，比 MII 少一半引脚。",
+    "points": [
+      "10/100M 时 50MHz 参考时钟",
+      "需外部 50MHz 时钟源（CLK 引脚）",
+      "嵌入式 SoC 以太网接口标配"
+    ]
+  },
+  {
+    "abbr": "CANopen",
+    "full": "CAN Application Layer",
+    "zh": "CANopen 协议",
+    "category": "总线协议",
+    "usage": "CANopen   （对象字典 + SDO/PDO + NMT）",
+    "definition": "基于 CAN 总线的应用层协议，工业自动化/运动控制主流。",
+    "points": [
+      "对象字典（OD）统一描述设备对象",
+      "PDO 实时过程数据、SDO 参数配置",
+      "NMT 节点管理（启动/停止/复位）"
+    ]
+  },
+  {
+    "abbr": "ROM",
+    "full": "Read-Only Memory",
+    "zh": "只读存储器",
+    "category": "硬件与存储",
+    "usage": "ROM   （BootROM/Mask ROM）",
+    "definition": "只读存储器：出厂固化，掉电不丢失，不可（或难）改写。",
+    "points": [
+      "BootROM 上电即执行，引导加载",
+      "Mask ROM 量产掩膜编程",
+      "与 Flash 的区别：不能在线擦写"
+    ]
+  },
+  {
+    "abbr": "DCDC",
+    "full": "DC-DC Converter",
+    "zh": "开关电源",
+    "category": "硬件与存储",
+    "usage": "DCDC   （Buck/Boost/Buck-Boost）",
+    "definition": "开关电源转换器：高效率，但输出纹波较大，需外部电感。",
+    "points": [
+      "Buck 降压、Boost 升压",
+      "效率高于 LDO（90%+），适合大电流",
+      "纹波大，敏感模拟电路慎用"
+    ]
+  },
+  {
+    "abbr": "EROFS",
+    "full": "Enhanced Read-Only File System",
+    "zh": "增强只读文件系统",
+    "category": "文件系统",
+    "usage": "EROFS   （Linux 只读压缩文件系统）",
+    "definition": "面向只读场景的高性能压缩文件系统，安卓系统分区与嵌入式量产常用。",
+    "points": [
+      "内联压缩（LZ4/LZMA），节省空间",
+      "随机读性能优于 SquashFS",
+      "Android 与发行版系统分区新宠"
+    ]
+  },
+  {
+    "abbr": "gz",
+    "full": "Gzip Compressed",
+    "zh": "gzip 压缩文件",
+    "category": "文件后缀",
+    "usage": "*.gz   （gzip 压缩；tar.gz 打包压缩）",
+    "definition": "gzip 压缩的文件后缀，Linux 环境最常见的压缩格式。",
+    "points": [
+      "gzip -d 解压；tar xzf 解压 tar.gz",
+      "单文件压缩格式，不含归档",
+      "与 gzip 命令词条配套"
+    ]
+  },
+  {
+    "abbr": "tar.gz",
+    "full": "Gzipped Tarball",
+    "zh": "打包压缩文件",
+    "category": "文件后缀",
+    "usage": "*.tar.gz（等价 .tgz）",
+    "definition": "tar 打包 + gzip 压缩的归档格式，源码/固件分发最常见。",
+    "points": [
+      "tar xzf 解压；tar czf 创建",
+      "源码包默认格式",
+      "解压前 file 命令确认格式"
+    ]
+  },
+  {
+    "abbr": "pdf",
+    "full": "Portable Document Format",
+    "zh": "PDF 文档",
+    "category": "文件后缀",
+    "usage": "*.pdf",
+    "definition": "跨平台电子文档格式，芯片手册/数据手册标准格式。",
+    "points": [
+      "查看器：evince/foxit/浏览器",
+      "pdftotext 可提取文本",
+      "芯片 datasheet 均以 PDF 发布"
+    ]
+  },
+  {
+    "abbr": "png",
+    "full": "Portable Network Graphics",
+    "zh": "PNG 图片",
+    "category": "文件后缀",
+    "usage": "*.png",
+    "definition": "无损压缩位图格式，支持透明，嵌入式 UI 素材常用。",
+    "points": [
+      "LVGL/emWin 图标素材常用",
+      "无损耗压缩，适合界面元素",
+      "scrot/import 截屏工具输出"
+    ]
+  },
+  {
+    "abbr": "MUL",
+    "full": "Multiply",
+    "zh": "乘法指令",
+    "category": "汇编指令",
+    "usage": "MUL Rd, Rn, Rm   （Cortex-M 另有 MLA/MLS 乘加）",
+    "definition": "乘法指令，两寄存器相乘结果存入目标寄存器。",
+    "points": [
+      "MUL r0, r1, r2",
+      "Cortex-M 还有 UMULL/SMULL 64 位乘",
+      "注意 MUL 与 MLA 标志位行为差异"
+    ]
+  },
+  {
+    "abbr": "AND",
+    "full": "Bitwise AND",
+    "zh": "逻辑与",
+    "category": "汇编指令",
+    "usage": "AND Rd, Rn, Rm|#立即数",
+    "definition": "按位与运算，常用于位清零/掩码提取。",
+    "points": [
+      "AND r0, r1, #0xFF 取低字节",
+      "位清零：AND r0, r0, #~0x01",
+      "BIC 指令专门做位清除"
+    ]
+  },
+  {
+    "abbr": "ORR",
+    "full": "Bitwise OR",
+    "zh": "逻辑或",
+    "category": "汇编指令",
+    "usage": "ORR Rd, Rn, Rm|#立即数",
+    "definition": "按位或运算，常用于置位/组合标志。",
+    "points": [
+      "ORR r0, r0, #0x01 置位",
+      "寄存器位操作三件套：AND/ORR/EOR",
+      "BICS 常配 TST 做标志判断"
+    ]
+  },
+  {
+    "abbr": "EOR",
+    "full": "Bitwise XOR",
+    "zh": "逻辑异或",
+    "category": "汇编指令",
+    "usage": "EOR Rd, Rn, Rm|#立即数",
+    "definition": "按位异或运算，常用于位翻转与校验。",
+    "points": [
+      "EOR r0, r0, #0xFF 翻转低字节",
+      "异或加密/校验算法基础",
+      "TEQ 用 EOR 结果更新标志"
+    ]
+  },
+  {
+    "abbr": "TST",
+    "full": "Test Bits",
+    "zh": "位测试",
+    "category": "汇编指令",
+    "usage": "TST Rn, Rm|#立即数   （按位与但不写结果，只更新标志）",
+    "definition": "按位与测试但不保存结果，更新 Z 标志判断某位是否为 0。",
+    "points": [
+      "TST r0, #0x01 测最低位",
+      "BNE 分支判断位为 1",
+      "等价 AND 但无结果寄存器"
+    ]
+  },
+  {
+    "abbr": "LSL/LSR",
+    "full": "Logical Shift",
+    "zh": "逻辑移位",
+    "category": "汇编指令",
+    "usage": "LSL Rd, Rn, #n（左移）  LSR Rd, Rn, #n（右移）   （ASR 算术右移、ROR 循环右移）",
+    "definition": "移位指令：左移/右移，乘法除法的高效替代。",
+    "points": [
+      "LSL r0, r0, #2 乘 4",
+      "LSR 逻辑右移高位补零",
+      "ASR 算术右移保留符号位"
+    ]
+  },
+  {
+    "abbr": "SVC",
+    "full": "Supervisor Call",
+    "zh": "软中断指令",
+    "category": "汇编指令",
+    "usage": "SVC #编号   （触发 SVC 异常，进入内核/系统调用）",
+    "definition": "软件中断指令：主动触发异常，用于系统调用与 RTOS 上下文切换。",
+    "points": [
+      "Cortex-M 上 SVC 用于系统调用入口",
+      "FreeRTOS 用 SVC 启动调度器",
+      "传统 ARM 系统调用机制"
+    ]
+  },
+  {
+    "abbr": "CBZ/CBNZ",
+    "full": "Compare and Branch",
+    "zh": "零值分支",
+    "category": "汇编指令",
+    "usage": "CBZ Rn, 标号（为零跳转）  CBNZ Rn, 标号（非零跳转）   （仅 Thumb-2）",
+    "definition": "比较寄存器是否为零并条件跳转，Thumb-2 单指令完成。",
+    "points": [
+      "CBNZ r0, loop 非零循环",
+      "省一条 CMP 指令",
+      "仅支持前向跳转 ±126 字节"
+    ]
+  },
+  {
+    "abbr": "$?",
+    "full": "Newer Prerequisites (Make)",
+    "zh": "更新的依赖（Make）",
+    "category": "Make 语法",
+    "usage": "$?   （比目标新的依赖文件列表）",
+    "definition": "Makefile 自动变量：比目标文件新的依赖列表，常用于增量处理。",
+    "points": [
+      "增量安装：cp $? $(DESTDIR)",
+      "与 Shell 的 $?（退出码）含义不同",
+      "配合打包/发布规则使用"
+    ]
+  },
+  {
+    "abbr": "$*",
+    "full": "All Arguments (Joined)",
+    "zh": "所有参数（合并）",
+    "category": "Shell 脚本",
+    "usage": "$*   （所有位置参数合并为单一字符串）",
+    "definition": "Shell 中所有位置参数合并为一个字符串，默认以 IFS 首字符（空格）分隔。",
+    "points": [
+      "\"$@\" 保留每个参数边界（推荐）",
+      "\"$*\" 合并后可能改变参数边界",
+      "与 Make 的 $*（模式规则 stem）含义不同"
+    ]
+  },
+  {
+    "abbr": "ld",
+    "full": "GNU Linker",
+    "zh": "GNU 链接器",
+    "category": "构建与工具链",
+    "usage": "ld [选项] 目标文件...   （实际多用 gcc 间接调用）",
+    "definition": "GNU 链接器：将目标文件与库链接为可执行文件，按链接脚本布局。",
+    "points": [
+      "gcc 编译后内部调用 ld（collect2）",
+      "-T 指定链接脚本、-Map 生成映射",
+      "与 .ld 链接脚本后缀同名，注意区分"
+    ]
+  },
+  {
+    "abbr": "ssh",
+    "full": "Secure Shell Client",
+    "zh": "远程登录命令",
+    "category": "Linux 命令",
+    "usage": "ssh [选项] 用户@主机 [远程命令]",
+    "definition": "加密远程登录/执行远程命令，嵌入式开发标配。",
+    "options": [
+      {
+        "o": "-p",
+        "d": "指定端口（默认 22）"
+      },
+      {
+        "o": "-i",
+        "d": "指定私钥文件"
+      },
+      {
+        "o": "-X",
+        "d": "X11 转发"
+      },
+      {
+        "o": "-o",
+        "d": "选项：-o ConnectTimeout=5"
+      }
+    ],
+    "points": [
+      "ssh root@192.168.1.100 登录板子",
+      "ssh user@host 'ls /opt' 免登录执行",
+      "与 SSH 协议词条同名（命令/协议区分）"
+    ]
+  },
+  {
+    "abbr": "scp",
+    "full": "Secure Copy",
+    "zh": "远程拷贝",
+    "category": "Linux 命令",
+    "usage": "scp [选项] 源 目标",
+    "definition": "基于 SSH 的加密文件拷贝，本地与远程互传。",
+    "options": [
+      {
+        "o": "-r",
+        "d": "递归拷贝目录"
+      },
+      {
+        "o": "-P",
+        "d": "指定端口（大写）"
+      },
+      {
+        "o": "-C",
+        "d": "压缩传输"
+      }
+    ],
+    "points": [
+      "scp app.bin root@ip:/opt/ 传固件",
+      "scp -r ./libs root@ip:/usr/lib/ 部署库",
+      "与 SCP 协议词条同名（命令/协议区分）"
+    ]
+  },
+  {
+    "abbr": "zip",
+    "full": "ZIP Archive (File)",
+    "zh": "zip 压缩包",
+    "category": "文件后缀",
+    "usage": "*.zip   （与 zip 命令配套）",
+    "definition": "跨平台压缩归档格式，Windows 生态最常见。",
+    "points": [
+      "unzip 解压、zip 打包",
+      "固件/烧录工具分发常用",
+      "与 zip 命令词条同名（命令/后缀区分）"
+    ]
+  },
+  {
+    "abbr": "git init",
+    "full": "Initialize Repository",
+    "zh": "初始化仓库",
+    "category": "Git 操作",
+    "usage": "git init   （当前目录新建 .git 仓库）",
+    "definition": "在当前目录创建新的 git 仓库（生成 .git 目录）。",
+    "options": [
+      {
+        "o": "git init 目录",
+        "d": "在指定目录初始化"
+      },
+      {
+        "o": "--bare",
+        "d": "创建裸仓库（服务端用）"
+      }
+    ],
+    "points": [
+      "首次使用 git 的第一步",
+      "已有 .git 时重复执行安全",
+      "配合 git add/commit 开始管理"
+    ]
+  },
+  {
+    "abbr": "git clone",
+    "full": "Clone Repository",
+    "zh": "克隆仓库",
+    "category": "Git 操作",
+    "usage": "git clone [选项] 仓库地址 [目录]",
+    "definition": "将远程仓库完整复制到本地（含全部历史与分支）。",
+    "options": [
+      {
+        "o": "--depth 1",
+        "d": "浅克隆只取最新提交（大仓库提速）"
+      },
+      {
+        "o": "-b 分支",
+        "d": "克隆后切换到指定分支"
+      },
+      {
+        "o": "--recursive",
+        "d": "同时拉取子模块"
+      }
+    ],
+    "points": [
+      "https/ssh 地址均可",
+      "嵌入式 SDK 大仓库常用 --depth 1",
+      "克隆后自动配置 origin 远程"
+    ]
+  },
+  {
+    "abbr": "git status",
+    "full": "Show Status",
+    "zh": "查看状态",
+    "category": "Git 操作",
+    "usage": "git status",
+    "definition": "显示工作区与暂存区状态：已修改/已暂存/未跟踪文件。",
+    "options": [
+      {
+        "o": "-s",
+        "d": "简短输出（一行一个文件）"
+      },
+      {
+        "o": "-b",
+        "d": "同时显示当前分支与跟踪信息"
+      }
+    ],
+    "points": [
+      "提交前必看",
+      "红色=已修改未暂存、绿色=已暂存",
+      "Untracked files 是新文件未跟踪"
+    ]
+  },
+  {
+    "abbr": "git add",
+    "full": "Stage Changes",
+    "zh": "暂存更改",
+    "category": "Git 操作",
+    "usage": "git add [选项] 路径...",
+    "definition": "将工作区更改加入暂存区（staging），准备提交。",
+    "options": [
+      {
+        "o": "-A",
+        "d": "暂存全部（含删除，git add -A 或 git add .）"
+      },
+      {
+        "o": "-p",
+        "d": "交互式分段暂存"
+      },
+      {
+        "o": "-u",
+        "d": "只暂存已跟踪文件的修改/删除"
+      }
+    ],
+    "points": [
+      "git add -A 后 git commit 常规流程",
+      "只 add 不想提交的部分实现分批提交",
+      "误暂存用 git reset 撤销"
+    ]
+  },
+  {
+    "abbr": "git commit",
+    "full": "Commit Changes",
+    "zh": "提交",
+    "category": "Git 操作",
+    "usage": "git commit [选项]",
+    "definition": "将暂存区内容固化为一个提交（commit），记录到历史。",
+    "options": [
+      {
+        "o": "-m",
+        "d": "提交信息：git commit -m '说明'"
+      },
+      {
+        "o": "-a",
+        "d": "跳过 add 直接提交已跟踪文件的修改"
+      },
+      {
+        "o": "--amend",
+        "d": "修改上一次提交（信息或补文件）"
+      }
+    ],
+    "points": [
+      "提交信息规范：feat:/fix:/docs: 前缀",
+      "--amend 只改最后一次，已推送勿用",
+      "空提交用 --allow-empty"
+    ]
+  },
+  {
+    "abbr": "git log",
+    "full": "Commit History",
+    "zh": "提交历史",
+    "category": "Git 操作",
+    "usage": "git log [选项] [范围]",
+    "definition": "查看提交历史，可过滤、美化、按文件追踪。",
+    "options": [
+      {
+        "o": "--oneline",
+        "d": "单行摘要（哈希+信息）"
+      },
+      {
+        "o": "-n",
+        "d": "只显示最近 N 条"
+      },
+      {
+        "o": "--graph",
+        "d": "ASCII 图形显示分支拓扑"
+      },
+      {
+        "o": "--all",
+        "d": "所有分支历史"
+      },
+      {
+        "o": "-- 文件",
+        "d": "只看该文件的历史"
+      }
+    ],
+    "points": [
+      "git log --oneline 日常最常用",
+      "git log -p 看每次提交的补丁",
+      "git log --author=xxx 按作者过滤"
+    ]
+  },
+  {
+    "abbr": "git diff",
+    "full": "Show Changes",
+    "zh": "查看差异",
+    "category": "Git 操作",
+    "usage": "git diff [选项] [范围/文件]",
+    "definition": "显示工作区与暂存区/提交之间的内容差异。",
+    "options": [
+      {
+        "o": "无参数",
+        "d": "工作区 vs 暂存区"
+      },
+      {
+        "o": "--staged",
+        "d": "暂存区 vs 上次提交（--cached 同义）"
+      },
+      {
+        "o": "--stat",
+        "d": "只显示变更统计"
+      },
+      {
+        "o": "提交A 提交B",
+        "d": "两个提交之间差异"
+      }
+    ],
+    "points": [
+      "提交前 git diff 检查改动",
+      "git diff --stat 快速了解变更规模",
+      "嵌入式代码 review 常用"
+    ]
+  },
+  {
+    "abbr": "git branch",
+    "full": "Branch Management",
+    "zh": "分支管理",
+    "category": "Git 操作",
+    "usage": "git branch [选项] [分支名]",
+    "definition": "列出/创建/删除分支。",
+    "options": [
+      {
+        "o": "无参数",
+        "d": "列出本地分支（* 当前分支）"
+      },
+      {
+        "o": "分支名",
+        "d": "创建新分支"
+      },
+      {
+        "o": "-d/-D",
+        "d": "删除分支（-D 强制）"
+      },
+      {
+        "o": "-a",
+        "d": "列出所有分支（含远程）"
+      },
+      {
+        "o": "-r",
+        "d": "只列远程分支"
+      }
+    ],
+    "points": [
+      "git branch -a 看全部分支",
+      "删除已合并分支用 -d，未合并需 -D",
+      "切换用 git checkout/switch"
+    ]
+  },
+  {
+    "abbr": "git checkout",
+    "full": "Switch Branch/Restore",
+    "zh": "切换分支/恢复",
+    "category": "Git 操作",
+    "usage": "git checkout [分支名|提交|-- 文件]",
+    "definition": "切换分支、检出历史版本，或用某版本恢复文件。",
+    "options": [
+      {
+        "o": "分支名",
+        "d": "切换到分支"
+      },
+      {
+        "o": "-b 新分支",
+        "d": "创建并切换（等价 git switch -c）"
+      },
+      {
+        "o": "提交 -- 文件",
+        "d": "从指定提交恢复文件"
+      },
+      {
+        "o": "-- .",
+        "d": "丢弃工作区修改（危险）"
+      }
+    ],
+    "points": [
+      "新版本推荐 git switch 切分支、git restore 恢复文件",
+      "checkout 丢修改前确认无未保存内容",
+      "嵌入式多版本固件管理常用"
+    ]
+  },
+  {
+    "abbr": "git merge",
+    "full": "Merge Branches",
+    "zh": "合并分支",
+    "category": "Git 操作",
+    "usage": "git merge [选项] 分支名",
+    "definition": "将指定分支的更改合并到当前分支，生成合并提交。",
+    "options": [
+      {
+        "o": "--no-ff",
+        "d": "禁用快进，保留分支历史"
+      },
+      {
+        "o": "--abort",
+        "d": "冲突时放弃合并"
+      },
+      {
+        "o": "-m",
+        "d": "合并提交信息"
+      }
+    ],
+    "points": [
+      "冲突文件需手动解决后 git add + commit",
+      "git merge --abort 可回滚到合并前",
+      "rebase 是另一种整合方式"
+    ]
+  },
+  {
+    "abbr": "git rebase",
+    "full": "Rebase Commits",
+    "zh": "变基",
+    "category": "Git 操作",
+    "usage": "git rebase [选项] 目标分支",
+    "definition": "将当前分支的提交重新应用到目标分支顶端，历史更线性。",
+    "options": [
+      {
+        "o": "-i",
+        "d": "交互式：合并/编辑/重排提交"
+      },
+      {
+        "o": "--continue",
+        "d": "解决冲突后继续"
+      },
+      {
+        "o": "--abort",
+        "d": "放弃变基"
+      }
+    ],
+    "points": [
+      "交互式 rebase 可 squash 合并提交",
+      "已推送的提交勿 rebase（会改写历史）",
+      "团队协作常 merge 保历史"
+    ]
+  },
+  {
+    "abbr": "git push",
+    "full": "Push to Remote",
+    "zh": "推送远程",
+    "category": "Git 操作",
+    "usage": "git push [远程名] [分支]",
+    "definition": "将本地提交推送到远程仓库。",
+    "options": [
+      {
+        "o": "默认",
+        "d": "推送到当前分支跟踪的远程"
+      },
+      {
+        "o": "--force/-f",
+        "d": "强制推送（改写远端历史，慎用）"
+      },
+      {
+        "o": "--tags",
+        "d": "同时推送标签"
+      },
+      {
+        "o": "-u",
+        "d": "首次推送并设置上游跟踪"
+      }
+    ],
+    "points": [
+      "推送前先 git pull 同步（避免冲突）",
+      "强制推送会覆盖远端，团队协作禁用",
+      "嵌入式项目发布版本常用 tag + push"
+    ]
+  },
+  {
+    "abbr": "git pull",
+    "full": "Pull and Merge",
+    "zh": "拉取合并",
+    "category": "Git 操作",
+    "usage": "git pull [远程名] [分支]",
+    "definition": "git fetch + merge：拉取远程更改并合并到当前分支。",
+    "options": [
+      {
+        "o": "--rebase",
+        "d": "以变基方式拉取（历史更干净）"
+      },
+      {
+        "o": "--ff-only",
+        "d": "只允许快进，否则报错"
+      }
+    ],
+    "points": [
+      "pull 有冲突需手动解决",
+      "多人协作建议 pull --rebase",
+      "先 pull 再 push 是常规顺序"
+    ]
+  },
+  {
+    "abbr": "git fetch",
+    "full": "Fetch Remote",
+    "zh": "获取远程",
+    "category": "Git 操作",
+    "usage": "git fetch [远程名]",
+    "definition": "下载远程最新提交到本地远程跟踪分支，但不合并到工作区。",
+    "options": [
+      {
+        "o": "--all",
+        "d": "获取所有远程"
+      },
+      {
+        "o": "--prune",
+        "d": "删除已不存在的远程分支引用"
+      }
+    ],
+    "points": [
+      "fetch 后 git log origin/main 查看差异",
+      "安全操作，不影响工作区",
+      "先 fetch 再 diff 决定是否合并"
+    ]
+  },
+  {
+    "abbr": "git remote",
+    "full": "Remote Management",
+    "zh": "远程仓库管理",
+    "category": "Git 操作",
+    "usage": "git remote [子命令]",
+    "definition": "管理远程仓库别名与地址。",
+    "options": [
+      {
+        "o": "无参数",
+        "d": "列出远程名（默认 origin）"
+      },
+      {
+        "o": "-v",
+        "d": "显示远程名与地址"
+      },
+      {
+        "o": "add 名 地址",
+        "d": "添加远程"
+      },
+      {
+        "o": "remove/rename",
+        "d": "删除/重命名远程"
+      }
+    ],
+    "points": [
+      "git remote -v 查看推送/拉取地址",
+      "多远程协作（fork 工作流）",
+      "更换仓库地址：git remote set-url"
+    ]
+  },
+  {
+    "abbr": "git reset",
+    "full": "Reset Changes",
+    "zh": "回退",
+    "category": "Git 操作",
+    "usage": "git reset [模式] [提交]",
+    "definition": "将当前分支指针回退到指定提交，可带文件撤销暂存。",
+    "options": [
+      {
+        "o": "--soft",
+        "d": "只移指针，保留暂存与工作区"
+      },
+      {
+        "o": "--mixed",
+        "d": "默认：撤销暂存但保留工作区"
+      },
+      {
+        "o": "--hard",
+        "d": "完全回退（工作区一起丢，慎用）"
+      },
+      {
+        "o": "文件",
+        "d": "git reset -- 文件 撤销该文件暂存"
+      }
+    ],
+    "points": [
+      "误 add 撤销：git reset -- 文件",
+      "--hard 会丢工作区改动，先 stash 备份",
+      "已推送的提交不要用 reset 改"
+    ]
+  },
+  {
+    "abbr": "git revert",
+    "full": "Revert Commit",
+    "zh": "撤销提交",
+    "category": "Git 操作",
+    "usage": "git revert 提交",
+    "definition": "生成一个新提交来反向撤销指定提交的更改（不动历史）。",
+    "options": [
+      {
+        "o": "--no-commit",
+        "d": "不自动提交，多个 revert 合并"
+      }
+    ],
+    "points": [
+      "已推送的提交用 revert 而非 reset",
+      "历史保持线性可追溯",
+      "冲突时手动解决后继续"
+    ]
+  },
+  {
+    "abbr": "git stash",
+    "full": "Stash Changes",
+    "zh": "暂存工作区",
+    "category": "Git 操作",
+    "usage": "git stash [子命令]",
+    "definition": "临时保存工作区修改，恢复干净状态，稍后再取回。",
+    "options": [
+      {
+        "o": "无参数",
+        "d": "暂存已跟踪文件的修改"
+      },
+      {
+        "o": "-u",
+        "d": "连同未跟踪文件一起暂存"
+      },
+      {
+        "o": "list",
+        "d": "列出暂存栈"
+      },
+      {
+        "o": "pop",
+        "d": "恢复最近一次暂存并删除"
+      },
+      {
+        "o": "apply",
+        "d": "恢复但不删除（可多次应用）"
+      }
+    ],
+    "points": [
+      "切分支前 stash 未提交的修改",
+      "stash pop 冲突需手动解决",
+      "多份暂存用 stash list 区分"
+    ]
+  },
+  {
+    "abbr": "git clean",
+    "full": "Clean Untracked",
+    "zh": "清理未跟踪文件",
+    "category": "Git 操作",
+    "usage": "git clean [选项]",
+    "definition": "删除工作区未跟踪的文件/目录（构建产物、临时文件）。",
+    "options": [
+      {
+        "o": "-n",
+        "d": "演练：只列出将删除的文件"
+      },
+      {
+        "o": "-f",
+        "d": "实际删除（必须显式加）"
+      },
+      {
+        "o": "-d",
+        "d": "连同未跟踪目录一起删除"
+      },
+      {
+        "o": "-x",
+        "d": "连同 .gitignore 忽略的文件一起删"
+      }
+    ],
+    "points": [
+      "先 git clean -nd 演练确认",
+      "嵌入式工程清理编译产物常用",
+      "会误删重要文件，务必先 -n"
+    ]
+  },
+  {
+    "abbr": "git tag",
+    "full": "Tags",
+    "zh": "打标签",
+    "category": "Git 操作",
+    "usage": "git tag [选项] [标签名]",
+    "definition": "为提交打标签（版本号），发布版本的标准做法。",
+    "options": [
+      {
+        "o": "无参数",
+        "d": "列出标签"
+      },
+      {
+        "o": "标签名",
+        "d": "给当前提交打轻量标签"
+      },
+      {
+        "o": "-a 标签 -m 信息",
+        "d": "带注释的标签（推荐）"
+      },
+      {
+        "o": "-d 标签",
+        "d": "删除标签"
+      }
+    ],
+    "points": [
+      "嵌入式固件版本：git tag v1.2.0",
+      "推送标签：git push --tags",
+      "checkout 标签可回到发布版本"
+    ]
+  },
+  {
+    "abbr": "git show",
+    "full": "Show Commit Detail",
+    "zh": "查看提交详情",
+    "category": "Git 操作",
+    "usage": "git show [提交/标签/文件]",
+    "definition": "显示指定提交的详细信息与补丁内容。",
+    "options": [
+      {
+        "o": "提交",
+        "d": "默认显示 HEAD 提交"
+      },
+      {
+        "o": "提交:文件",
+        "d": "显示该提交中文件的内容"
+      },
+      {
+        "o": "--stat",
+        "d": "只显示统计"
+      }
+    ],
+    "points": [
+      "git show 提交哈希 审查改动",
+      "git show HEAD 看最近提交",
+      "git show v1.0:src/main.c 看历史版本文件"
+    ]
+  },
+  {
+    "abbr": "git cherry-pick",
+    "full": "Cherry Pick",
+    "zh": "挑拣提交",
+    "category": "Git 操作",
+    "usage": "git cherry-pick 提交...",
+    "definition": "把其他分支的指定提交应用到当前分支（不合并整个分支）。",
+    "options": [
+      {
+        "o": "-n",
+        "d": "应用但不自动提交"
+      },
+      {
+        "o": "--continue/--abort",
+        "d": "冲突解决后继续/放弃"
+      }
+    ],
+    "points": [
+      "把修复补丁跨分支移植",
+      "多提交按顺序逐个挑拣",
+      "冲突处理与 merge 相同"
+    ]
+  },
+  {
+    "abbr": "git reflog",
+    "full": "Reference Log",
+    "zh": "操作历史",
+    "category": "Git 操作",
+    "usage": "git reflog",
+    "definition": "记录 HEAD 移动历史（包括 reset/checkout 等），找回丢失提交的救命工具。",
+    "options": [
+      {
+        "o": "无参数",
+        "d": "HEAD 的操作日志"
+      },
+      {
+        "o": "分支名",
+        "d": "该分支的操作日志"
+      }
+    ],
+    "points": [
+      "误 reset --hard 后 reflog 找回",
+      "reflog 记录的是本地操作",
+      "找回后 git reset 提交哈希"
+    ]
+  },
+  {
+    "abbr": "git bisect",
+    "full": "Bisect Debugging",
+    "zh": "二分定位",
+    "category": "Git 操作",
+    "usage": "git bisect start / bad / good 提交",
+    "definition": "二分查找引入 bug 的提交，自动化回归定位。",
+    "options": [
+      {
+        "o": "start",
+        "d": "开始：标记当前为 bad"
+      },
+      {
+        "o": "good 提交",
+        "d": "标记已知正常提交"
+      },
+      {
+        "o": "bad/good",
+        "d": "逐个测试后标记，bisect 自动收敛"
+      },
+      {
+        "o": "run 脚本",
+        "d": "用测试脚本自动判断"
+      }
+    ],
+    "points": [
+      "定位引入 bug 的提交高效",
+      "配合脚本 git bisect run 全自动",
+      "嵌入式驱动回归测试常用"
+    ]
+  },
+  {
+    "abbr": "git blame",
+    "full": "Line Attribution",
+    "zh": "逐行追溯",
+    "category": "Git 操作",
+    "usage": "git blame [选项] 文件",
+    "definition": "显示文件每一行最后一次修改的提交与作者。",
+    "options": [
+      {
+        "o": "-L 起,止",
+        "d": "只看指定行范围"
+      },
+      {
+        "o": "-w",
+        "d": "忽略空白变更"
+      }
+    ],
+    "points": [
+      "查某行代码是谁/何时/为何修改",
+      "嵌入式代码审查与问题追责",
+      "配合 git log -p 看完整上下文"
+    ]
+  },
+  {
+    "abbr": "git config",
+    "full": "Configuration",
+    "zh": "git 配置",
+    "category": "Git 操作",
+    "usage": "git config [层级] 键 值",
+    "definition": "读写 git 配置（用户信息、别名、行为）。",
+    "options": [
+      {
+        "o": "--global",
+        "d": "用户级配置（~/.gitconfig）"
+      },
+      {
+        "o": "user.name/user.email",
+        "d": "提交身份（首次必配）"
+      },
+      {
+        "o": "alias.别名",
+        "d": "命令别名：git config --global alias.co checkout"
+      },
+      {
+        "o": "无参数 -l",
+        "d": "列出全部配置"
+      }
+    ],
+    "points": [
+      "首次使用：git config --global user.name/email",
+      "别名提速：st=status、co=checkout",
+      "仓库级配置不带 --global"
+    ]
+  },
+  {
+    "abbr": "git submodule",
+    "full": "Submodules",
+    "zh": "子模块",
+    "category": "Git 操作",
+    "usage": "git submodule add 地址 [路径]",
+    "definition": "在仓库中嵌入另一个仓库（固定其提交版本），第三方依赖管理。",
+    "options": [
+      {
+        "o": "add 地址",
+        "d": "添加子模块"
+      },
+      {
+        "o": "update --init",
+        "d": "克隆后拉取子模块内容"
+      },
+      {
+        "o": "--recursive",
+        "d": "递归处理嵌套子模块"
+      }
+    ],
+    "points": [
+      "克隆含子模块仓库：git clone --recursive",
+      "子模块记录的是提交指针非代码",
+      "嵌入式 SDK 多仓库组合常用"
+    ]
+  },
+  {
+    "abbr": "git format-patch",
+    "full": "Generate Patches",
+    "zh": "生成补丁",
+    "category": "Git 操作",
+    "usage": "git format-patch [范围]",
+    "definition": "将提交导出为 .patch 文件，Linux 内核开发的提交方式。",
+    "options": [
+      {
+        "o": "-1/-n",
+        "d": "最近 N 个提交"
+      },
+      {
+        "o": "-o 目录",
+        "d": "输出目录"
+      },
+      {
+        "o": "--cover-letter",
+        "d": "生成封面说明"
+      }
+    ],
+    "points": [
+      "内核社区提交：format-patch + 邮件发送",
+      "git am 应用补丁（对端）",
+      "与 diff 补丁的区别：含提交信息"
+    ]
+  },
+  {
+    "abbr": "git am",
+    "full": "Apply Patches",
+    "zh": "应用补丁",
+    "category": "Git 操作",
+    "usage": "git am [选项] 补丁文件",
+    "definition": "应用邮件格式补丁（format-patch 产物），保留提交信息。",
+    "options": [
+      {
+        "o": "无参数",
+        "d": "应用 .patch/.mbox 文件"
+      },
+      {
+        "o": "--continue/--abort",
+        "d": "冲突解决后继续/放弃"
+      },
+      {
+        "o": "-3",
+        "d": "三方合并降低冲突"
+      }
+    ],
+    "points": [
+      "内核补丁合入流程：git am xxx.patch",
+      "冲突时手动修后 git am --continue",
+      "与 git apply 区别：am 保留作者与信息"
+    ]
+  },
+  {
+    "abbr": "git rm",
+    "full": "Remove Files",
+    "zh": "删除并暂存",
+    "category": "Git 操作",
+    "usage": "git rm [选项] 文件...",
+    "definition": "删除文件并同时从暂存区移除（等价 rm + git add）。",
+    "options": [
+      {
+        "o": "-r",
+        "d": "递归删除目录"
+      },
+      {
+        "o": "--cached",
+        "d": "只从版本库移除，保留工作区文件"
+      }
+    ],
+    "points": [
+      "--cached 常用于修正误跟踪的文件",
+      "删除后需 commit 生效",
+      "批量清理已跟踪的构建产物"
+    ]
   }
 ]
