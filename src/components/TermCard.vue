@@ -13,7 +13,14 @@ defineProps({
     </div>
     <p v-if="term.full" class="full">{{ term.full }}</p>
     <p v-if="term.zh" class="zh">{{ term.zh }}</p>
+    <p v-if="term.usage" class="usage">{{ term.usage }}</p>
     <p class="definition">{{ term.definition }}</p>
+    <div v-if="term.options && term.options.length" class="options">
+      <div v-for="(op, i) in term.options" :key="i" class="opt">
+        <code>{{ op.o }}</code>
+        <span>{{ op.d }}</span>
+      </div>
+    </div>
     <ul v-if="term.points && term.points.length" class="points">
       <li v-for="(p, i) in term.points" :key="i">{{ p }}</li>
     </ul>
@@ -54,6 +61,43 @@ h1 {
 .zh {
   margin-top: 2px;
   color: #64748b;
+}
+
+.usage {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: #0f172a;
+  word-break: break-all;
+  line-height: 1.7;
+}
+
+.options {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  column-gap: 14px;
+  row-gap: 5px;
+}
+
+.opt code {
+  background: #eef2ff;
+  color: #3730a3;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+.opt span {
+  color: #475569;
+  font-size: 13.5px;
+  line-height: 1.9;
 }
 
 .definition {
