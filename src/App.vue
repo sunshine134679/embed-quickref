@@ -94,7 +94,7 @@ watch(query, (q) => {
 // 缩回圆点态：64×64 小窗
 async function enterCompact() {
   try {
-    await win.setMinSize(DOT_SIZE, DOT_SIZE);
+    await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
     await win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
   } catch (e) {
     console.error("缩回圆点失败", e);
@@ -105,7 +105,7 @@ async function enterCompact() {
 // 展开主界面：680×500，就地展开并纠正到可见区
 async function enterExpanded(initialView = "search") {
   try {
-    await win.setMinSize(520, 300);
+    await win.setMinSize(new LogicalSize(520, 300));
     await win.setSize(new LogicalSize(EXPAND_W, EXPAND_H));
     await clampToVisible();
   } catch (e) {
