@@ -65,7 +65,7 @@ async function onContextMenu(e) {
   justify-content: center;
   cursor: grab;
   -webkit-app-region: no-drag;
-  animation: dot-fade-in 200ms ease-out;
+  animation: dot-fade-in 160ms ease-out;
 }
 
 @keyframes dot-fade-in {

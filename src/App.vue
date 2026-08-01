@@ -42,21 +42,32 @@ const mode = ref("floating");
 const dotPosition = ref(null);
 // 展开前的圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
 let dotRestorePos = null;
+// 圆点挂载时机：动画路径下缩窗完成前不挂载，避免圆点在大窗口内淡入后跳变
+const dotReady = ref(false);
 const DOT_SIZE = 64;
 const EXPAND_W = 680;
 const EXPAND_H = 500;
-async function onMainLeave() {
-  if (form.value !== "compact") return;
+// 窗口缩为 64×64 并还原到圆点位置（setMinSize 必须先于 setSize，之后缩放与移动并行）
+async function shrinkToDot() {
   try {
     await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
-    await win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
-    if (dotRestorePos) {
-      await win.setPosition(new PhysicalPosition(dotRestorePos.x, dotRestorePos.y));
-      dotRestorePos = null;
-    }
+    await Promise.all([
+      win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE)),
+      dotRestorePos
+        ? win.setPosition(new PhysicalPosition(dotRestorePos.x, dotRestorePos.y))
+        : Promise.resolve(),
+    ]);
   } catch (e) {
     console.error("缩回圆点失败", e);
   }
+  dotRestorePos = null;
+}
+
+// 主界面淡出完成（Transition after-leave）：此刻窗口内容已不可见，缩窗无跳变感
+async function onMainLeave() {
+  if (form.value !== "compact") return;
+  await shrinkToDot();
+  dotReady.value = true; // 缩窗完成后才挂载圆点并淡入
 }
 
 // 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
@@ -108,22 +119,15 @@ watch(query, (q) => {
 
 // 缩回圆点态：64×64 小窗
 async function enterCompact(animate = true) {
-  // 动画路径：先切圆点态触发主界面淡出，after-leave 回调里缩窗
+  // 动画路径：先切圆点态触发主界面淡出，after-leave 回调里缩窗后再挂圆点
   if (animate && form.value === "expanded") {
+    dotReady.value = false; // 先卸载圆点，避免在大窗口内淡入
     form.value = "compact";
     return;
   }
-  try {
-    await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
-    await win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
-    if (dotRestorePos) {
-      await win.setPosition(new PhysicalPosition(dotRestorePos.x, dotRestorePos.y));
-      dotRestorePos = null;
-    }
-  } catch (e) {
-    console.error("缩回圆点失败", e);
-  }
+  await shrinkToDot();
   form.value = "compact";
+  dotReady.value = true;
 }
 
 // 展开主界面：680×500，就地展开并纠正到可见区
@@ -688,7 +692,7 @@ onMounted(async () => {
 <template>
   <div class="shell" :class="{ compact: form === 'compact' }">
     <FloatingDot
-      v-if="form === 'compact'"
+      v-if="form === 'compact' && dotReady"
       @expand="onDotExpand"
       @settings="onDotSettings"
       @quit="closeApp"
@@ -741,6 +745,17 @@ onMounted(async () => {
         </svg>
       </button>
       <span class="topbar-sep"></span>
+      <button
+        v-if="mode === 'floating'"
+        class="icon-btn"
+        title="收起为悬浮小圆点"
+        @click="enterCompact"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <circle cx="12" cy="12" r="8.5" stroke-dasharray="2 2.6" />
+          <circle cx="12" cy="12" r="2.8" fill="currentColor" stroke="none" />
+        </svg>
+      </button>
       <button
         class="icon-btn"
         :title="pinned ? '最小化到任务栏' : '收起窗口（热键或托盘可唤回）'"
@@ -913,7 +928,7 @@ body {
 /* 主界面展开/收起淡入淡出 */
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 250ms ease;
+  transition: opacity 200ms ease;
 }
 
 .fade-enter-from,
