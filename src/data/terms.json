@@ -3358,5 +3358,1157 @@
       "查看每条 C 语句对应的机器码",
       "优化排查与裸机调试利器"
     ]
+  },
+  {
+    "abbr": "ls",
+    "full": "List Directory Contents",
+    "zh": "列出目录内容",
+    "category": "Linux 命令",
+    "definition": "列出目录下的文件与子目录，是使用频率最高的命令之一。",
+    "points": [
+      "ls -l 长格式，ls -a 含隐藏文件",
+      "ls -lh 人类可读大小，ls -t 按时间排序",
+      "配合通配符过滤：ls *.c"
+    ]
+  },
+  {
+    "abbr": "cd",
+    "full": "Change Directory",
+    "zh": "切换目录",
+    "category": "Linux 命令",
+    "definition": "切换当前工作目录。",
+    "points": [
+      "cd ~ 回主目录，cd - 回上次目录",
+      "cd .. 上级目录",
+      "进入内核/根文件系统源码树必备"
+    ]
+  },
+  {
+    "abbr": "pwd",
+    "full": "Print Working Directory",
+    "zh": "显示当前目录",
+    "category": "Linux 命令",
+    "definition": "打印当前工作目录的绝对路径。",
+    "points": [
+      "脚本中获取当前路径：DIR=$(pwd)",
+      "pwd -P 显示物理路径（穿透符号链接）",
+      "排查相对路径问题首选"
+    ]
+  },
+  {
+    "abbr": "cp",
+    "full": "Copy Files/Directories",
+    "zh": "复制文件/目录",
+    "category": "Linux 命令",
+    "definition": "复制文件或目录到目标位置。",
+    "points": [
+      "cp -r 递归复制目录",
+      "cp -a 保留权限/时间戳，常用于备份",
+      "cp -i 覆盖前提示"
+    ]
+  },
+  {
+    "abbr": "mv",
+    "full": "Move or Rename",
+    "zh": "移动/重命名",
+    "category": "Linux 命令",
+    "definition": "移动文件或目录，也可用于重命名。",
+    "points": [
+      "mv file dir/ 移动",
+      "mv old new 重命名",
+      "跨文件系统移动实为复制+删除"
+    ]
+  },
+  {
+    "abbr": "rm",
+    "full": "Remove Files/Directories",
+    "zh": "删除文件/目录",
+    "category": "Linux 命令",
+    "definition": "删除文件或目录，删除后不可恢复。",
+    "points": [
+      "rm -r 递归删除目录",
+      "rm -f 强制忽略不存在",
+      "rm -rf 危险操作，执行前务必确认路径"
+    ]
+  },
+  {
+    "abbr": "mkdir",
+    "full": "Make Directory",
+    "zh": "创建目录",
+    "category": "Linux 命令",
+    "definition": "创建新目录。",
+    "points": [
+      "mkdir -p 级联创建父目录",
+      "mkdir -m 755 指定权限",
+      "脚本中 mkdir -p 幂等，重复执行不报错"
+    ]
+  },
+  {
+    "abbr": "touch",
+    "full": "Update Timestamps",
+    "zh": "更新时间戳/创建空文件",
+    "category": "Linux 命令",
+    "definition": "更新文件时间戳；文件不存在时创建空文件。",
+    "points": [
+      "touch 不存在的文件会创建空文件",
+      "touch -t 202608011200 指定时间戳",
+      "常用于生成占位文件或触发 make 重新构建"
+    ]
+  },
+  {
+    "abbr": "cat",
+    "full": "Concatenate Files",
+    "zh": "查看/连接文件",
+    "category": "Linux 命令",
+    "definition": "查看文件内容或连接多个文件输出。",
+    "points": [
+      "cat 文件 查看内容",
+      "cat a b > c 合并文件",
+      "大文件建议用 less"
+    ]
+  },
+  {
+    "abbr": "less",
+    "full": "Pager for File Viewing",
+    "zh": "分页查看文件",
+    "category": "Linux 命令",
+    "definition": "分页浏览文件，支持前后翻页与搜索，查看大文件首选。",
+    "points": [
+      "空格下翻，b 上翻，/关键字 搜索",
+      "less +F 类似 tail -f 实时跟踪",
+      "查看内核配置/大日志不卡顿"
+    ]
+  },
+  {
+    "abbr": "head",
+    "full": "View First Lines",
+    "zh": "查看文件开头",
+    "category": "Linux 命令",
+    "definition": "显示文件开头若干行或字节。",
+    "points": [
+      "head -n 20 前 20 行",
+      "head -c 100 前 100 字节",
+      "管道过滤：ps aux | head"
+    ]
+  },
+  {
+    "abbr": "tail",
+    "full": "View Last Lines",
+    "zh": "查看文件结尾",
+    "category": "Linux 命令",
+    "definition": "显示文件结尾若干行，支持实时跟踪。",
+    "points": [
+      "tail -f 实时跟踪（日志调试利器）",
+      "tail -n 50 最后 50 行",
+      "应用日志重定向后 tail 分析"
+    ]
+  },
+  {
+    "abbr": "find",
+    "full": "Search Files",
+    "zh": "查找文件",
+    "category": "Linux 命令",
+    "definition": "按名称、时间、类型等条件在目录树中查找文件。",
+    "points": [
+      "find /path -name '*.c' 按名查找",
+      "find . -mtime -1 最近一天修改",
+      "配合 -exec 或 xargs 批量处理"
+    ]
+  },
+  {
+    "abbr": "ln",
+    "full": "Create Links",
+    "zh": "创建链接",
+    "category": "Linux 命令",
+    "definition": "创建硬链接或符号链接。",
+    "points": [
+      "ln -s 创建符号链接（跨文件系统）",
+      "硬链接共享同一 inode，不能跨文件系统",
+      "rootfs 中 /bin/sh -> busybox 常见"
+    ]
+  },
+  {
+    "abbr": "grep",
+    "full": "Search Text with Patterns",
+    "zh": "文本搜索",
+    "category": "Linux 命令",
+    "definition": "按模式（支持正则）在文件或标准输入中搜索文本行。",
+    "points": [
+      "grep -r 递归搜索目录",
+      "grep -i 忽略大小写，grep -n 显示行号",
+      "正则示例：grep '^#define' 过滤宏定义"
+    ]
+  },
+  {
+    "abbr": "sed",
+    "full": "Stream Editor",
+    "zh": "流编辑器",
+    "category": "Linux 命令",
+    "definition": "流式编辑文本：替换、删除、打印指定行，可原地修改文件。",
+    "points": [
+      "sed -i 's/old/new/g' 就地替换",
+      "sed -n '10,20p' 打印指定行",
+      "修改文件前建议先备份"
+    ]
+  },
+  {
+    "abbr": "awk",
+    "full": "Text Processing Language",
+    "zh": "文本分析",
+    "category": "Linux 命令",
+    "definition": "按列处理文本的编程语言，处理日志/表格数据极强。",
+    "points": [
+      "awk '{print $1}' 取第一列",
+      "awk -F: 自定义分隔符（解析 /etc/passwd）",
+      "支持变量、数组与条件"
+    ]
+  },
+  {
+    "abbr": "sort",
+    "full": "Sort Lines",
+    "zh": "排序",
+    "category": "Linux 命令",
+    "definition": "对文本行排序。",
+    "points": [
+      "sort -n 数值排序，sort -r 逆序",
+      "sort -k 2 按第二列",
+      "配合 uniq 统计：sort | uniq -c"
+    ]
+  },
+  {
+    "abbr": "uniq",
+    "full": "Remove Duplicate Lines",
+    "zh": "去重",
+    "category": "Linux 命令",
+    "definition": "去除相邻重复行（需先排序）。",
+    "points": [
+      "需先 sort 才能正确去重",
+      "uniq -c 统计出现次数",
+      "uniq -d 只显示重复行"
+    ]
+  },
+  {
+    "abbr": "wc",
+    "full": "Word Count",
+    "zh": "统计",
+    "category": "Linux 命令",
+    "definition": "统计行数、单词数、字节数。",
+    "points": [
+      "wc -l 行数，wc -c 字节数",
+      "管道统计：grep xxx log | wc -l",
+      "wc -L 最长行长度"
+    ]
+  },
+  {
+    "abbr": "cut",
+    "full": "Cut Columns",
+    "zh": "按列截取",
+    "category": "Linux 命令",
+    "definition": "按分隔符或字符位置截取字段。",
+    "points": [
+      "cut -d: -f1 按分隔符取列",
+      "cut -c1-10 按字符位置截取",
+      "解析配置文件/CSV 常用"
+    ]
+  },
+  {
+    "abbr": "tr",
+    "full": "Translate Characters",
+    "zh": "字符转换/删除",
+    "category": "Linux 命令",
+    "definition": "对字符流做转换、删除或压缩。",
+    "points": [
+      "tr 'a-z' 'A-Z' 大小写转换",
+      "tr -d '\\n' 删除换行",
+      "tr -s ' ' 压缩连续空格"
+    ]
+  },
+  {
+    "abbr": "diff",
+    "full": "Compare Files",
+    "zh": "比较文件差异",
+    "category": "Linux 命令",
+    "definition": "逐行比较两个文件或目录的差异。",
+    "points": [
+      "diff -u 统一格式（补丁标准）",
+      "diff -r 递归比较目录",
+      "diff -Naur 生成内核补丁常用"
+    ]
+  },
+  {
+    "abbr": "xargs",
+    "full": "Build and Execute Commands",
+    "zh": "管道参数转换",
+    "category": "Linux 命令",
+    "definition": "将标准输入转换为命令行参数并执行指定命令。",
+    "points": [
+      "find ... | xargs rm 批量删除",
+      "xargs -n1 每次一个参数执行",
+      "特殊字符场景用 -0 配 find -print0"
+    ]
+  },
+  {
+    "abbr": "tar",
+    "full": "Tape Archive",
+    "zh": "归档打包",
+    "category": "Linux 命令",
+    "definition": "将多个文件打包为归档（可选压缩），Linux 分发与备份的核心工具。",
+    "points": [
+      "tar czf x.tar.gz dir 打包压缩",
+      "tar xzf x.tar.gz 解压",
+      "tar cjf 用 bzip2，tar cJf 用 xz"
+    ]
+  },
+  {
+    "abbr": "gzip",
+    "full": "GNU Zip",
+    "zh": "gzip 压缩",
+    "category": "Linux 命令",
+    "definition": "基于 DEFLATE 算法的压缩工具，速度快、普及广。",
+    "points": [
+      "gzip 文件 压缩为 .gz（原文件删除）",
+      "gzip -d 解压",
+      "与 tar 组合即 .tar.gz（tarball）"
+    ]
+  },
+  {
+    "abbr": "zip",
+    "full": "ZIP Archive",
+    "zh": "zip 压缩",
+    "category": "Linux 命令",
+    "definition": "跨平台压缩格式，与 Windows 兼容性最好。",
+    "points": [
+      "zip -r x.zip dir 递归压缩",
+      "unzip 解压",
+      "固件/资料跨平台传递常用"
+    ]
+  },
+  {
+    "abbr": "xz",
+    "full": "XZ Compression",
+    "zh": "xz 压缩",
+    "category": "Linux 命令",
+    "definition": "高压缩比压缩工具（LZMA2 算法），体积最小但速度较慢。",
+    "points": [
+      "xz 文件 压缩（原文件删除）",
+      "xz -d 解压",
+      "内核源码 .tar.xz 分发常用"
+    ]
+  },
+  {
+    "abbr": "chmod",
+    "full": "Change Mode",
+    "zh": "修改权限",
+    "category": "Linux 命令",
+    "definition": "修改文件/目录的读、写、执行权限。",
+    "points": [
+      "chmod 755 file 数字法（rwxr-xr-x）",
+      "chmod +x 添加执行权限（脚本必需）",
+      "rootfs 中脚本/二进制需 chmod +x"
+    ]
+  },
+  {
+    "abbr": "chown",
+    "full": "Change Owner",
+    "zh": "修改属主",
+    "category": "Linux 命令",
+    "definition": "修改文件/目录的所有者与所属组。",
+    "points": [
+      "chown user:group file",
+      "chown -R 递归修改",
+      "NFS 共享文件常需调整属主"
+    ]
+  },
+  {
+    "abbr": "sudo",
+    "full": "Superuser Do",
+    "zh": "以 root 执行",
+    "category": "Linux 命令",
+    "definition": "以其他用户（默认 root）身份执行命令，需授权配置。",
+    "points": [
+      "sudo 命令 临时提权",
+      "sudo -i 切换 root shell",
+      "嵌入式板子通常直接 root，无需 sudo"
+    ]
+  },
+  {
+    "abbr": "passwd",
+    "full": "Change Password",
+    "zh": "修改密码",
+    "category": "Linux 命令",
+    "definition": "修改用户密码。",
+    "points": [
+      "passwd 修改当前用户密码",
+      "passwd user 修改指定用户",
+      "量产设备务必为 root 设置密码"
+    ]
+  },
+  {
+    "abbr": "ps",
+    "full": "Process Status",
+    "zh": "查看进程",
+    "category": "Linux 命令",
+    "definition": "查看当前进程的快照。",
+    "points": [
+      "ps aux 全格式显示所有进程",
+      "ps -ef 兼容风格",
+      "嵌入式板子检查应用是否存活"
+    ]
+  },
+  {
+    "abbr": "top",
+    "full": "Table of Processes",
+    "zh": "实时监控进程",
+    "category": "Linux 命令",
+    "definition": "动态刷新显示进程 CPU/内存占用，交互式监控。",
+    "points": [
+      "top 动态刷新，q 退出",
+      "按 CPU 或内存排序",
+      "top -p PID 监控单个进程"
+    ]
+  },
+  {
+    "abbr": "kill",
+    "full": "Send Signal to Process",
+    "zh": "发送信号",
+    "category": "Linux 命令",
+    "definition": "向进程发送信号，默认 SIGTERM 终止。",
+    "points": [
+      "kill -9 PID 强杀（SIGKILL）",
+      "kill -TERM 优雅终止",
+      "kill -l 列出所有信号"
+    ]
+  },
+  {
+    "abbr": "pkill",
+    "full": "Kill by Name",
+    "zh": "按名杀进程",
+    "category": "Linux 命令",
+    "definition": "按进程名或命令行模式发送信号。",
+    "points": [
+      "pkill 进程名",
+      "pkill -f 匹配完整命令行",
+      "注意匹配过宽可能误杀"
+    ]
+  },
+  {
+    "abbr": "nohup",
+    "full": "No Hangup",
+    "zh": "免挂断运行",
+    "category": "Linux 命令",
+    "definition": "忽略挂断信号运行命令，SSH 断开后进程继续。",
+    "points": [
+      "nohup 命令 & 后台运行",
+      "输出重定向：nohup cmd > log 2>&1 &",
+      "板子远程调试长时间任务常用"
+    ]
+  },
+  {
+    "abbr": "jobs",
+    "full": "Job Control",
+    "zh": "作业控制",
+    "category": "Linux 命令",
+    "definition": "列出当前 shell 的后台作业。",
+    "points": [
+      "jobs 列出后台作业",
+      "fg 调回前台，bg 转后台",
+      "Ctrl+Z 挂起当前作业"
+    ]
+  },
+  {
+    "abbr": "uname",
+    "full": "Unix Name",
+    "zh": "系统信息",
+    "category": "Linux 命令",
+    "definition": "显示内核名称、版本、硬件架构等系统信息。",
+    "points": [
+      "uname -a 全部信息",
+      "uname -r 内核版本",
+      "uname -m 判断架构（aarch64/x86_64）"
+    ]
+  },
+  {
+    "abbr": "df",
+    "full": "Disk Free",
+    "zh": "磁盘使用",
+    "category": "Linux 命令",
+    "definition": "显示文件系统磁盘空间使用情况。",
+    "points": [
+      "df -h 人类可读",
+      "df -T 显示文件系统类型",
+      "排查嵌入式 flash 空间不足"
+    ]
+  },
+  {
+    "abbr": "du",
+    "full": "Disk Usage",
+    "zh": "目录大小",
+    "category": "Linux 命令",
+    "definition": "统计文件/目录占用的磁盘空间。",
+    "points": [
+      "du -sh dir 总大小",
+      "du -h --max-depth=1 各子目录",
+      "排查 rootfs 体积超限"
+    ]
+  },
+  {
+    "abbr": "free",
+    "full": "Memory Usage",
+    "zh": "内存使用",
+    "category": "Linux 命令",
+    "definition": "显示物理内存与交换分区使用情况。",
+    "points": [
+      "free -h 人类可读",
+      "嵌入式排查内存泄漏：free 持续下降",
+      "cached 可回收，不代表真实占用"
+    ]
+  },
+  {
+    "abbr": "dmesg",
+    "full": "Diagnostic Messages",
+    "zh": "内核日志",
+    "category": "Linux 命令",
+    "definition": "查看内核环形缓冲区日志（启动、驱动、异常信息）。",
+    "points": [
+      "dmesg 查看启动与驱动日志",
+      "dmesg -w 实时跟踪",
+      "驱动注册失败/内核 Oops 排查首选"
+    ]
+  },
+  {
+    "abbr": "lsblk",
+    "full": "List Block Devices",
+    "zh": "块设备列表",
+    "category": "Linux 命令",
+    "definition": "树状列出块设备及分区、文件系统信息。",
+    "points": [
+      "lsblk 树状显示磁盘分区",
+      "lsblk -f 显示文件系统",
+      "识别 eMMC/SD 分区（mmcblk0p1）"
+    ]
+  },
+  {
+    "abbr": "ping",
+    "full": "Packet Internet Groper",
+    "zh": "连通性测试",
+    "category": "Linux 命令",
+    "definition": "通过 ICMP 回显请求测试主机连通性与往返时延。",
+    "points": [
+      "ping -c 4 只发 4 个包",
+      "ping -I eth0 指定源网卡",
+      "嵌入式网络调试第一步"
+    ]
+  },
+  {
+    "abbr": "ifconfig",
+    "full": "Interface Config",
+    "zh": "传统网络配置",
+    "category": "Linux 命令",
+    "definition": "传统网卡配置工具，查看/设置 IP 与 MAC（新系统逐渐被 ip 取代）。",
+    "points": [
+      "ifconfig eth0 192.168.1.100 配 IP",
+      "ifconfig eth0 down/up 启停",
+      "嵌入式旧系统/工具链仍常用"
+    ]
+  },
+  {
+    "abbr": "ss",
+    "full": "Socket Statistics",
+    "zh": "socket 统计",
+    "category": "Linux 命令",
+    "definition": "查看 socket 连接、监听端口与统计信息，现代 netstat 替代品。",
+    "points": [
+      "ss -tunlp 查看监听端口与进程",
+      "ss -s 汇总统计",
+      "比 netstat 更快、信息更全"
+    ]
+  },
+  {
+    "abbr": "netstat",
+    "full": "Network Statistics",
+    "zh": "网络状态",
+    "category": "Linux 命令",
+    "definition": "显示网络连接、路由表与接口统计（旧工具，推荐 ss）。",
+    "points": [
+      "netstat -tunlp 监听端口与进程",
+      "netstat -r 路由表",
+      "排查端口占用经典命令"
+    ]
+  },
+  {
+    "abbr": "curl",
+    "full": "Client URL Transfer",
+    "zh": "HTTP 传输工具",
+    "category": "Linux 命令",
+    "definition": "命令行 HTTP/HTTPS 客户端，支持上传下载与各种请求方法。",
+    "points": [
+      "curl -O 下载文件",
+      "curl -X POST -d '...' url 发送数据",
+      "测试板载 Web 服务：curl http://ip"
+    ]
+  },
+  {
+    "abbr": "wget",
+    "full": "Web Get",
+    "zh": "下载工具",
+    "category": "Linux 命令",
+    "definition": "命令行下载工具，支持断点续传与递归下载。",
+    "points": [
+      "wget url 下载",
+      "wget -O 指定输出文件名",
+      "wget -c 断点续传"
+    ]
+  },
+  {
+    "abbr": "nc",
+    "full": "Netcat",
+    "zh": "网络瑞士军刀",
+    "category": "Linux 命令",
+    "definition": "任意 TCP/UDP 连接与监听工具，调试网络利器。",
+    "points": [
+      "nc host port 测试端口连通",
+      "nc -l 1234 监听端口",
+      "可做端口扫描、文件传输、端口转发"
+    ]
+  },
+  {
+    "abbr": "ethtool",
+    "full": "Ethernet Tool",
+    "zh": "网卡调试",
+    "category": "Linux 命令",
+    "definition": "查询与配置以太网卡参数（速率、双工、协商、寄存器）。",
+    "points": [
+      "ethtool eth0 查看协商速率",
+      "ethtool -s eth0 speed 1000 duplex full 设置",
+      "排查链路降速/不通问题"
+    ]
+  },
+  {
+    "abbr": "mount",
+    "full": "Mount Filesystem",
+    "zh": "挂载文件系统",
+    "category": "Linux 命令",
+    "definition": "将块设备挂载到目录树，访问其文件系统内容。",
+    "points": [
+      "mount /dev/mmcblk0p1 /mnt",
+      "mount -t vfat 指定类型挂载",
+      "启动早期挂载 /proc /sys /dev"
+    ]
+  },
+  {
+    "abbr": "fdisk",
+    "full": "Partition Editor",
+    "zh": "分区工具",
+    "category": "Linux 命令",
+    "definition": "交互式磁盘分区工具，创建/删除/查看分区表。",
+    "points": [
+      "fdisk -l 查看分区表",
+      "嵌入式 SD/eMMC 分区常用",
+      "操作前务必确认目标设备（误选毁盘）"
+    ]
+  },
+  {
+    "abbr": "dd",
+    "full": "Data Duplicator",
+    "zh": "底层读写复制",
+    "category": "Linux 命令",
+    "definition": "按块低层复制数据，常用于烧录镜像与造测试文件。",
+    "points": [
+      "dd if=x.img of=/dev/sdX 烧录镜像",
+      "dd if=/dev/zero of=f bs=1M count=10 造文件",
+      "加 conv=fsync 确保写盘完成"
+    ]
+  },
+  {
+    "abbr": "shebang",
+    "full": "Shebang Line",
+    "zh": "脚本首行解释器声明",
+    "category": "Shell 脚本",
+    "definition": "脚本第一行的 #! 声明，指定用哪个解释器执行本脚本。",
+    "points": [
+      "#!/bin/bash 用 bash 执行",
+      "#!/bin/sh 兼容 POSIX",
+      "必须位于第一行且无前导空格"
+    ]
+  },
+  {
+    "abbr": "echo",
+    "full": "Output Text",
+    "zh": "输出文本",
+    "category": "Shell 脚本",
+    "definition": "向标准输出打印一行文本，shell 中最常用的输出命令。",
+    "points": [
+      "echo hello 输出",
+      "echo -e 解析转义字符",
+      "变量插值：echo $VAR（注意引号）"
+    ]
+  },
+  {
+    "abbr": "printf",
+    "full": "Formatted Output",
+    "zh": "格式化输出",
+    "category": "Shell 脚本",
+    "definition": "类似 C 语言 printf 的格式化输出，行为跨 shell 一致。",
+    "points": [
+      "printf '%s %d\\n' str num",
+      "比 echo 更可控、可移植",
+      "不支持自动换行，需写 \\n"
+    ]
+  },
+  {
+    "abbr": "read",
+    "full": "Read Input",
+    "zh": "读取输入",
+    "category": "Shell 脚本",
+    "definition": "从标准输入读取一行并赋值给变量。",
+    "points": [
+      "read var 读一行",
+      "read -p '提示' var",
+      "while read line; do ...; done < file 逐行处理"
+    ]
+  },
+  {
+    "abbr": "if",
+    "full": "Conditional Branch",
+    "zh": "条件分支",
+    "category": "Shell 脚本",
+    "definition": "根据命令退出码执行分支逻辑。",
+    "points": [
+      "if 命令; then ...; elif ...; else ...; fi",
+      "判断的是命令退出码而非布尔值",
+      "条件表达式常用 [ 或 [[ ]]"
+    ]
+  },
+  {
+    "abbr": "case",
+    "full": "Pattern Matching Branch",
+    "zh": "多模式匹配",
+    "category": "Shell 脚本",
+    "definition": "按模式匹配执行多分支，类似 switch。",
+    "points": [
+      "case $x in a) ;; *) ;; esac",
+      "* 通配任意，| 表示或",
+      "解析命令行参数/菜单常用"
+    ]
+  },
+  {
+    "abbr": "for",
+    "full": "Loop over Items",
+    "zh": "for 循环",
+    "category": "Shell 脚本",
+    "definition": "遍历列表（文件、参数、序列）执行循环体。",
+    "points": [
+      "for i in 1 2 3; do ...; done",
+      "for f in *.c 遍历文件",
+      "for ((i=0;i<10;i++)) C 风格"
+    ]
+  },
+  {
+    "abbr": "while",
+    "full": "Loop While True",
+    "zh": "while 循环",
+    "category": "Shell 脚本",
+    "definition": "条件为真时反复执行循环体。",
+    "points": [
+      "while read line; do ...; done < file 逐行处理",
+      "while : 无限循环",
+      "注意更新循环条件避免死循环"
+    ]
+  },
+  {
+    "abbr": "function",
+    "full": "Shell Function",
+    "zh": "函数定义",
+    "category": "Shell 脚本",
+    "definition": "定义可复用代码块，支持参数与返回值。",
+    "points": [
+      "function f { ... } 或 f() { ... }",
+      "函数内用 local 声明局部变量",
+      "return 返回状态码（0-255）"
+    ]
+  },
+  {
+    "abbr": "source",
+    "full": "Execute in Current Shell",
+    "zh": "加载脚本",
+    "category": "Shell 脚本",
+    "definition": "在当前 shell 中执行脚本文件（区别于子进程执行）。",
+    "points": [
+      "source 文件 或 . 文件",
+      "加载配置文件/公共函数库",
+      "修改环境变量需用 source 生效"
+    ]
+  },
+  {
+    "abbr": "export",
+    "full": "Export Environment Variable",
+    "zh": "导出环境变量",
+    "category": "Shell 脚本",
+    "definition": "将变量标记为环境变量，供子进程继承。",
+    "points": [
+      "export PATH=$PATH:/opt/bin 追加",
+      "子进程继承已导出变量",
+      "仅对子进程可见，不影响父 shell"
+    ]
+  },
+  {
+    "abbr": "local",
+    "full": "Local Variable",
+    "zh": "函数局部变量",
+    "category": "Shell 脚本",
+    "definition": "在函数内声明局部变量，作用域仅限当前函数。",
+    "points": [
+      "local x=1 函数内定义",
+      "避免污染全局变量",
+      "递归/复杂函数必用"
+    ]
+  },
+  {
+    "abbr": "shift",
+    "full": "Shift Positional Parameters",
+    "zh": "位置参数左移",
+    "category": "Shell 脚本",
+    "definition": "丢弃 $1，其余参数依次前移一位。",
+    "points": [
+      "shift 后 $2 变 $1",
+      "shift 2 一次移两个",
+      "循环解析命令行选项常用"
+    ]
+  },
+  {
+    "abbr": "$?",
+    "full": "Exit Code of Last Command",
+    "zh": "上条命令退出码",
+    "category": "Shell 脚本",
+    "definition": "保存上一条命令的退出状态码，0 成功、非 0 失败。",
+    "points": [
+      "0 成功，非 0 失败",
+      "判断命令执行结果",
+      "管道后取最后一段命令的码"
+    ]
+  },
+  {
+    "abbr": "$#",
+    "full": "Number of Arguments",
+    "zh": "参数个数",
+    "category": "Shell 脚本",
+    "definition": "脚本/函数接收的位置参数个数。",
+    "points": [
+      "校验入参：if [ $# -lt 2 ]",
+      "不含脚本名 $0",
+      "与 $@ 搭配遍历"
+    ]
+  },
+  {
+    "abbr": "$@",
+    "full": "All Arguments",
+    "zh": "所有参数",
+    "category": "Shell 脚本",
+    "definition": "展开为所有位置参数，每个参数独立保留。",
+    "points": [
+      "$@ 每个参数独立（推荐）",
+      "$* 合并为单一字符串",
+      "循环处理全部参数：for a in \"$@\""
+    ]
+  },
+  {
+    "abbr": "$!",
+    "full": "Background Process PID",
+    "zh": "后台进程 PID",
+    "category": "Shell 脚本",
+    "definition": "最近一个后台执行命令的进程 ID。",
+    "points": [
+      "cmd & echo $! 取后台 PID",
+      "配合 wait $! 等待完成",
+      "kill $! 终止后台任务"
+    ]
+  },
+  {
+    "abbr": "$0",
+    "full": "Script Name",
+    "zh": "脚本名",
+    "category": "Shell 脚本",
+    "definition": "脚本自身的名称或路径。",
+    "points": [
+      "$0 脚本路径/名字",
+      "$1..$9 位置参数",
+      "$(basename $0) 取纯文件名"
+    ]
+  },
+  {
+    "abbr": "test",
+    "full": "Condition Test",
+    "zh": "条件测试",
+    "category": "Shell 脚本",
+    "definition": "对文件、字符串、数值进行条件测试，返回退出码。",
+    "points": [
+      "test -f file 文件存在",
+      "[ ... ] 是 test 的等价写法",
+      "数值 -eq/-ne，字符串 =/!=，文件 -f/-d/-x"
+    ]
+  },
+  {
+    "abbr": "[[ ]]",
+    "full": "Extended Test",
+    "zh": "扩展测试",
+    "category": "Shell 脚本",
+    "definition": "bash 扩展的条件测试，支持正则与更自然的运算符。",
+    "points": [
+      "支持 && || < > 直接使用",
+      "=~ 正则匹配",
+      "bash 专用，POSIX sh 不支持"
+    ]
+  },
+  {
+    "abbr": "pipe",
+    "full": "Pipeline",
+    "zh": "管道",
+    "category": "Shell 脚本",
+    "definition": "用 | 将前一个命令的输出接到后一个命令的输入，组合成处理流水线。",
+    "points": [
+      "ps aux | grep app 过滤进程",
+      "grep xxx log | wc -l 统计",
+      "返回码取最后一段（见 pipefail）"
+    ]
+  },
+  {
+    "abbr": "redirect",
+    "full": "I/O Redirection",
+    "zh": "重定向",
+    "category": "Shell 脚本",
+    "definition": "将命令的标准输入/输出/错误重定向到文件或设备。",
+    "points": [
+      "> 覆盖写，>> 追加写",
+      "2> 重定向错误，2>&1 合并",
+      ">/dev/null 丢弃输出；cmd > log 2>&1"
+    ]
+  },
+  {
+    "abbr": "glob",
+    "full": "Filename Expansion",
+    "zh": "通配符",
+    "category": "Shell 脚本",
+    "definition": "shell 对 * ? [] 等模式进行文件名展开。",
+    "points": [
+      "* 任意字符，? 单字符，[abc] 字符集",
+      "无匹配时保持字面量（注意检查）",
+      "与 find -name '*.c' 同款语法"
+    ]
+  },
+  {
+    "abbr": "$()",
+    "full": "Command Substitution",
+    "zh": "命令替换",
+    "category": "Shell 脚本",
+    "definition": "将命令的输出作为值嵌入，赋给变量或参与拼接。",
+    "points": [
+      "var=$(cat file) 读文件到变量",
+      "echo $(date) 输出命令结果",
+      "嵌套写法 $(...$(...)) 或反引号"
+    ]
+  },
+  {
+    "abbr": "$(())",
+    "full": "Arithmetic Expansion",
+    "zh": "算术扩展",
+    "category": "Shell 脚本",
+    "definition": "执行整数算术运算并返回结果。",
+    "points": [
+      "echo $((1+2)) 输出 3",
+      "变量无需加 $：i=$((i+1))",
+      "仅支持整数运算"
+    ]
+  },
+  {
+    "abbr": "heredoc",
+    "full": "Here Document",
+    "zh": "内嵌文档",
+    "category": "Shell 脚本",
+    "definition": "将多行文本作为命令的标准输入，常用于生成文件。",
+    "points": [
+      "cat << EOF ... EOF 多行输入",
+      "<<- 忽略行首 Tab（便于缩进）",
+      "配合 tee 写配置文件"
+    ]
+  },
+  {
+    "abbr": "${}",
+    "full": "Parameter Expansion",
+    "zh": "变量扩展",
+    "category": "Shell 脚本",
+    "definition": "变量的高级展开语法：默认值、去前缀后缀、截取、长度等。",
+    "points": [
+      "${var:-默认} 变量为空时用默认值",
+      "${var#*/} 去最短前缀，${var%/*} 去后缀",
+      "${#var} 长度，${var:0:3} 切片"
+    ]
+  },
+  {
+    "abbr": "IFS",
+    "full": "Internal Field Separator",
+    "zh": "字段分隔符",
+    "category": "Shell 脚本",
+    "definition": "shell 划分字段（单词拆分）用的分隔符集合，默认空格/Tab/换行。",
+    "points": [
+      "默认含空格、Tab、换行",
+      "IFS=, 解析 CSV",
+      "修改后记得恢复原值"
+    ]
+  },
+  {
+    "abbr": "trap",
+    "full": "Signal Trap",
+    "zh": "信号捕获",
+    "category": "Shell 脚本",
+    "definition": "捕获信号或事件，在退出/中断时执行清理动作。",
+    "points": [
+      "trap 'cmd' EXIT 退出时执行",
+      "trap ':' INT 忽略 Ctrl+C",
+      "清理临时文件的标准做法"
+    ]
+  },
+  {
+    "abbr": "exec",
+    "full": "Execute and Replace",
+    "zh": "进程替换/重定向",
+    "category": "Shell 脚本",
+    "definition": "用新进程替换当前 shell（无子进程），也用于整体重定向。",
+    "points": [
+      "exec 命令 替换当前 shell",
+      "exec > log 重定向整个脚本输出",
+      "exec 3<file 打开 fd 供读写"
+    ]
+  },
+  {
+    "abbr": "exit",
+    "full": "Exit Script",
+    "zh": "退出脚本",
+    "category": "Shell 脚本",
+    "definition": "终止脚本/函数并返回退出码。",
+    "points": [
+      "exit 0 成功，exit 1 失败",
+      "exit N 传递自定义状态码",
+      "未写 exit 时以上一条命令码退出"
+    ]
+  },
+  {
+    "abbr": "set -e",
+    "full": "Errexit",
+    "zh": "出错即退",
+    "category": "Shell 脚本",
+    "definition": "开启后任何命令返回非零即退出脚本，提升健壮性。",
+    "points": [
+      "set -e 开启",
+      "if/test 等判断上下文不触发",
+      "配合 set -o pipefail 更安全"
+    ]
+  },
+  {
+    "abbr": "set -x",
+    "full": "Xtrace",
+    "zh": "调试跟踪",
+    "category": "Shell 脚本",
+    "definition": "打印每条命令及其展开后的参数，调试脚本利器。",
+    "points": [
+      "set -x 开启，set +x 关闭",
+      "输出带 + 前缀",
+      "局部开启：set -x ... set +x"
+    ]
+  },
+  {
+    "abbr": "pipefail",
+    "full": "Pipeline Failure Propagation",
+    "zh": "管道失败传播",
+    "category": "Shell 脚本",
+    "definition": "让管道中任何一段失败都使整体返回非零（默认只看最后一段）。",
+    "points": [
+      "set -o pipefail 开启",
+      "中间命令失败不再被掩盖",
+      "与 set -e 配合防漏报"
+    ]
+  },
+  {
+    "abbr": "PATH",
+    "full": "Command Search Path",
+    "zh": "命令搜索路径",
+    "category": "Shell 脚本",
+    "definition": "冒号分隔的目录列表，shell 按序搜索可执行命令。",
+    "points": [
+      "export PATH=$PATH:/opt/bin 追加",
+      "顺序即优先级（靠前先找到）",
+      "交叉工具链常需配置 PATH"
+    ]
+  },
+  {
+    "abbr": "umask",
+    "full": "Default Permission Mask",
+    "zh": "默认权限掩码",
+    "category": "Shell 脚本",
+    "definition": "设置新建文件/目录的默认权限掩码（取反后再应用）。",
+    "points": [
+      "umask 022 -> 新文件 644、目录 755",
+      "umask 077 更严格（仅属主）",
+      "影响 touch/mkdir 创建的默认权限"
+    ]
+  },
+  {
+    "abbr": "alias",
+    "full": "Command Alias",
+    "zh": "命令别名",
+    "category": "Shell 脚本",
+    "definition": "为命令定义简短别名，减少重复输入。",
+    "points": [
+      "alias ll='ls -l' 定义",
+      "alias 查看已有别名",
+      "非交互 shell（脚本内）默认不展开"
+    ]
+  },
+  {
+    "abbr": "which",
+    "full": "Locate Command",
+    "zh": "查找命令路径",
+    "category": "Shell 脚本",
+    "definition": "在 PATH 中查找命令的可执行文件路径。",
+    "points": [
+      "which gcc 显示路径",
+      "验证交叉工具链是否就绪",
+      "查不到时用 type 排查"
+    ]
+  },
+  {
+    "abbr": "type",
+    "full": "Command Type",
+    "zh": "命令类型",
+    "category": "Shell 脚本",
+    "definition": "判断命令是内建、外部程序、别名还是函数。",
+    "points": [
+      "type cmd 显示类型",
+      "type -a 显示所有匹配",
+      "排查同名命令行为差异"
+    ]
+  },
+  {
+    "abbr": "ip",
+    "full": "IP Configuration Tool",
+    "zh": "网络配置命令",
+    "category": "Linux 命令",
+    "definition": "现代网络配置工具，管理地址、路由、网卡与邻居（替代 ifconfig/route）。",
+    "points": [
+      "ip addr 查看地址",
+      "ip link set eth0 up 启停网卡",
+      "ip route 查看路由表"
+    ]
+  },
+  {
+    "abbr": "PS1",
+    "full": "Primary Prompt",
+    "zh": "shell 提示符",
+    "category": "Shell 脚本",
+    "definition": "主提示符字符串，控制命令行提示符外观。",
+    "points": [
+      "PS1='\\u@\\h:\\w\\$ ' 定制",
+      "\\w 当前目录，\\d 日期，\\t 时间",
+      "调试脚本时可调 PS4"
+    ]
   }
 ]
