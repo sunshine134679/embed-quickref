@@ -9540,5 +9540,662 @@
       "删除后需 commit 生效",
       "批量清理已跟踪的构建产物"
     ]
+  },
+  {
+    "abbr": "GNU",
+    "full": "GNU's Not Unix",
+    "zh": "GNU 自由软件体系",
+    "category": "构建与工具链",
+    "usage": "GNU   （GNU's Not Unix，递归缩写）",
+    "definition": "自由软件基金会（FSF）发起的类 Unix 自由软件体系，提供完整的开发工具链与操作系统组件。",
+    "options": [
+      {
+        "o": "工具链",
+        "d": "GCC 编译器、GNU ld 链接器、GNU as 汇编器、GNU make"
+      },
+      {
+        "o": "binutils",
+        "d": "objdump/readelf/nm/size 等二进制分析工具集"
+      },
+      {
+        "o": "核心工具",
+        "d": "Coreutils（ls/cp/mv 等）与 Bash、GDB"
+      },
+      {
+        "o": "构建系统",
+        "d": "Autotools（autoconf/automake）、configure 脚本"
+      },
+      {
+        "o": "许可证",
+        "d": "GPL/LGPL，Linux 内核与嵌入式工具链均基于 GNU 体系"
+      }
+    ],
+    "points": [
+      "嵌入式交叉工具链 arm-none-eabi-* 即 GNU 工具链",
+      "gcc -v 可查看 GNU 版本信息",
+      "GNU 与 Linux 常合称 GNU/Linux"
+    ]
+  },
+  {
+    "abbr": "binutils",
+    "full": "GNU Binary Utilities",
+    "zh": "GNU 二进制工具集",
+    "category": "构建与工具链",
+    "usage": "binutils   （GNU Binary Utilities 工具集）",
+    "definition": "GNU 二进制工具集合：汇编、链接、反汇编、符号与段分析等，嵌入式开发必备。",
+    "options": [
+      {
+        "o": "ld",
+        "d": "链接器：链接目标文件为可执行文件"
+      },
+      {
+        "o": "as",
+        "d": "汇编器：汇编 .s 源码为 .o"
+      },
+      {
+        "o": "objdump",
+        "d": "反汇编与段/头信息查看"
+      },
+      {
+        "o": "objcopy",
+        "d": "格式转换：ELF -> bin/hex"
+      },
+      {
+        "o": "readelf/nm/size",
+        "d": "ELF 结构/符号表/段大小分析"
+      },
+      {
+        "o": "ar/strip",
+        "d": "静态库打包 / 符号剥离"
+      }
+    ],
+    "points": [
+      "交叉版前缀：arm-none-eabi-objdump",
+      "objcopy 转烧录格式是量产关键",
+      "GDB 调试器与 binutils 同属 GNU 体系"
+    ]
+  },
+  {
+    "abbr": "autoconf",
+    "full": "GNU Autoconf",
+    "zh": "GNU Autoconf",
+    "category": "构建与工具链",
+    "usage": "autoconf   （由 configure.ac 生成 configure 脚本）",
+    "definition": "GNU 构建系统（Autotools）组件：从 configure.ac 宏描述生成可移植的 configure 脚本。",
+    "points": [
+      "autoconf 读取 configure.ac 生成 configure",
+      "配合 automake（生成 Makefile.in）与 libtool",
+      "经典开源库的构建入口：./configure && make"
+    ]
+  },
+  {
+    "abbr": "automake",
+    "full": "GNU Automake",
+    "zh": "GNU Automake",
+    "category": "构建与工具链",
+    "usage": "automake   （由 Makefile.am 生成 Makefile.in）",
+    "definition": "GNU 构建系统组件：从 Makefile.am 简写规则生成 Makefile.in 模板，autoconf 再将其转为 Makefile。",
+    "points": [
+      "Makefile.am 用简洁语法描述目标",
+      "automake --foreign 等模式控制严格度",
+      "与 autoconf/libtool 组成 Autotools 三件套"
+    ]
+  },
+  {
+    "abbr": "configure",
+    "full": "Configure Script",
+    "zh": "配置脚本",
+    "category": "构建与工具链",
+    "usage": "./configure [选项]   （经典三步构建第一步）",
+    "definition": "Autotools 生成的配置脚本：检测环境、生成 Makefile 与 config.h，是开源软件编译的标准入口。",
+    "options": [
+      {
+        "o": "--prefix",
+        "d": "安装目录：--prefix=/usr/local"
+      },
+      {
+        "o": "--host",
+        "d": "交叉编译目标平台：--host=arm-none-eabi"
+      },
+      {
+        "o": "--enable/--disable",
+        "d": "启用/禁用特性"
+      },
+      {
+        "o": "--with",
+        "d": "依赖选择：--with-ssl"
+      }
+    ],
+    "points": [
+      "三步构建：./configure && make && make install",
+      "交叉编译必配 --host 与 --prefix",
+      "生成 config.h 供源码 include"
+    ]
+  },
+  {
+    "abbr": "pkg-config",
+    "full": "Package Config",
+    "zh": "库依赖查询",
+    "category": "构建与工具链",
+    "usage": "pkg-config [选项] 库名...",
+    "definition": "查询已安装库的编译与链接参数（头文件路径、库路径、版本），取代手写 -I/-L/-l。",
+    "options": [
+      {
+        "o": "--cflags",
+        "d": "编译参数：pkg-config --cflags sdl2"
+      },
+      {
+        "o": "--libs",
+        "d": "链接参数：pkg-config --libs sdl2"
+      },
+      {
+        "o": "--modversion",
+        "d": "库版本"
+      },
+      {
+        "o": "--exists",
+        "d": "检查库是否存在（脚本判断）"
+      },
+      {
+        "o": "PKG_CONFIG_PATH",
+        "d": "环境变量指定 .pc 文件搜索路径（交叉编译常用）"
+      }
+    ],
+    "points": [
+      "gcc main.c $(pkg-config --cflags --libs gtk+-3.0)",
+      "交叉编译需设置 PKG_CONFIG_PATH 指向目标根文件系统",
+      ".pc 文件描述库的接口信息"
+    ]
+  },
+  {
+    "abbr": "arm-none-eabi-gcc",
+    "full": "ARM Embedded Toolchain",
+    "zh": "ARM 交叉编译工具链",
+    "category": "构建与工具链",
+    "usage": "arm-none-eabi-gcc [选项] 源文件",
+    "definition": "ARM 官方嵌入式交叉编译器（Cortex-M/A/R 裸机），配套 objcopy/ld/gdb 等全套 GNU 工具。",
+    "options": [
+      {
+        "o": "-mcpu/-march",
+        "d": "目标内核：-mcpu=cortex-m4"
+      },
+      {
+        "o": "-mthumb",
+        "d": "Thumb 指令集"
+      },
+      {
+        "o": "-nostdlib",
+        "d": "不链接标准库（裸机）"
+      },
+      {
+        "o": "-T",
+        "d": "链接脚本"
+      },
+      {
+        "o": "-specs=nano.specs",
+        "d": "精简 C 库（Newlib-nano）"
+      }
+    ],
+    "points": [
+      "同名工具：arm-none-eabi-objcopy/objdump/ld/gdb",
+      "STM32/EFM32 等裸机开发的标配编译器",
+      "免费版从 ARM 官网或发行版安装"
+    ]
+  },
+  {
+    "abbr": "GPL",
+    "full": "GNU General Public License",
+    "zh": "GNU 通用公共许可证",
+    "category": "构建与工具链",
+    "usage": "GPLv2 / GPLv3 / LGPL   （开源许可证）",
+    "definition": "GNU 通用公共许可证：允许使用/修改/分发源码，但衍生作品必须同样以 GPL 开源（Copyleft）。",
+    "options": [
+      {
+        "o": "GPLv2",
+        "d": "Linux 内核采用（含 SYS 例外条款）"
+      },
+      {
+        "o": "GPLv3",
+        "d": "更强的反 Tivoization 条款"
+      },
+      {
+        "o": "LGPL",
+        "d": "库许可证：动态链接可不传染（如 glibc）"
+      }
+    ],
+    "points": [
+      "嵌入式产品合规需梳理 GPL 组件",
+      "内核模块通常视为衍生作品受 GPL 约束",
+      "商业闭源产品需评估 GPL 组件影响"
+    ]
+  },
+  {
+    "abbr": ".vscode",
+    "full": "Workspace Config Directory",
+    "zh": "工作区配置目录",
+    "category": "VSCode 配置",
+    "usage": ".vscode/   （工作区根目录下的配置文件夹）",
+    "definition": "存放 VSCode 工作区级配置的目录：C/C++ 扩展、构建任务、调试、推荐扩展等。",
+    "options": [
+      {
+        "o": "c_cpp_properties.json",
+        "d": "C/C++ 扩展：头文件路径/宏/编译器"
+      },
+      {
+        "o": "tasks.json",
+        "d": "构建任务（编译/烧录命令）"
+      },
+      {
+        "o": "launch.json",
+        "d": "调试配置（GDB 等）"
+      },
+      {
+        "o": "settings.json",
+        "d": "工作区专属设置"
+      },
+      {
+        "o": "extensions.json",
+        "d": "推荐安装的扩展列表"
+      }
+    ],
+    "points": [
+      ".vscode 目录随工程提交 git，团队共享",
+      "嵌入式工程必备：配好 C/C++ 才能跳转/补全",
+      "本仓库即含 .vscode/extensions.json"
+    ]
+  },
+  {
+    "abbr": "c_cpp_properties.json",
+    "full": "C/C++ Extension Config",
+    "zh": "C/C++ 扩展配置",
+    "category": "VSCode 配置",
+    "usage": ".vscode/c_cpp_properties.json   （C/C++ 扩展的 IntelliSense 配置）",
+    "definition": "C/C++ 扩展的配置文件：声明头文件搜索路径、预定义宏、编译器路径与语言标准，解决波浪线报错与智能跳转。",
+    "options": [
+      {
+        "o": "includePath",
+        "d": "头文件搜索路径列表（最常改）"
+      },
+      {
+        "o": "defines",
+        "d": "预定义宏（如 STM32F407xx）"
+      },
+      {
+        "o": "compilerPath",
+        "d": "编译器绝对路径（如 arm-none-eabi-gcc）"
+      },
+      {
+        "o": "cStandard/cppStandard",
+        "d": "语言标准（c11/c17/gnu11）"
+      },
+      {
+        "o": "intelliSenseMode",
+        "d": "感知模式（gcc-arm/linux-gcc-x64）"
+      }
+    ],
+    "points": [
+      "includePath 配错 -> 头文件波浪线但能编译",
+      "嵌入式工程需手动加芯片厂商头文件目录",
+      "Ctrl+Shift+P -> C/C++: Edit Configurations 图形化编辑"
+    ]
+  },
+  {
+    "abbr": "includePath",
+    "full": "Header Search Paths",
+    "zh": "头文件搜索路径",
+    "category": "VSCode 配置",
+    "usage": "\"includePath\": [\"${workspaceFolder}/**\", \"C:/STM32Cube/Drivers/**\"]",
+    "definition": "C/C++ 扩展的头文件搜索路径列表，IntelliSense 依据它解析 #include 实现跳转与补全。",
+    "options": [
+      {
+        "o": "${workspaceFolder}",
+        "d": "工作区根目录变量"
+      },
+      {
+        "o": "${workspaceFolder}/**",
+        "d": "递归包含子目录（默认推荐）"
+      },
+      {
+        "o": "绝对路径",
+        "d": "外部库目录，如芯片 SDK 的 Drivers/Inc"
+      },
+      {
+        "o": "${env:VAR}",
+        "d": "环境变量引用"
+      }
+    ],
+    "points": [
+      "路径分隔符用正斜杠 /（Windows 也兼容）",
+      "漏配路径 -> 头文件波浪线、无法跳转",
+      "与编译器的 -I 参数保持一致（交叉编译）"
+    ]
+  },
+  {
+    "abbr": "defines",
+    "full": "Predefined Macros",
+    "zh": "预定义宏",
+    "category": "VSCode 配置",
+    "usage": "\"defines\": [\"STM32F407xx\", \"USE_HAL_DRIVER\", \"DEBUG=1\"]",
+    "definition": "IntelliSense 预定义宏列表，模拟编译器 -D 参数，让条件编译分支正确高亮与跳转。",
+    "options": [
+      {
+        "o": "芯片型号",
+        "d": "如 STM32F407xx（芯片头文件条件编译开关）"
+      },
+      {
+        "o": "工程宏",
+        "d": "如 USE_HAL_DRIVER（HAL 库开关）"
+      },
+      {
+        "o": "带值宏",
+        "d": "格式 \"DEBUG=1\""
+      }
+    ],
+    "points": [
+      "与编译参数 -D 保持一致，否则跳错分支",
+      "HAL 库必须定义 USE_HAL_DRIVER 才能解析",
+      "宏缺失 -> 代码灰显/无法跳转"
+    ]
+  },
+  {
+    "abbr": "compilerPath",
+    "full": "Compiler Path",
+    "zh": "编译器路径",
+    "category": "VSCode 配置",
+    "usage": "\"compilerPath\": \"C:/ST/arm-none-eabi/bin/arm-none-eabi-gcc.exe\"",
+    "definition": "C/C++ 扩展使用的编译器完整路径，用于推断宏、内置头文件与语法特性。",
+    "options": [
+      {
+        "o": "空值",
+        "d": "使用 VS Code 检测到的默认编译器"
+      },
+      {
+        "o": "交叉编译器",
+        "d": "嵌入式必须指向 arm-none-eabi-gcc 等"
+      }
+    ],
+    "points": [
+      "配错编译器 -> 标准库头文件波浪线",
+      "推断的内置宏随编译器变化",
+      "配合 intelliSenseMode 指定 gcc-arm"
+    ]
+  },
+  {
+    "abbr": "intelliSenseMode",
+    "full": "IntelliSense Mode",
+    "zh": "智能感知模式",
+    "category": "VSCode 配置",
+    "usage": "\"intelliSenseMode\": \"gcc-arm\"",
+    "definition": "IntelliSense 的编译器模式：决定语言方言与内置宏推断方式，须与编译器架构匹配。",
+    "options": [
+      {
+        "o": "gcc-arm",
+        "d": "ARM 交叉编译器（嵌入式最常用）"
+      },
+      {
+        "o": "linux-gcc-x64",
+        "d": "Linux x64 主机 GCC"
+      },
+      {
+        "o": "windows-gcc-x64",
+        "d": "Windows 主机 MinGW GCC"
+      },
+      {
+        "o": "msvc-x64",
+        "d": "MSVC 编译器"
+      }
+    ],
+    "points": [
+      "与 compilerPath 配套设置",
+      "STM32 工程统一用 gcc-arm",
+      "模式不匹配 -> 内置宏与语法提示异常"
+    ]
+  },
+  {
+    "abbr": "cStandard",
+    "full": "C Language Standard",
+    "zh": "C 语言标准",
+    "category": "VSCode 配置",
+    "usage": "\"cStandard\": \"c11\"   （cppStandard 同理，如 \"gnu++17\"）",
+    "definition": "C/C++ 扩展使用的语言标准，影响语法特性识别与内置宏（__STDC_VERSION__ 等）。",
+    "options": [
+      {
+        "o": "c11/c17",
+        "d": "现代 C 标准"
+      },
+      {
+        "o": "gnu11/gnu17",
+        "d": "带 GNU 扩展（内核/嵌入式常用）"
+      }
+    ],
+    "points": [
+      "与编译器 -std= 参数保持一致",
+      "标准过低 -> 新语法标波浪线",
+      "嵌入式常用 gnu11（GCC 默认）"
+    ]
+  },
+  {
+    "abbr": "launch.json",
+    "full": "Debug Configuration",
+    "zh": "调试配置",
+    "category": "VSCode 配置",
+    "usage": ".vscode/launch.json   （调试器启动配置）",
+    "definition": "VSCode 调试配置：指定调试类型、目标程序、调试器路径与远程调试参数，F5 启动调试。",
+    "options": [
+      {
+        "o": "type",
+        "d": "调试器类型：cppdbg（C/C++ 扩展）"
+      },
+      {
+        "o": "MIMode",
+        "d": "调试器引擎：gdb / lldb"
+      },
+      {
+        "o": "miDebuggerPath",
+        "d": "GDB 路径（如 arm-none-eabi-gdb）"
+      },
+      {
+        "o": "program",
+        "d": "目标可执行文件路径"
+      },
+      {
+        "o": "miDebuggerServerAddress",
+        "d": "远程 gdbserver 地址（板载调试）"
+      },
+      {
+        "o": "setupCommands",
+        "d": "启动前执行的 GDB 命令（连接 J-Link 等）"
+      }
+    ],
+    "points": [
+      "嵌入式调试典型：MIMode gdb + arm-none-eabi-gdb",
+      "gdbserver 远程调试配 miDebuggerServerAddress",
+      "Cortex-Debug 扩展是嵌入式调试更佳选择"
+    ]
+  },
+  {
+    "abbr": "MIMode",
+    "full": "Debugger Engine Mode",
+    "zh": "调试器引擎模式",
+    "category": "VSCode 配置",
+    "usage": "\"MIMode\": \"gdb\"   （launch.json 中指定调试器引擎）",
+    "definition": "launch.json 中指定 MI 调试器引擎：gdb（GNU 调试器）或 lldb（LLVM 调试器），决定调试交互协议。",
+    "options": [
+      {
+        "o": "gdb",
+        "d": "GNU 调试器（嵌入式/类 Unix 标配）"
+      },
+      {
+        "o": "lldb",
+        "d": "LLVM 调试器（macOS/Clang 生态）"
+      }
+    ],
+    "points": [
+      "嵌入式开发固定用 gdb",
+      "配合 miDebuggerPath 指向 arm-none-eabi-gdb",
+      "MIMode 配错 -> 调试器启动失败"
+    ]
+  },
+  {
+    "abbr": "miDebuggerPath",
+    "full": "MI Debugger Path",
+    "zh": "GDB 调试器路径",
+    "category": "VSCode 配置",
+    "usage": "\"miDebuggerPath\": \"C:/ST/arm-none-eabi/bin/arm-none-eabi-gdb.exe\"",
+    "definition": "launch.json 中 MI 调试器（GDB）的可执行文件完整路径，VSCode 通过它驱动调试。",
+    "options": [
+      {
+        "o": "主机 GDB",
+        "d": "调试本机程序：/usr/bin/gdb"
+      },
+      {
+        "o": "交叉 GDB",
+        "d": "调试嵌入式：arm-none-eabi-gdb"
+      }
+    ],
+    "points": [
+      "路径含空格需正确转义",
+      "交叉调试必须用与目标架构匹配的 GDB",
+      "配错 -> '无法找到调试器' 报错"
+    ]
+  },
+  {
+    "abbr": "miDebuggerServerAddress",
+    "full": "Remote GDB Server",
+    "zh": "远程调试服务器地址",
+    "category": "VSCode 配置",
+    "usage": "\"miDebuggerServerAddress\": \"192.168.1.100:2345\"   （板载 gdbserver 或 OpenOCD）",
+    "definition": "远程调试时 GDB 连接的目标服务器地址：板子上运行的 gdbserver，或 OpenOCD/J-Link 的 GDB 端口。",
+    "options": [
+      {
+        "o": "gdbserver",
+        "d": "板子上跑 gdbserver 程序，网络连接"
+      },
+      {
+        "o": "OpenOCD",
+        "d": "本机 OpenOCD 默认 GDB 端口 3333"
+      },
+      {
+        "o": "J-Link",
+        "d": "J-Link GDB Server 默认端口 2331"
+      }
+    ],
+    "points": [
+      "板载调试：gdbserver :2345 ./app 后本机连接",
+      "OpenOCD 调试：localhost:3333",
+      "远程调试需目标程序带 -g 编译"
+    ]
+  },
+  {
+    "abbr": "program",
+    "full": "Target Program Path",
+    "zh": "调试目标程序",
+    "category": "VSCode 配置",
+    "usage": "\"program\": \"${workspaceFolder}/build/app.elf\"",
+    "definition": "launch.json 中要调试的可执行文件路径（ELF 格式，含调试符号）。",
+    "options": [
+      {
+        "o": "${workspaceFolder}",
+        "d": "工作区变量"
+      },
+      {
+        "o": "交叉产物",
+        "d": "嵌入式为 .elf/.axf（不能用 .bin/.hex）"
+      }
+    ],
+    "points": [
+      "必须带 -g 编译才有调试信息",
+      "路径不存在 -> F5 报错",
+      "嵌入式用 .elf（含符号）非 .bin"
+    ]
+  },
+  {
+    "abbr": "tasks.json",
+    "full": "Build Tasks",
+    "zh": "构建任务",
+    "category": "VSCode 配置",
+    "usage": ".vscode/tasks.json   （任务：编译/烧录命令，Ctrl+Shift+B）",
+    "definition": "VSCode 任务配置：把编译、烧录、串口等命令封装为可复用任务。",
+    "options": [
+      {
+        "o": "label",
+        "d": "任务名（如 build）"
+      },
+      {
+        "o": "command",
+        "d": "执行的命令（如 make）"
+      },
+      {
+        "o": "args",
+        "d": "命令参数列表（如 [\"-j8\"]）"
+      },
+      {
+        "o": "problemMatcher",
+        "d": "解析编译错误输出（$gcc）"
+      },
+      {
+        "o": "group",
+        "d": "分组：build 组可 Ctrl+Shift+B 触发"
+      }
+    ],
+    "points": [
+      "经典：command=make args=[\"-j8\"]",
+      "problemMatcher $gcc 让错误可点击跳转",
+      "烧录任务：command=openocd args=[...]"
+    ]
+  },
+  {
+    "abbr": "settings.json",
+    "full": "Workspace Settings",
+    "zh": "工作区设置",
+    "category": "VSCode 配置",
+    "usage": ".vscode/settings.json   （工作区级设置，覆盖用户设置）",
+    "definition": "工作区专属设置文件：编辑器行为、格式化、扩展选项等，随工程提交共享。",
+    "options": [
+      {
+        "o": "C/C++ 设置",
+        "d": "如 C_Cpp.default.includePath 旧版配置"
+      },
+      {
+        "o": "格式化",
+        "d": "editor.formatOnSave、clang-format 路径"
+      },
+      {
+        "o": "文件过滤",
+        "d": "files.exclude 隐藏 build 目录"
+      }
+    ],
+    "points": [
+      "工作区设置优先于用户设置",
+      "团队统一格式化风格靠它",
+      "敏感信息（路径）注意提交策略"
+    ]
+  },
+  {
+    "abbr": "extensions.json",
+    "full": "Recommended Extensions",
+    "zh": "推荐扩展",
+    "category": "VSCode 配置",
+    "usage": ".vscode/extensions.json   （\"recommendations\": [\"ms-vscode.cpptools\"]）",
+    "definition": "声明工作区推荐的 VS Code 扩展，成员打开工程时提示安装，保证团队环境一致。",
+    "options": [
+      {
+        "o": "ms-vscode.cpptools",
+        "d": "C/C++ 扩展（IntelliSense/调试）"
+      },
+      {
+        "o": "marus25.cortex-debug",
+        "d": "Cortex-M 调试扩展（J-Link/OpenOCD）"
+      },
+      {
+        "o": "ms-vscode.cmake-tools",
+        "d": "CMake 集成"
+      }
+    ],
+    "points": [
+      "嵌入式工程标配 cpptools + cortex-debug",
+      "提示安装但不强制",
+      "本仓库即用此文件管理推荐扩展"
+    ]
   }
 ]

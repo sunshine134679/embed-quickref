@@ -255,7 +255,7 @@ async function togglePin() {
 
 function openTab(term) {
   if (!tabs.value.some((t) => t.abbr === term.abbr)) {
-    tabs.value.push(term);
+    tabs.value.unshift(term); // 最新打开的标签排在最左边
     persistState();
   }
   activeTab.value = term.abbr;
@@ -340,9 +340,9 @@ async function streamAi(isFirstAnswer) {
       const parsed = parseAnswer(answer);
       if (parsed) {
         aiSaved.value = await addUserTerm(parsed);
-        // AI 结果静默加入标签页，方便回看
+        // AI 结果静默加入标签页（最新的排在最左），方便回看
         if (!tabs.value.some((t) => t.abbr === parsed.abbr)) {
-          tabs.value.push(parsed);
+          tabs.value.unshift(parsed);
           persistState();
         }
       }
