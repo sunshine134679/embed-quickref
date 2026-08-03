@@ -64,9 +64,7 @@ let shrinkCancel = false;
 // 动画结束后内容已完全透明，瞬时缩窗无感知；与主界面淡出并行
 async function animateShrink() {
   try {
-    // 动画期间关闭 acrylic 毛玻璃背景：内容淡出后窗口保持纯透明，
-    // 避免"空毛玻璃矩形"残留到动画结束才消失
-    await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
+    // 注：acrylic 已在 enterCompact 中提前关闭，此处不再重复
     const scale = await win.scaleFactor();
     const wPos = await win.outerPosition();
     const w = window.innerWidth;
@@ -86,8 +84,9 @@ async function animateShrink() {
   } catch (e) {
     console.error("飞行动画计算失败", e);
   } finally {
-    animStyle.value = null; // 清除动画样式（内容已透明，恢复无感知）
-    await shrinkToDot(); // 瞬时缩窗：内容不可见，无跳变
+    // 先缩窗（内容已透明，无感知），再清除动画样式：避免清除瞬间内容闪回
+    await shrinkToDot();
+    animStyle.value = null;
   }
 }
 
@@ -166,6 +165,8 @@ async function enterCompact(animate = true) {
   // 动画路径：切圆点态触发淡出的同时并行平滑缩窗，消除"淡出完才瞬跳"的卡顿
   if (animate && form.value === "expanded") {
     dotReady.value = false; // 先卸载圆点，避免在大窗口内淡入
+    // 先关闭 acrylic 毛玻璃再启动动画：避免动画期间残留"大边框"与效果切换闪烁
+    await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
     form.value = "compact"; // 触发主界面淡出
     shrinkCancel = false;
     shrinkTask = animateShrink(); // 并行开始平滑缩窗（不等待）
