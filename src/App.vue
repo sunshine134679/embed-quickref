@@ -64,6 +64,9 @@ let shrinkCancel = false;
 // 动画结束后内容已完全透明，瞬时缩窗无感知；与主界面淡出并行
 async function animateShrink() {
   try {
+    // 动画期间关闭 acrylic 毛玻璃背景：内容淡出后窗口保持纯透明，
+    // 避免"空毛玻璃矩形"残留到动画结束才消失
+    await win.clearEffects().catch(() => {});
     const scale = await win.scaleFactor();
     const wPos = await win.outerPosition();
     const w = window.innerWidth;
@@ -169,6 +172,8 @@ async function enterCompact(animate = true) {
     return;
   }
   shrinkCancel = false;
+  // 圆点态：关闭毛玻璃背景，保持纯透明（圆点由 CSS 绘制）
+  await win.clearEffects().catch(() => {});
   await shrinkToDot();
   form.value = "compact";
   dotReady.value = true;
@@ -179,6 +184,8 @@ async function enterExpanded(initialView = "search") {
   // 中断进行中的原生平滑缩窗动画（若用户在收起动画期间展开）
   shrinkCancel = true;
   shrinkTask = null;
+  // 展开态：恢复 acrylic 毛玻璃背景
+  await win.setEffects({ effects: ["acrylic"] }).catch(() => {});
   // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
   if (form.value === "compact") {
     try {
