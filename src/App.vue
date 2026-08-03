@@ -66,7 +66,7 @@ async function animateShrink() {
   try {
     // 动画期间关闭 acrylic 毛玻璃背景：内容淡出后窗口保持纯透明，
     // 避免"空毛玻璃矩形"残留到动画结束才消失
-    await win.clearEffects().catch(() => {});
+    await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
     const scale = await win.scaleFactor();
     const wPos = await win.outerPosition();
     const w = window.innerWidth;
@@ -185,7 +185,7 @@ async function enterExpanded(initialView = "search") {
   shrinkCancel = true;
   shrinkTask = null;
   // 展开态：恢复 acrylic 毛玻璃背景
-  await win.setEffects({ effects: ["acrylic"] }).catch(() => {});
+  await win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e));
   // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
   if (form.value === "compact") {
     try {
