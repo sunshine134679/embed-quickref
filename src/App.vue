@@ -14,7 +14,7 @@ import AiHistory from "./components/AiHistory.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import FloatingDot from "./components/FloatingDot.vue";
 import { initSettings, useSettings } from "./composables/useSettings";
-import { initUserTerms, search, addUserTerm } from "./composables/useSearch";
+import { initUserTerms, search, addUserTerm, updateUserTerm } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
 import { load } from "@tauri-apps/plugin-store";
 
@@ -33,6 +33,11 @@ const aiMessages = ref([]); // 含 system 的完整多轮会话
 const aiStatus = ref("idle"); // idle | loading | streaming | done | error
 const aiError = ref("");
 const aiSaved = ref(false);
+// AI 回答词条在用户词库已存在时提供更新入口
+const aiCanUpdate = ref(false);
+// 最近一次解析成功的 AI 词条（供"更新个人词库"使用）
+let lastParsed = null;
+
 const aiSessions = ref([]); // AI 解释历史，新的在前
 let aiSessionId = null;
 let aiStore = null;
@@ -339,7 +344,11 @@ async function streamAi(isFirstAnswer) {
     if (isFirstAnswer) {
       const parsed = parseAnswer(answer);
       if (parsed) {
-        aiSaved.value = await addUserTerm(parsed);
+        lastParsed = parsed;
+        const res = await addUserTerm(parsed);
+        aiSaved.value = res === "added";
+        // 用户词库已有旧缓存：不自动覆盖，提供"更新个人词库"入口（内置词条不覆盖）
+        aiCanUpdate.value = res === "user-exists";
         // AI 结果静默加入标签页（最新的排在最左），方便回看
         if (!tabs.value.some((t) => t.abbr === parsed.abbr)) {
           tabs.value.unshift(parsed);
@@ -364,6 +373,8 @@ async function runAi(q) {
   }
   aiQuery.value = text;
   aiSaved.value = false;
+  aiCanUpdate.value = false;
+  lastParsed = null;
   aiSessionId = Date.now();
   aiFromView.value = view.value; // 记录来源视图，供 Esc 逐级返回
   aiMessages.value = createSession(text);
@@ -378,6 +389,17 @@ async function runFollowUp(q) {
   await streamAi(false);
 }
 
+
+// 用本次 AI 回答覆盖更新个人词库中的同缩写词条
+async function updateCachedTerm() {
+  if (!lastParsed) return;
+  const ok = await updateUserTerm(lastParsed);
+  if (ok) {
+    aiSaved.value = true;
+    aiCanUpdate.value = false;
+  }
+}
+
 // 从历史打开会话：还原上下文，可继续追问
 function openAiSession(s) {
   aiSessionId = s.id;
@@ -387,6 +409,8 @@ function openAiSession(s) {
   aiStatus.value = "done";
   aiError.value = "";
   aiSaved.value = false;
+  aiCanUpdate.value = false;
+  lastParsed = null;
   view.value = "ai";
 }
 
@@ -410,14 +434,27 @@ function toggleHistory() {
 }
 
 async function dismissWindow() {
-  // 固定模式最小化（保留任务栏图标），弹窗模式直接隐藏
-  if (pinned.value) await win.minimize();
-  else await win.hide();
+  // 收起键：最小化到任务栏（临时显示任务栏图标，点击图标可快速恢复打开）
+  try {
+    await win.setSkipTaskbar(false);
+    await win.minimize();
+  } catch (e) {
+    console.error("最小化失败，改为隐藏", e);
+    await win.hide();
+  }
 }
 
-// 关闭按钮：同普通窗口的 ×，直接退出程序
+// 关闭按钮：先弹确认框防误触，确认后退出程序
+const confirmQuit = ref(false);
 function closeApp() {
-  win.destroy();
+  confirmQuit.value = true;
+}
+function cancelQuit() {
+  confirmQuit.value = false;
+}
+async function doQuit() {
+  confirmQuit.value = false;
+  await win.destroy();
 }
 
 // 拖动手柄 / 空白栏按下即拖动窗口
@@ -505,6 +542,10 @@ function onSearchFocus() {
 function onKeydown(e) {
   if (e.key === "Escape") {
     e.preventDefault();
+    if (confirmQuit.value) {
+      cancelQuit();
+      return;
+    }
     goBack();
     return;
   }
@@ -696,6 +737,7 @@ onMounted(async () => {
       hideTimer = setTimeout(async () => {
         if (form.value !== "expanded" || pointerInside) return;
         if (await win.isFocused()) return;
+        if (await win.isMinimized()) return; // 最小化到任务栏时抑制缩回圆点
         await enterCompact();
       }, 200);
       return;
@@ -852,6 +894,7 @@ onMounted(async () => {
           <p class="empty-hint">
             “{{ query.trim() }}” 不在词库里，可以让 AI 来解释
           </p>
+          <p class="empty-tip">按 <kbd>Tab</kbd> 键可直接询问 AI，无需点击按钮</p>
           <template v-if="emptyAiSession">
             <button class="ask-ai-btn" @click="openAiSession(emptyAiSession)">
               <svg
@@ -878,7 +921,7 @@ onMounted(async () => {
             </svg>
             问 AI：{{ query.trim().slice(0, 18) }}{{ query.trim().length > 18 ? "…" : "" }}
           </button>
-          <p class="empty-tip">或按 <kbd>Enter</kbd> / <kbd>Tab</kbd> 直接询问</p>
+
         </div>
         <div v-else class="empty muted">输入缩写或关键词，如 I2C、MQTT、DTS</div>
       </template>
@@ -904,7 +947,9 @@ onMounted(async () => {
         :status="aiStatus"
         :error="aiError"
         :saved="aiSaved"
+        :can-update="aiCanUpdate"
         @follow-up="runFollowUp"
+        @save-update="updateCachedTerm"
       />
       <AiHistory
         v-else-if="view === 'history'"
@@ -921,6 +966,19 @@ onMounted(async () => {
         @update:mode="onModeChange"
       />
     </main>
+
+    <!-- 退出确认弹窗 -->
+    <div v-if="confirmQuit" class="confirm-mask" @click.self="cancelQuit">
+      <div class="confirm-box">
+        <p class="confirm-title">退出 EmbedQuickRef？</p>
+        <p class="confirm-hint">退出后需重新打开应用（热键或托盘可唤回）</p>
+        <div class="confirm-actions">
+          <button class="btn-cancel" @click="cancelQuit">取消</button>
+          <button class="btn-quit" @click="doQuit">退出</button>
+        </div>
+      </div>
+    </div>
+
     <footer class="statusbar" title="按住拖动窗口" @mousedown.self="startDrag">
       <span><kbd>↑↓</kbd> 选择</span>
       <span><kbd>Enter</kbd> 打开标签</span>
@@ -1198,8 +1256,13 @@ body {
 }
 
 .empty-tip {
-  color: #a3aebc;
-  font-size: 12px;
+  margin-top: 18px;
+  padding: 8px 14px;
+  background: rgba(82, 112, 143, 0.08);
+  border: 1px dashed rgba(82, 112, 143, 0.3);
+  border-radius: 8px;
+  color: #52708f;
+  font-size: 13px;
 }
 
 /* 空态有历史解释时：主按钮查看历史，副按钮重新问 */
@@ -1301,5 +1364,74 @@ kbd {
   color: #64748b;
   font-size: 11px;
   white-space: nowrap;
+}
+
+
+/* 退出确认弹窗 */
+.confirm-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(30, 41, 59, 0.35);
+}
+
+.confirm-box {
+  width: 300px;
+  padding: 22px 24px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(30, 41, 59, 0.18);
+}
+
+.confirm-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.confirm-hint {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.confirm-actions button {
+  height: 32px;
+  padding: 0 18px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn-cancel {
+  background: rgba(100, 116, 139, 0.1);
+  color: #475569;
+}
+
+.btn-cancel:hover {
+  background: rgba(100, 116, 139, 0.18);
+}
+
+.btn-quit {
+  background: #b45353;
+  color: #fff;
+}
+
+.btn-quit:hover {
+  background: #a14343;
 }
 </style>

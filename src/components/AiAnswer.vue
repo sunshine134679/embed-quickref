@@ -7,9 +7,10 @@ const props = defineProps({
   status: { type: String, default: "idle" },
   error: { type: String, default: "" },
   saved: { type: Boolean, default: false },
+  canUpdate: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["follow-up"]);
+const emit = defineEmits(["follow-up", "save-update"]);
 
 const followText = ref("");
 const followInput = ref(null);
@@ -91,6 +92,14 @@ watch(
       <span v-else-if="status === 'streaming'" class="state">回答中…</span>
       <span v-else-if="status === 'done'" class="state done">完成</span>
       <span v-if="saved" class="tag saved">已存入个人词库</span>
+      <button
+        v-if="canUpdate"
+        class="tag update-btn"
+        title="个人词库已有该词条，用本次回答覆盖更新"
+        @click="emit('save-update')"
+      >
+        更新个人词库
+      </button>
     </div>
 
     <!-- 首答：结构化卡片 -->
@@ -196,6 +205,18 @@ watch(
 .saved {
   background: #e9f3ec;
   color: #6b9e78;
+}
+
+.update-btn {
+  border: 1px solid rgba(82, 112, 143, 0.35);
+  background: rgba(82, 112, 143, 0.08);
+  color: #52708f;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.update-btn:hover {
+  background: rgba(82, 112, 143, 0.18);
 }
 
 /* 结构化回答卡片：浅色、克制 */

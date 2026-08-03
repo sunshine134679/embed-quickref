@@ -15,11 +15,28 @@ function allTerms() {
 }
 
 // AI 回答解析成功后写入个人词库，与内置词库按缩写去重
+// 返回: added 新写入 | user-exists 用户词库已有（可更新）| builtin 内置已有 | invalid 无效
 export async function addUserTerm(term) {
   const key = (term.abbr || "").trim().toLowerCase();
-  if (!key) return false;
-  if (allTerms().some((t) => (t.abbr || "").trim().toLowerCase() === key)) return false;
+  if (!key) return "invalid";
+  if (builtinTerms.some((t) => (t.abbr || "").trim().toLowerCase() === key)) return "builtin";
+  if (userTerms.value.some((t) => (t.abbr || "").trim().toLowerCase() === key)) return "user-exists";
   userTerms.value = [...userTerms.value, { ...term, source: "ai" }];
+  await store.set("terms", userTerms.value);
+  await store.save();
+  return "added";
+}
+
+// 用新的 AI 回答更新用户词库中同缩写词条（不存在则追加）
+export async function updateUserTerm(term) {
+  const key = (term.abbr || "").trim().toLowerCase();
+  if (!key) return false;
+  const i = userTerms.value.findIndex((t) => (t.abbr || "").trim().toLowerCase() === key);
+  const next = { ...term, source: "ai" };
+  userTerms.value =
+    i >= 0
+      ? [...userTerms.value.slice(0, i), next, ...userTerms.value.slice(i + 1)]
+      : [...userTerms.value, next];
   await store.set("terms", userTerms.value);
   await store.save();
   return true;
@@ -73,5 +90,5 @@ export function search(query) {
 }
 
 export function useSearch() {
-  return { search, addUserTerm, userTerms };
+  return { search, addUserTerm, updateUserTerm, userTerms };
 }
