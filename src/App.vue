@@ -406,22 +406,53 @@ const canAppendFollowups = computed(() => {
   return i >= 0 && aiMessages.value.length > i + 1; // 首答之后还有消息（追问）
 });
 
-// 把本次会话的追问问答合并进词库：优先并入已解析词条；
-// 无解析词条（内置词条/自由回答/解析失败）时用搜索词创建一条 AI 笔记词条
+// AI 总结追问中（按钮显示"总结中…"）
+const aiAppending = ref(false);
+
+// 把本次会话的追问并入词库：先让 AI 把整轮追问总结为精简要点，避免原始拼接杂乱；
+// 总结失败时降级为逐条截断拼接，保证内容不丢
 async function appendFollowupsToTerm() {
   const i = aiMessages.value.findIndex((m) => m.role === "assistant");
   if (i < 0) return;
-  const extra = [];
+  const qas = [];
   let q = "";
   for (const m of aiMessages.value.slice(i + 1)) {
-    if (m.role === "user") q = (m.content || "").replace(/\s+/g, " ").slice(0, 40);
+    if (m.role === "user") q = (m.content || "").trim();
     else if (m.role === "assistant" && q) {
-      const a = (m.content || "").replace(/\s+/g, " ").slice(0, 120);
-      extra.push(`追问「${q}」：${a}`);
+      qas.push([q, (m.content || "").trim()]);
       q = "";
     }
   }
-  if (!extra.length) return;
+  if (!qas.length) return;
+  aiAppending.value = true;
+  let extra = [];
+  try {
+    const msgs = [
+      {
+        role: "system",
+        content:
+          "你是嵌入式 Linux 领域的资深专家。请把下面的追问对话总结为 2-5 条精简要点：合并重复内容，去除寒暄，每条不超过 30 字，聚焦关键技术点。直接输出要点列表，每行以 \"- \" 开头，不要输出其他任何内容。",
+      },
+      {
+        role: "user",
+        content: `术语：${lastParsed?.abbr || aiQuery.value || ""}\n追问对话：\n${qas
+          .map(([qq, aa]) => `问：${qq}\n答：${aa}`)
+          .join("\n\n")}`,
+      },
+    ];
+    const summary = await askAi(msgs, settings.value, () => {});
+    const sumPoints = [...summary.matchAll(/^[-•]\s*(.+)$/gm)]
+      .map((m) => m[1].trim())
+      .filter(Boolean);
+    extra = sumPoints.length
+      ? sumPoints.slice(0, 6).map((p) => `追问补充：${p}`)
+      : [`追问补充：${summary.replace(/\s+/g, " ").slice(0, 120)}`];
+  } catch (e) {
+    console.error("追问总结失败，降级为原始拼接", e);
+    extra = qas.map(([qq, aa]) => `追问「${qq.replace(/\s+/g, " ").slice(0, 40)}」：${aa.replace(/\s+/g, " ").slice(0, 120)}`);
+  } finally {
+    aiAppending.value = false;
+  }
   // 有解析词条则并入；否则用搜索词创建笔记词条（存个人词库，与内置词条共存）
   const base = lastParsed || {
     abbr: (aiQuery.value || "").trim().slice(0, 20) || "AI 笔记",
@@ -988,6 +1019,7 @@ onMounted(async () => {
         :saved="aiSaved"
         :can-update="aiCanUpdate"
         :can-append="canAppendFollowups"
+        :appending="aiAppending"
         @follow-up="runFollowUp"
         @save-update="updateCachedTerm"
         @append-followups="appendFollowupsToTerm"

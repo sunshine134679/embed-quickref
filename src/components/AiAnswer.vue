@@ -9,6 +9,7 @@ const props = defineProps({
   saved: { type: Boolean, default: false },
   canUpdate: { type: Boolean, default: false },
   canAppend: { type: Boolean, default: false },
+  appending: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["follow-up", "save-update", "append-followups"]);
@@ -152,13 +153,14 @@ watch(
     <!-- AI 完成回答后，在最新追问下方提供"并入词库"入口（仅 done 状态出现） -->
     <div v-if="canAppend && status === 'done'" class="append-bar">
       <button
-        v-if="!appended"
+        v-if="!appended && !appending"
         class="append-btn"
-        title="把本轮全部追问的回答总结合并进个人词库词条"
+        title="AI 先把本轮追问总结为精简要点，再并入个人词库词条"
         @click="appended = true; emit('append-followups')"
       >
         将本轮追问并入词库
       </button>
+      <span v-else-if="appending" class="append-pending">AI 总结中…</span>
       <span v-else class="append-done">已并入词库 ✓</span>
     </div>
 
@@ -454,6 +456,12 @@ watch(
 .append-done {
   padding: 6px 12px;
   color: #6b9e78;
+  font-size: 12.5px;
+}
+
+.append-pending {
+  padding: 6px 12px;
+  color: #94a3b8;
   font-size: 12.5px;
 }
 
