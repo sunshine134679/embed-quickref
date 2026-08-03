@@ -16,6 +16,15 @@ const emit = defineEmits(["follow-up", "save-update", "append-followups"]);
 const followText = ref("");
 const followInput = ref(null);
 const bottomEl = ref(null);
+// 本轮追问是否已并入词库（并入后按钮变"已并入"，新消息到来时重置）
+const appended = ref(false);
+
+watch(
+  () => thread.value.length,
+  () => {
+    appended.value = false;
+  }
+);
 
 // 去掉 system 后的对话线程
 const thread = computed(() => props.messages.filter((m) => m.role !== "system"));
@@ -101,14 +110,6 @@ watch(
       >
         更新个人词库
       </button>
-      <button
-        v-if="canAppend"
-        class="tag update-btn"
-        title="把本次追问的回答合并进个人词库词条"
-        @click="emit('append-followups')"
-      >
-        追问并入词库
-      </button>
     </div>
 
     <!-- 首答：结构化卡片 -->
@@ -147,6 +148,19 @@ watch(
         class="caret"
       ></span></pre>
     </template>
+
+    <!-- AI 完成回答后，在最新追问下方提供"并入词库"入口（仅 done 状态出现） -->
+    <div v-if="canAppend && status === 'done'" class="append-bar">
+      <button
+        v-if="!appended"
+        class="append-btn"
+        title="把本轮全部追问的回答总结合并进个人词库词条"
+        @click="appended = true; emit('append-followups')"
+      >
+        将本轮追问并入词库
+      </button>
+      <span v-else class="append-done">已并入词库 ✓</span>
+    </div>
 
     <p v-if="status === 'error'" class="error">{{ error }}</p>
     <div ref="bottomEl" class="bottom-anchor"></div>
@@ -413,6 +427,34 @@ watch(
 
 .bottom-anchor {
   flex: 1;
+}
+
+/* 追问总结并入词库：最新回答下方的操作条 */
+.append-bar {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.append-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px dashed rgba(82, 112, 143, 0.4);
+  border-radius: 8px;
+  background: rgba(82, 112, 143, 0.06);
+  color: #52708f;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.append-btn:hover {
+  background: rgba(82, 112, 143, 0.14);
+}
+
+.append-done {
+  padding: 6px 12px;
+  color: #6b9e78;
+  font-size: 12.5px;
 }
 
 /* 底部追问输入条 */
