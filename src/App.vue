@@ -400,16 +400,15 @@ async function updateCachedTerm() {
   }
 }
 
-// 会话存在追问且词条已缓存（已存或可更新）时，允许把追问内容并入词库
+// 会话存在追问即显示"追问并入词库"（无论首答是否已缓存/内置/自由回答）
 const canAppendFollowups = computed(() => {
-  if (!(aiSaved.value || aiCanUpdate.value)) return false;
   const i = aiMessages.value.findIndex((m) => m.role === "assistant");
   return i >= 0 && aiMessages.value.length > i + 1; // 首答之后还有消息（追问）
 });
 
-// 把本次会话的追问问答合并进缓存词条（追加为要点，格式：追问「问题」：回答）
+// 把本次会话的追问问答合并进词库：优先并入已解析词条；
+// 无解析词条（内置词条/自由回答/解析失败）时用搜索词创建一条 AI 笔记词条
 async function appendFollowupsToTerm() {
-  if (!lastParsed) return;
   const i = aiMessages.value.findIndex((m) => m.role === "assistant");
   if (i < 0) return;
   const extra = [];
@@ -423,7 +422,15 @@ async function appendFollowupsToTerm() {
     }
   }
   if (!extra.length) return;
-  const ok = await updateUserTerm({ ...lastParsed, points: [...(lastParsed.points || []), ...extra] });
+  // 有解析词条则并入；否则用搜索词创建笔记词条（存个人词库，与内置词条共存）
+  const base = lastParsed || {
+    abbr: (aiQuery.value || "").trim().slice(0, 20) || "AI 笔记",
+    zh: (aiQuery.value || "").trim().slice(0, 20) || "AI 笔记",
+    category: "其他",
+    definition: "AI 追问笔记",
+    points: [],
+  };
+  const ok = await updateUserTerm({ ...base, points: [...(base.points || []), ...extra] });
   if (ok) {
     aiSaved.value = true;
     aiCanUpdate.value = false;
