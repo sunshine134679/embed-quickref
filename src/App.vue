@@ -767,6 +767,8 @@ onMounted(async () => {
       clearTimeout(hideTimer);
       return;
     }
+    // 固定（图钉按钮 pinned 或固定模式）：不随失焦收起为圆点 / 隐藏窗口
+    if (pinned.value || mode.value === "pinned") return;
     if (mode.value === "floating") {
       // 圆点态常驻桌面；仅展开态失焦后缩回圆点
       if (form.value !== "expanded") return;
