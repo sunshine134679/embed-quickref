@@ -8,9 +8,10 @@ const props = defineProps({
   error: { type: String, default: "" },
   saved: { type: Boolean, default: false },
   canUpdate: { type: Boolean, default: false },
+  canAppend: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["follow-up", "save-update"]);
+const emit = defineEmits(["follow-up", "save-update", "append-followups"]);
 
 const followText = ref("");
 const followInput = ref(null);
@@ -99,6 +100,14 @@ watch(
         @click="emit('save-update')"
       >
         更新个人词库
+      </button>
+      <button
+        v-if="canAppend"
+        class="tag update-btn"
+        title="把本次追问的回答合并进个人词库词条"
+        @click="emit('append-followups')"
+      >
+        追问并入词库
       </button>
     </div>
 

@@ -400,6 +400,36 @@ async function updateCachedTerm() {
   }
 }
 
+// 会话存在追问且词条已缓存（已存或可更新）时，允许把追问内容并入词库
+const canAppendFollowups = computed(() => {
+  if (!(aiSaved.value || aiCanUpdate.value)) return false;
+  const i = aiMessages.value.findIndex((m) => m.role === "assistant");
+  return i >= 0 && aiMessages.value.length > i + 1; // 首答之后还有消息（追问）
+});
+
+// 把本次会话的追问问答合并进缓存词条（追加为要点，格式：追问「问题」：回答）
+async function appendFollowupsToTerm() {
+  if (!lastParsed) return;
+  const i = aiMessages.value.findIndex((m) => m.role === "assistant");
+  if (i < 0) return;
+  const extra = [];
+  let q = "";
+  for (const m of aiMessages.value.slice(i + 1)) {
+    if (m.role === "user") q = (m.content || "").replace(/\s+/g, " ").slice(0, 40);
+    else if (m.role === "assistant" && q) {
+      const a = (m.content || "").replace(/\s+/g, " ").slice(0, 120);
+      extra.push(`追问「${q}」：${a}`);
+      q = "";
+    }
+  }
+  if (!extra.length) return;
+  const ok = await updateUserTerm({ ...lastParsed, points: [...(lastParsed.points || []), ...extra] });
+  if (ok) {
+    aiSaved.value = true;
+    aiCanUpdate.value = false;
+  }
+}
+
 // 从历史打开会话：还原上下文，可继续追问
 function openAiSession(s) {
   aiSessionId = s.id;
@@ -948,8 +978,10 @@ onMounted(async () => {
         :error="aiError"
         :saved="aiSaved"
         :can-update="aiCanUpdate"
+        :can-append="canAppendFollowups"
         @follow-up="runFollowUp"
         @save-update="updateCachedTerm"
+        @append-followups="appendFollowupsToTerm"
       />
       <AiHistory
         v-else-if="view === 'history'"
