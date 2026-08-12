@@ -1,25 +1,80 @@
 <script setup>
+import { ref } from "vue";
+import { categoryColor } from "../utils/categories";
+
 defineProps({
   term: { type: Object, required: true },
 });
+
+// 复制反馈：记录当前复制的块（usage/definition），1.2s 后复位
+const copied = ref("");
+async function copyText(text, key) {
+  try {
+    await navigator.clipboard.writeText(text);
+    copied.value = key;
+  } catch {
+    // 剪贴板权限不可用时的降级方案
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      copied.value = key;
+    } catch (e) {
+      console.error("复制失败", e);
+    }
+    ta.remove();
+  }
+  setTimeout(() => {
+    if (copied.value === key) copied.value = "";
+  }, 1200);
+}
+
+function catStyle(cat) {
+  const { fg, bg } = categoryColor(cat);
+  return { color: fg, background: bg };
+}
 </script>
 
 <template>
   <div class="term-card">
     <div class="head">
       <h1>{{ term.abbr }}</h1>
-      <span class="tag">{{ term.category }}</span>
+      <span class="tag" :style="catStyle(term.category)">{{ term.category }}</span>
       <span class="tag source">{{ term.source === "ai" ? "AI 缓存" : "内置词库" }}</span>
     </div>
     <p v-if="term.full" class="full">{{ term.full }}</p>
     <p v-if="term.zh" class="zh">{{ term.zh }}</p>
-    <p v-if="term.usage" class="usage">{{ term.usage }}</p>
-    <p class="definition">{{ term.definition }}</p>
+    <div v-if="term.usage" class="code-block">
+      <button
+        class="copy-btn"
+        :class="{ done: copied === 'usage' }"
+        title="复制命令"
+        @click="copyText(term.usage, 'usage')"
+      >
+        {{ copied === "usage" ? "已复制 ✓" : "复制" }}
+      </button>
+      <p class="usage">{{ term.usage }}</p>
+    </div>
     <div v-if="term.options && term.options.length" class="options">
       <div v-for="(op, i) in term.options" :key="i" class="opt">
         <code>{{ op.o }}</code>
         <span>{{ op.d }}</span>
       </div>
+    </div>
+    <div class="code-block">
+      <button
+        class="copy-btn"
+        :class="{ done: copied === 'definition' }"
+        title="复制定义"
+        @click="copyText(term.definition, 'definition')"
+      >
+        {{ copied === "definition" ? "已复制 ✓" : "复制" }}
+      </button>
+      <p class="definition">{{ term.definition }}</p>
     </div>
     <ul v-if="term.points && term.points.length" class="points">
       <li v-for="(p, i) in term.points" :key="i">{{ p }}</li>
@@ -43,7 +98,7 @@ defineProps({
 h1 {
   font-size: 24px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-1);
 }
 
 .source {
@@ -54,13 +109,50 @@ h1 {
 .full {
   margin-top: 8px;
   font-size: 15px;
-  color: #475569;
+  color: var(--text-3);
   font-style: italic;
 }
 
 .zh {
   margin-top: 2px;
-  color: #64748b;
+  color: var(--text-4);
+}
+
+/* 可复制代码块：右上角悬浮复制按钮 */
+.code-block {
+  position: relative;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 1;
+  padding: 2px 9px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-4);
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.code-block:hover .copy-btn,
+.code-block:focus-within .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  color: var(--accent);
+  border-color: rgba(var(--accent-rgb), 0.5);
+}
+
+.copy-btn.done {
+  color: var(--success);
+  border-color: rgba(107, 158, 120, 0.5);
+  opacity: 1;
 }
 
 .usage {
@@ -95,7 +187,7 @@ h1 {
 }
 
 .opt span {
-  color: #475569;
+  color: var(--text-3);
   font-size: 13.5px;
   line-height: 1.9;
 }
@@ -107,19 +199,19 @@ h1 {
   border: 1px solid #e8edf3;
   border-radius: 8px;
   line-height: 1.7;
-  color: #334155;
+  color: var(--text-2);
 }
 
 .points {
   margin-top: 12px;
   padding-left: 18px;
-  color: #475569;
+  color: var(--text-3);
   line-height: 1.9;
 }
 
 .hint {
   margin-top: 18px;
-  color: #a3aebc;
+  color: var(--text-6);
   font-size: 12px;
 }
 </style>

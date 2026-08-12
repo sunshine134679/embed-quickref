@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, watch, nextTick } from "vue";
+import { categoryColor } from "../utils/categories";
 
 const props = defineProps({
   query: { type: String, required: true },
@@ -32,6 +33,11 @@ const followUps = computed(() => {
 const busy = computed(() => props.status === "loading" || props.status === "streaming");
 // 当前正在流式输出的是否是首答
 const streamingFirst = computed(() => busy.value && followUps.value.length === 0);
+
+function catStyle(cat) {
+  const { fg, bg } = categoryColor(cat);
+  return { color: fg, background: bg };
+}
 
 const FIELD_RE = /^(缩写|全称|中文名|分类|定义)[:：]\s*(.*)$/;
 
@@ -111,7 +117,7 @@ watch(
       <article v-if="parsed" class="card">
         <div class="title-row">
           <span class="abbr">{{ parsed.abbr || "…" }}</span>
-          <span v-if="parsed.category" class="cat">{{ parsed.category }}</span>
+          <span v-if="parsed.category" class="cat" :style="catStyle(parsed.category)">{{ parsed.category }}</span>
         </div>
         <p v-if="parsed.full" class="full">{{ parsed.full }}</p>
         <p v-if="parsed.zh" class="zh">{{ parsed.zh }}</p>

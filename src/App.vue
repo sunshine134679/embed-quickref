@@ -990,6 +990,7 @@ onMounted(async () => {
         </svg>
       </button>
       <button
+        v-if="mode !== 'floating'"
         class="icon-btn"
         :title="pinned ? '最小化到任务栏' : '收起窗口（热键或托盘可唤回）'"
         @click="dismissWindow"
@@ -1023,6 +1024,7 @@ onMounted(async () => {
           v-if="results.length"
           :results="results"
           :selected-index="selectedIndex"
+          :query="query"
           @hover="selectedIndex = $event"
           @open="openTab"
         />
@@ -1132,6 +1134,35 @@ onMounted(async () => {
 </template>
 
 <style>
+/* 设计 token：颜色统一入口（组件 scoped 样式同样可引用 var()） */
+:root {
+  /* 文本层级 */
+  --text-1: #1f2937;
+  --text-2: #334155;
+  --text-3: #475569;
+  --text-4: #64748b;
+  --text-5: #94a3b8;
+  --text-6: #a3aebc;
+  /* 品牌色 */
+  --accent: #52708f;
+  --accent-rgb: 82, 112, 143;
+  /* 语义色 */
+  --success: #6b9e78;
+  --danger: #b45353;
+  --danger-hover: #a14343;
+  --danger-soft: #c05252;
+  /* 表面 */
+  --bg-card: rgba(250, 251, 253, 0.66);
+  --border: #dbe2ea;
+  --border-soft: #e2e8f0;
+}
+
+/* 键盘导航焦点可见性 */
+:focus-visible {
+  outline: 2px solid rgba(var(--accent-rgb), 0.55);
+  outline-offset: 1px;
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -1146,7 +1177,7 @@ body {
 body {
   font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
   font-size: 14px;
-  color: #1f2937;
+  color: var(--text-1);
   -webkit-font-smoothing: antialiased;
   user-select: none;
   cursor: default;
@@ -1174,7 +1205,7 @@ body {
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  background: rgba(250, 251, 253, 0.66);
+  background: var(--bg-card);
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 12px;
 }
@@ -1213,7 +1244,7 @@ body {
 
 .grip:hover {
   background: rgba(241, 245, 249, 0.85);
-  color: #94a3b8;
+  color: var(--text-5);
 }
 
 .grip:active {
@@ -1235,18 +1266,18 @@ body {
   border: none;
   border-radius: 8px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-5);
   cursor: pointer;
 }
 
 .icon-btn:hover {
   background: rgba(241, 245, 249, 0.85);
-  color: #475569;
+  color: var(--text-3);
 }
 
 .icon-btn.active {
-  background: rgba(82, 112, 143, 0.14);
-  color: #52708f;
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
 }
 
 /* 收起/关闭与功能按钮之间的分隔线 */
@@ -1260,7 +1291,7 @@ body {
 
 .close-btn:hover {
   background: rgba(224, 82, 82, 0.12);
-  color: #c05252;
+  color: var(--danger-soft);
 }
 
 .icon-btn svg {
@@ -1288,12 +1319,21 @@ body {
   gap: 6px;
   height: 28px;
   padding: 0 6px 0 12px;
+  max-width: 180px;
   border: 1px solid rgba(219, 226, 234, 0.7);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.5);
-  color: #64748b;
+  color: var(--text-4);
   font-size: 12px;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.tab-label {
+  min-width: 0;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
@@ -1304,7 +1344,7 @@ body {
 .tab.active {
   background: rgba(255, 255, 255, 0.92);
   border-color: rgba(143, 168, 196, 0.8);
-  color: #334155;
+  color: var(--text-2);
   font-weight: 600;
 }
 
@@ -1315,14 +1355,14 @@ body {
   width: 16px;
   height: 16px;
   border-radius: 4px;
-  color: #a3aebc;
+  color: var(--text-6);
   font-size: 13px;
   line-height: 1;
 }
 
 .tab-close:hover {
   background: rgba(226, 232, 240, 0.9);
-  color: #475569;
+  color: var(--text-3);
 }
 
 .content {
@@ -1343,7 +1383,7 @@ body {
 .empty {
   padding: 48px 20px;
   text-align: center;
-  color: #64748b;
+  color: var(--text-4);
 }
 
 .empty-ai {
@@ -1356,12 +1396,12 @@ body {
 .empty-title {
   font-size: 15px;
   font-weight: 600;
-  color: #334155;
+  color: var(--text-2);
 }
 
 .empty-hint {
   max-width: 380px;
-  color: #94a3b8;
+  color: var(--text-5);
   font-size: 13px;
   line-height: 1.6;
   overflow-wrap: anywhere;
@@ -1375,8 +1415,8 @@ body {
   padding: 9px 18px;
   border: 1px solid rgba(143, 168, 196, 0.65);
   border-radius: 10px;
-  background: rgba(82, 112, 143, 0.1);
-  color: #52708f;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -1384,8 +1424,8 @@ body {
 }
 
 .ask-ai-btn:hover {
-  background: rgba(82, 112, 143, 0.18);
-  border-color: rgba(82, 112, 143, 0.8);
+  background: rgba(var(--accent-rgb), 0.18);
+  border-color: rgba(var(--accent-rgb), 0.8);
 }
 
 .ask-ai-btn:active {
@@ -1400,10 +1440,10 @@ body {
 .empty-tip {
   margin-top: 18px;
   padding: 8px 14px;
-  background: rgba(82, 112, 143, 0.08);
-  border: 1px dashed rgba(82, 112, 143, 0.3);
+  background: rgba(var(--accent-rgb), 0.08);
+  border: 1px dashed rgba(var(--accent-rgb), 0.3);
   border-radius: 8px;
-  color: #52708f;
+  color: var(--accent);
   font-size: 13px;
 }
 
@@ -1413,7 +1453,7 @@ body {
   padding: 7px 16px;
   background: transparent;
   border-color: rgba(219, 226, 234, 0.95);
-  color: #64748b;
+  color: var(--text-4);
   font-size: 13px;
   font-weight: 500;
 }
@@ -1437,16 +1477,16 @@ body {
   padding: 9px 14px;
   border: 1px solid rgba(143, 168, 196, 0.55);
   border-radius: 10px;
-  background: rgba(82, 112, 143, 0.08);
-  color: #52708f;
+  background: rgba(var(--accent-rgb), 0.08);
+  color: var(--accent);
   font-size: 13px;
   cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
 .ai-entry:hover {
-  background: rgba(82, 112, 143, 0.16);
-  border-color: rgba(82, 112, 143, 0.75);
+  background: rgba(var(--accent-rgb), 0.16);
+  border-color: rgba(var(--accent-rgb), 0.75);
 }
 
 .ai-entry:active {
@@ -1473,7 +1513,7 @@ body {
 }
 
 .empty.muted {
-  color: #a3aebc;
+  color: var(--text-6);
 }
 
 .statusbar {
@@ -1482,7 +1522,7 @@ body {
   padding: 8px 16px;
   border-top: 1px solid rgba(238, 242, 246, 0.7);
   background: rgba(255, 255, 255, 0.42);
-  color: #94a3b8;
+  color: var(--text-5);
   font-size: 12px;
 }
 
@@ -1493,7 +1533,7 @@ kbd {
   border-bottom-width: 2px;
   border-radius: 4px;
   background: rgba(248, 250, 252, 0.85);
-  color: #64748b;
+  color: var(--text-4);
   font-family: inherit;
   font-size: 11px;
 }
@@ -1503,7 +1543,7 @@ kbd {
   padding: 2px 8px;
   border-radius: 10px;
   background: rgba(238, 242, 247, 0.85);
-  color: #64748b;
+  color: var(--text-4);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -1532,12 +1572,12 @@ kbd {
 .confirm-title {
   font-size: 15px;
   font-weight: 700;
-  color: #1f2937;
+  color: var(--text-1);
 }
 
 .confirm-hint {
   margin-top: 6px;
-  color: #64748b;
+  color: var(--text-4);
   font-size: 12.5px;
   line-height: 1.6;
 }
@@ -1561,7 +1601,7 @@ kbd {
 
 .btn-cancel {
   background: rgba(100, 116, 139, 0.1);
-  color: #475569;
+  color: var(--text-3);
 }
 
 .btn-cancel:hover {
@@ -1569,11 +1609,11 @@ kbd {
 }
 
 .btn-quit {
-  background: #b45353;
+  background: var(--danger);
   color: #fff;
 }
 
 .btn-quit:hover {
-  background: #a14343;
+  background: var(--danger-hover);
 }
 </style>
