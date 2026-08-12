@@ -14,6 +14,11 @@ edition = "2021"
 name = "embed_quickref_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# 生产构建必须启用：tauri-codegen 依此判定 dev 模式——
+# 无此 feature 时 dev=true，正式版不嵌入前端资源而加载 devUrl（localhost:1420）导致"无法访问此页面"
+[features]
+custom-protocol = ["tauri/custom-protocol"]
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
