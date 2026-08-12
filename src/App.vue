@@ -60,6 +60,8 @@ const EXPAND_H = 500;
 // 进行中的平滑缩窗任务与取消标志（动画路径：淡出与缩窗并行）
 let shrinkTask = null;
 let shrinkCancel = false;
+// 收起动画进行中标志：动画路径防重复触发（双击收起/热键连按），避免并行飞行任务与圆点提前挂载
+let collapsing = false;
 
 // 收起飞行动画：main-view 用 CSS transform 从展开位置缩放+平移到圆点位置（GPU 合成，帧率远高于逐帧 resize），
 // 动画结束后内容已完全透明，瞬时缩窗无感知；与主界面淡出并行
@@ -89,6 +91,7 @@ async function animateShrink() {
     // 动画期间若用户已重新展开（热键/托盘），放弃缩窗，仅清理动画样式
     if (!shrinkCancel) await shrinkToDot();
     animStyle.value = null;
+    collapsing = false;
   }
 }
 
@@ -112,6 +115,7 @@ async function shrinkToDot() {
 async function onMainLeave() {
   if (form.value !== "compact") return;
   if (shrinkTask) await shrinkTask; // 淡出与缩窗并行，此处等缩窗收尾
+  await win.setIgnoreCursorEvents(false).catch(() => {}); // 动画结束恢复鼠标事件
   dotReady.value = true; // 缩窗完成后才挂载圆点并淡入
 }
 
@@ -171,9 +175,14 @@ watch(query, (q) => {
 
 // 缩回圆点态：64×64 小窗
 async function enterCompact(animate = true) {
+  // 收起动画进行中：忽略重复触发（双击收起/热键连按），避免并行飞行任务与圆点提前挂载
+  if (collapsing) return;
   // 动画路径：切圆点态触发淡出的同时并行平滑缩窗，消除"淡出完才瞬跳"的卡顿
   if (animate && form.value === "expanded") {
+    collapsing = true;
     dotReady.value = false; // 先卸载圆点，避免在大窗口内淡入
+    // 动画期间窗口纯透明且不拦截鼠标（点击穿透到桌面），动画结束由 onMainLeave 恢复
+    win.setIgnoreCursorEvents(true).catch(() => {});
     // 先关闭 acrylic 毛玻璃再启动动画：避免动画期间残留"大边框"与效果切换闪烁
     await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
     form.value = "compact"; // 触发主界面淡出
@@ -195,6 +204,8 @@ async function enterExpanded(initialView = "search") {
   shrinkCancel = true;
   shrinkTask = null;
   animStyle.value = null;
+  collapsing = false; // 动画被中断：解除重复触发守卫
+  win.setIgnoreCursorEvents(false).catch(() => {}); // 恢复鼠标事件（动画期间已穿透）
   // 展开态：恢复 acrylic 毛玻璃背景
   await win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e));
   // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
@@ -878,6 +889,8 @@ onMounted(async () => {
   // 悬浮模式：窗口移动后防抖保存位置 + 水平边缘吸附（80px 内贴边）
   let moveTimer = null;
   await win.onMoved(async ({ payload: pos }) => {
+    // 展开态拖动窗口：立即同步圆点还原位置（收起时圆点跟随窗口当前位置，不等待防抖）
+    if (form.value === "expanded") dotRestorePos = { x: pos.x, y: pos.y };
     clearTimeout(moveTimer);
     moveTimer = setTimeout(async () => {
       dotPosition.value = { x: pos.x, y: pos.y };
@@ -1140,21 +1153,19 @@ body {
   overflow: hidden;
 }
 
-/* 玻璃外壳：Acrylic 负责底层磨砂，这里叠一层浅色半透明表面 */
+/* 玻璃外壳：Acrylic 负责底层磨砂；卡片表面（背景/边框）挂在 main-view 上，
+   随收起动画一起淡出，避免动画开始时底板瞬间消失 */
 .shell {
   display: flex;
   flex-direction: column;
   width: 100vw;
   height: 100vh;
-  background: rgba(250, 251, 253, 0.66);
-  border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 12px;
   overflow: hidden;
 }
 
+/* 收起动画期间允许飞行内容超出圆角范围 */
 .shell.compact {
-  background: transparent;
-  border: none;
   overflow: visible;
 }
 
@@ -1163,6 +1174,9 @@ body {
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  background: rgba(250, 251, 253, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 12px;
 }
 
 /* 主界面展开/收起淡入淡出 */
