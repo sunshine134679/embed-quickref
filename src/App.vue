@@ -81,10 +81,11 @@ async function animateShrink() {
     animStyle.value = {
       transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${s.toFixed(4)})`,
       opacity: "0",
-      transition: "transform 220ms cubic-bezier(0.5, 0, 0.75, 0.4), opacity 200ms ease",
+      // 快速起步 ease-out：内容一开始就飞，避免"白框固定淡出"的视觉残留
+      transition: "transform 200ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease",
       transformOrigin: "center center",
     };
-    await new Promise((r) => setTimeout(r, 230));
+    await new Promise((r) => setTimeout(r, 210));
   } catch (e) {
     console.error("飞行动画计算失败", e);
   } finally {
