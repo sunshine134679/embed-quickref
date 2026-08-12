@@ -1,15 +1,11 @@
 <script setup>
+import { fmtWhen } from "../utils/format";
+
 defineProps({
   sessions: { type: Array, default: () => [] },
 });
 
 const emit = defineEmits(["open", "remove"]);
-
-function fmtTime(ts) {
-  const d = new Date(ts);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 // 摘要优先取首答的"定义"行，取不到就压平全文截断
 function preview(s) {
@@ -39,7 +35,7 @@ function extraTurns(s) {
       <div class="row1">
         <span class="q">{{ s.query }}</span>
         <span v-if="extraTurns(s)" class="turns">+{{ extraTurns(s) }} 追问</span>
-        <span class="time">{{ fmtTime(s.time) }}</span>
+        <span class="time">{{ fmtWhen(s.time) }}</span>
         <span class="del" title="删除记录" @click.stop="emit('remove', s.id)">×</span>
       </div>
       <div v-if="preview(s)" class="pv">{{ preview(s) }}</div>

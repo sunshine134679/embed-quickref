@@ -10,6 +10,8 @@ const props = defineProps({
   canUpdate: { type: Boolean, default: false },
   canAppend: { type: Boolean, default: false },
   appending: { type: Boolean, default: false },
+  // 本轮追问是否已并入词库（父级在并入成功后置位，新会话/新追问时重置）
+  appended: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(["follow-up", "save-update", "append-followups"]);
@@ -17,15 +19,6 @@ const emit = defineEmits(["follow-up", "save-update", "append-followups"]);
 const followText = ref("");
 const followInput = ref(null);
 const bottomEl = ref(null);
-// 本轮追问是否已并入词库（并入后按钮变"已并入"，新消息到来时重置）
-const appended = ref(false);
-
-watch(
-  () => thread.value.length,
-  () => {
-    appended.value = false;
-  }
-);
 
 // 去掉 system 后的对话线程
 const thread = computed(() => props.messages.filter((m) => m.role !== "system"));
@@ -156,7 +149,7 @@ watch(
         v-if="!appended && !appending"
         class="append-btn"
         title="AI 先把本轮追问总结为精简要点，再并入个人词库词条"
-        @click="appended = true; emit('append-followups')"
+        @click="emit('append-followups')"
       >
         将本轮追问并入词库
       </button>

@@ -14,7 +14,8 @@ import AiHistory from "./components/AiHistory.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import FloatingDot from "./components/FloatingDot.vue";
 import { initSettings, useSettings } from "./composables/useSettings";
-import { initUserTerms, search, addUserTerm, updateUserTerm } from "./composables/useSearch";
+import { fmtWhen } from "./utils/format";
+import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
 import { load } from "@tauri-apps/plugin-store";
 
@@ -72,8 +73,9 @@ async function animateShrink() {
     const s = DOT_SIZE / w; // 缩放比：展开宽 -> 圆点宽
     // 目标：内容中心移到圆点中心（物理像素 -> 逻辑 px 换算）
     const endPos = dotRestorePos || wPos;
-    const dx = (endPos.x + DOT_SIZE / 2 - (wPos.x + (w * scale) / 2)) / scale;
-    const dy = (endPos.y + DOT_SIZE / 2 - (wPos.y + (h * scale) / 2)) / scale;
+    // 物理像素差换算为逻辑 px 后，再叠加"窗口中心 -> 圆点中心"的偏移（DOT_SIZE 与 w/h 同属逻辑像素）
+    const dx = (endPos.x - wPos.x) / scale + DOT_SIZE / 2 - w / 2;
+    const dy = (endPos.y - wPos.y) / scale + DOT_SIZE / 2 - h / 2;
     animStyle.value = {
       transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${s.toFixed(4)})`,
       opacity: "0",
@@ -84,8 +86,8 @@ async function animateShrink() {
   } catch (e) {
     console.error("飞行动画计算失败", e);
   } finally {
-    // 先缩窗（内容已透明，无感知），再清除动画样式：避免清除瞬间内容闪回
-    await shrinkToDot();
+    // 动画期间若用户已重新展开（热键/托盘），放弃缩窗，仅清理动画样式
+    if (!shrinkCancel) await shrinkToDot();
     animStyle.value = null;
   }
 }
@@ -127,6 +129,7 @@ async function persistState() {
   if (!stateStore) return;
   try {
     await stateStore.set("tabs", tabs.value);
+    await stateStore.set("activeTab", activeTab.value);
     await stateStore.set("pinned", pinned.value);
     await stateStore.set("mode", mode.value);
     await stateStore.set("dotPosition", dotPosition.value);
@@ -149,6 +152,12 @@ async function restoreState() {
   const savedPos = await stateStore.get("dotPosition");
   if (savedPos && typeof savedPos.x === "number" && typeof savedPos.y === "number") {
     dotPosition.value = { x: savedPos.x, y: savedPos.y };
+  }
+  // 恢复上次激活的标签（供展开时直接回到该词条）
+  const savedActive = await stateStore.get("activeTab");
+  if (savedActive && tabs.value.some((t) => t.abbr === savedActive)) {
+    activeTab.value = savedActive;
+    currentTerm.value = tabs.value.find((t) => t.abbr === savedActive);
   }
 }
 
@@ -182,9 +191,10 @@ async function enterCompact(animate = true) {
 
 // 展开主界面：680×500，就地展开并纠正到可见区
 async function enterExpanded(initialView = "search") {
-  // 中断进行中的原生平滑缩窗动画（若用户在收起动画期间展开）
+  // 中断进行中的收起动画（若用户在动画期间展开）：标记取消并清除飞行动画样式
   shrinkCancel = true;
   shrinkTask = null;
+  animStyle.value = null;
   // 展开态：恢复 acrylic 毛玻璃背景
   await win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e));
   // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
@@ -236,10 +246,15 @@ async function applyDotPosition(p) {
   }
 }
 
+// 展开时默认视图：若恢复了上次打开的标签则直接展示该词条，否则回搜索
+function expandInitialView() {
+  return currentTerm.value ? "detail" : "search";
+}
+
 // 圆点点击展开（FloatingDot 事件）
 async function onDotExpand() {
   await win.show();
-  await enterExpanded();
+  await enterExpanded(expandInitialView());
   await win.setFocus();
 }
 
@@ -382,6 +397,7 @@ async function runAi(q) {
   aiQuery.value = text;
   aiSaved.value = false;
   aiCanUpdate.value = false;
+  aiAppended.value = false;
   lastParsed = null;
   aiSessionId = Date.now();
   aiFromView.value = view.value; // 记录来源视图，供 Esc 逐级返回
@@ -393,6 +409,7 @@ async function runAi(q) {
 async function runFollowUp(q) {
   const text = q.trim();
   if (!text || aiStatus.value === "loading" || aiStatus.value === "streaming") return;
+  aiAppended.value = false; // 新追问到来，并入按钮复位
   aiMessages.value.push({ role: "user", content: text });
   await streamAi(false);
 }
@@ -416,6 +433,8 @@ const canAppendFollowups = computed(() => {
 
 // AI 总结追问中（按钮显示"总结中…"）
 const aiAppending = ref(false);
+// 本轮追问是否已成功并入个人词库（由并入流程置位，新会话/新追问时重置）
+const aiAppended = ref(false);
 
 // 把本次会话的追问并入词库：先让 AI 把整轮追问总结为精简要点，避免原始拼接杂乱；
 // 总结失败时降级为逐条截断拼接，保证内容不丢
@@ -469,10 +488,17 @@ async function appendFollowupsToTerm() {
     definition: "AI 追问笔记",
     points: [],
   };
-  const ok = await updateUserTerm({ ...base, points: [...(base.points || []), ...extra] });
+  let ok = false;
+  try {
+    // 合并要点而非整体替换：多次追问并入不互相覆盖，按内容去重
+    ok = await appendUserTermPoints(base.abbr, extra, base);
+  } catch (e) {
+    console.error("追问并入词库失败", e);
+  }
   if (ok) {
     aiSaved.value = true;
     aiCanUpdate.value = false;
+    aiAppended.value = true; // 成功后才显示"已并入"，失败保持可重试
   }
 }
 
@@ -486,6 +512,7 @@ function openAiSession(s) {
   aiError.value = "";
   aiSaved.value = false;
   aiCanUpdate.value = false;
+  aiAppended.value = false;
   lastParsed = null;
   view.value = "ai";
 }
@@ -581,19 +608,6 @@ const emptyAiSession = computed(() => {
   return findAiSession(query.value);
 });
 
-// 历史时间的人类可读格式：今天/昨天 HH:MM，更早显示日期
-function fmtWhen(ts) {
-  const d = new Date(ts);
-  const now = new Date();
-  const pad = (n) => String(n).padStart(2, "0");
-  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  if (d.toDateString() === now.toDateString()) return `今天 ${hm}`;
-  const y = new Date(now);
-  y.setDate(now.getDate() - 1);
-  if (d.toDateString() === y.toDateString()) return `昨天 ${hm}`;
-  return `${d.getMonth() + 1}/${d.getDate()} ${hm}`;
-}
-
 function goBack() {
   if (view.value === "search") {
     if (query.value) query.value = "";
@@ -686,7 +700,7 @@ async function toggleWindow() {
       await enterCompact();
     } else {
       await win.show();
-      await enterExpanded();
+      await enterExpanded(expandInitialView());
       await win.setFocus();
     }
     return;
@@ -704,7 +718,14 @@ async function toggleWindow() {
       focusInput();
     }
   } else if (await win.isVisible()) {
-    await win.hide();
+    if (await win.isMinimized()) {
+      // 最小化到任务栏时热键唤回：先还原再聚焦
+      await win.unminimize();
+      await win.setFocus();
+      focusInput();
+    } else {
+      await win.hide();
+    }
   } else {
     await win.center();
     await showAndFocus();
@@ -725,9 +746,15 @@ async function onModeChange(m) {
   persistState();
   if (m === "floating") {
     await enterCompact();
-  } else if (form.value === "compact") {
-    await enterExpanded();
-    await win.setFocus();
+    await win.setSkipTaskbar(true).catch(() => {});
+  } else {
+    // 固定模式保留任务栏图标，弹窗模式不显示图标
+    await win.setSkipTaskbar(m !== "pinned").catch(() => {});
+    if (m === "pinned") await win.setAlwaysOnTop(true);
+    if (form.value === "compact") {
+      await enterExpanded(expandInitialView());
+      await win.setFocus();
+    }
   }
 }
 
@@ -781,10 +808,25 @@ onMounted(async () => {
   } catch (e) {
     console.error("状态恢复失败", e);
   }
-  // 悬浮模式：启动即为圆点态并恢复记忆位置
-  if (mode.value === "floating") {
-    await enterCompact(false);
-    if (dotPosition.value) await applyDotPosition(dotPosition.value);
+  // 启动形态：visible:false 配置下先完成初始化再展示，避免启动闪现完整窗口
+  try {
+    if (mode.value === "floating") {
+      // 悬浮模式：启动即为圆点态并恢复记忆位置
+      await enterCompact(false);
+      if (dotPosition.value) await applyDotPosition(dotPosition.value);
+      await win.show();
+    } else if (mode.value === "pinned") {
+      // 固定模式：置顶 + 任务栏图标，直接展示主界面
+      await win.setAlwaysOnTop(true);
+      await win.setSkipTaskbar(false);
+      await win.show();
+      await win.setFocus();
+      focusInput();
+    }
+    // popup 模式：保持隐藏，由全局热键/托盘唤出
+  } catch (e) {
+    console.error("初始窗口形态设置失败", e);
+    await win.show();
   }
   try {
     await initAiHistory();
@@ -804,6 +846,10 @@ onMounted(async () => {
   await win.onFocusChanged(({ payload: focused }) => {
     if (focused) {
       clearTimeout(hideTimer);
+      // 悬浮/弹窗模式：从"最小化到任务栏"还原后恢复无任务栏图标（dismissWindow 最小化时临时显示）
+      if (!pinned.value && mode.value !== "pinned") {
+        win.setSkipTaskbar(true).catch(() => {});
+      }
       return;
     }
     // 固定（图钉按钮 pinned 或固定模式）：不随失焦收起为圆点 / 隐藏窗口
@@ -1028,6 +1074,7 @@ onMounted(async () => {
         :can-update="aiCanUpdate"
         :can-append="canAppendFollowups"
         :appending="aiAppending"
+        :appended="aiAppended"
         @follow-up="runFollowUp"
         @save-update="updateCachedTerm"
         @append-followups="appendFollowupsToTerm"

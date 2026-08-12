@@ -28,54 +28,70 @@ export function restoreSession(messages) {
   return [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
 }
 
+// 单次 AI 请求整体超时（SSE 流式长回答可能较慢，120s 足够）
+const REQUEST_TIMEOUT_MS = 120_000;
+
 // DeepSeek OpenAI 兼容接口，SSE 流式；走 tauri http 插件绕开 CORS
 // messages 为完整多轮对话（含 system），追问时把历史一起带上
 export async function askAi(messages, settings, onDelta) {
-  const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${settings.apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: settings.model,
-      stream: true,
-      temperature: 0.2,
-      messages,
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 200)}` : ""}`);
-  }
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let fullText = "";
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop();
-    for (const line of lines) {
-      const data = line.trim();
-      if (!data.startsWith("data:")) continue;
-      const payload = data.slice(5).trim();
-      if (payload === "[DONE]") continue;
-      try {
-        const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
-        if (delta) {
-          fullText += delta;
-          onDelta(fullText);
+  // 超时保护：plugin-http 支持 AbortSignal，中止后 Rust 侧请求一并取消
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${settings.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        model: settings.model,
+        stream: true,
+        temperature: 0.2,
+        messages,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 200)}` : ""}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let fullText = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) {
+        const data = line.trim();
+        if (!data.startsWith("data:")) continue;
+        const payload = data.slice(5).trim();
+        if (payload === "[DONE]") continue;
+        try {
+          const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+          if (delta) {
+            fullText += delta;
+            onDelta(fullText);
+          }
+        } catch {
+          // 忽略跨分片的不完整 JSON
         }
-      } catch {
-        // 忽略跨分片的不完整 JSON
       }
     }
+    return fullText;
+  } catch (e) {
+    if (e.name === "AbortError") {
+      throw new Error(`AI 请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请重试`);
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
-  return fullText;
 }
 
 // 将固定格式的 AI 回答解析为词条对象，解析失败返回 null

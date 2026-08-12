@@ -42,6 +42,26 @@ export async function updateUserTerm(term) {
   return true;
 }
 
+// 把额外要点并入个人词库词条：保留词条已有要点（多次并入不互相覆盖），按内容去重；
+// 词条不存在时用 fallback 字段新建（与内置词条共存）。返回是否成功
+export async function appendUserTermPoints(abbr, extra, fallback) {
+  const key = (abbr || "").trim().toLowerCase();
+  if (!key || !extra?.length) return false;
+  const i = userTerms.value.findIndex((t) => (t.abbr || "").trim().toLowerCase() === key);
+  const existing = i >= 0 ? userTerms.value[i] : null;
+  const points = [...(existing?.points || []), ...extra].filter(
+    (p, j, arr) => arr.indexOf(p) === j
+  );
+  const next = { ...(existing || fallback || { abbr }), points, source: "ai" };
+  userTerms.value =
+    i >= 0
+      ? [...userTerms.value.slice(0, i), next, ...userTerms.value.slice(i + 1)]
+      : [...userTerms.value, next];
+  await store.set("terms", userTerms.value);
+  await store.save();
+  return true;
+}
+
 // 匹配优先级：缩写精确 > 缩写前缀 > 缩写包含 > 全称/中文包含 > 定义包含
 // 后缀词条（abbr 不带点）额外支持带点号输入："main.c" -> c、".h" -> h、"a.b.py" -> py
 export function search(query) {
@@ -90,5 +110,5 @@ export function search(query) {
 }
 
 export function useSearch() {
-  return { search, addUserTerm, updateUserTerm, userTerms };
+  return { search, addUserTerm, updateUserTerm, appendUserTermPoints, userTerms };
 }

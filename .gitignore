@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# 本机构建环境补丁（link.exe 临时目录指向工作区）
+.cargo/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
