@@ -9,8 +9,7 @@
       "三次握手建立连接，四次挥手断开",
       "滑动窗口流控 + 拥塞控制（慢启动/拥塞避免）",
       "嵌入式中常用于 socket 编程、远程登录、文件传输等可靠通信场景"
-    ],
-    "usage": "服务端 socket()/bind()/listen()/accept()、客户端 connect()；ss -tn 查看连接状态；iperf3 -s 起服务端、iperf3 -c IP 测吞吐；LwIP 中 netconn/socket API 均基于 TCP，适合远程登录、文件传输等可靠通信"
+    ]
   },
   {
     "abbr": "UDP",
@@ -22,8 +21,7 @@
       "首部仅 8 字节，无握手过程",
       "适合音视频流、DNS 查询、设备发现等场景",
       "可靠性需应用层自行保证（如超时重传）"
-    ],
-    "usage": "socket(AF_INET, SOCK_DGRAM) 无连接收发 sendto()/recvfrom()；iperf3 -u 测 UDP 吞吐；DHCP/DNS/NTP 均走 UDP；适合视频流、日志上报等可容忍少量丢包的场景，可靠性需应用层保证"
+    ]
   },
   {
     "abbr": "IP",
@@ -35,8 +33,7 @@
       "IPv4 地址 32 位，IPv6 为 128 位",
       "不保证可靠交付，依赖上层协议",
       "TTL 字段防止报文无限循环"
-    ],
-    "usage": "ip addr 配置地址、ip route 管理路由；内核命令行 ip= 参数静态指定 IP 与网关；LwIP 中用 netif_set_addr() 配置接口地址；traceroute 排障路由问题"
+    ]
   },
   {
     "abbr": "ICMP",
@@ -48,8 +45,7 @@
       "ping 使用 ICMP Echo 请求/应答",
       "traceroute 利用 TTL 超时报文探测路径",
       "不用于传输用户数据"
-    ],
-    "usage": "ping IP 检测连通性；ping -c 4 -s 1400 指定次数与包大小；LwIP 自带 ping 示例例程；traceroute 利用 ICMP 超时报文探测路径；网络排障第一工具"
+    ]
   },
   {
     "abbr": "IGMP",
@@ -61,8 +57,7 @@
       "用于加入/离开组播组",
       "IPTV、局域网流媒体分发常用",
       "只工作在本地网段"
-    ],
-    "usage": "setsockopt(IP_ADD_MEMBERSHIP) 加入组播组；ip maddr 查看组播地址；组播转发可用 igmpproxy；内核需开启 CONFIG_IP_MULTICAST；IPTV、局域网组播流媒体场景"
+    ]
   },
   {
     "abbr": "ARP",
@@ -74,8 +69,7 @@
       "通过广播请求、单播应答工作",
       "结果缓存在 ARP 表中（arp -a 查看）",
       "ARP 欺骗是常见局域网攻击手段"
-    ],
-    "usage": "arp -a 或 ip neigh 查看 ARP 表；ping 同网段主机触发解析；ip neigh add 添加静态表项；网络不通先确认 ARP 是否解析出 MAC；LwIP 中由 etharp 模块处理"
+    ]
   },
   {
     "abbr": "RARP",
@@ -87,8 +81,7 @@
       "曾用于无盘工作站启动获取 IP",
       "嵌入式历史遗留代码中偶见",
       "功能被 BOOTP/DHCP 完全替代"
-    ],
-    "usage": "已被 BOOTP/DHCP 完全取代，现代嵌入式系统不再使用；无盘启动场景改用 DHCP 获取 IP；仅历史代码与旧文档中偶见，了解其功能已被替代即可"
+    ]
   },
   {
     "abbr": "DHCP",
@@ -100,8 +93,7 @@
       "基于 UDP 67/68 端口，DORA 四步流程",
       "嵌入式设备常内置 udhcpc（BusyBox）作为客户端",
       "支持租期管理与地址回收"
-    ],
-    "usage": "udhcpc -i eth0（BusyBox 客户端）或 dhclient 获取 IP；内核命令行 ip=dhcp 启动时自动获取；服务端常用 dnsmasq 或 isc-dhcp-server；基于 UDP 67/68，租期到期自动续租"
+    ]
   },
   {
     "abbr": "DNS",
@@ -113,8 +105,7 @@
       "查询通常走 UDP 53 端口，区域传送用 TCP",
       "嵌入式中常用 /etc/resolv.conf 配置服务器",
       "记录类型：A/AAAA/CNAME/MX/PTR 等"
-    ],
-    "usage": "nslookup/dig 查询域名解析；/etc/resolv.conf 写入 nameserver 配置；程序用 getaddrinfo() 解析域名；BusyBox 内置 nslookup 无需额外依赖；嵌入式设备缺省走 UDP 53"
+    ]
   },
   {
     "abbr": "HTTP",
@@ -126,8 +117,7 @@
       "默认 TCP 80 端口，HTTP/2 支持多路复用",
       "嵌入式常用轻量服务器：boa、lighttpd、mongoose",
       "RESTful API 是设备管理接口的常见形式"
-    ],
-    "usage": "curl -X POST -d 数据 http://IP/api 调用设备接口；wget 下载文件；嵌入式服务端常用 lighttpd、boa、mongoose 提供 RESTful 接口；浏览器直连 IP 访问配置页"
+    ]
   },
   {
     "abbr": "HTTPS",
@@ -139,8 +129,7 @@
       "默认 TCP 443 端口",
       "嵌入式常用 mbedTLS/wolfSSL 实现，占用资源小",
       "需要设备端管理 CA 证书"
-    ],
-    "usage": "curl -k https://IP 跳过证书校验便于调试；mbedTLS 提供 mbedtls_ssl_handshake 等 API，资源占用小；openssl s_client -connect IP:443 检查握手；设备端需预置 CA 与设备证书"
+    ]
   },
   {
     "abbr": "FTP",
@@ -152,8 +141,7 @@
       "控制连接 21 端口，数据连接 20 端口（主动模式）",
       "有主动/被动两种数据连接模式",
       "明文传输，安全场景应改用 SFTP/FTPS"
-    ],
-    "usage": "ftp 命令登录后 get/put 传文件；BusyBox 自带 ftpd、ftpget/ftpput 适合脚本化传输；主动/被动模式与防火墙相关；明文传输，敏感数据应改用 SFTP/FTPS"
+    ]
   },
   {
     "abbr": "TFTP",
@@ -165,8 +153,7 @@
       "默认 UDP 69 端口，无认证机制",
       "U-Boot 中 tftpboot 命令下载内核镜像的标准方式",
       "实现极小，适合 BootROM/引导阶段使用"
-    ],
-    "usage": "U-Boot 下 tftpboot 0x80000000 uImage 下载镜像；BusyBox tftp -g -r 文件名 服务器IP 下载；服务器常用 tftpd-hpa 或 dnsmasq 的 tftp 服务；无认证，适合局域网开发烧写"
+    ]
   },
   {
     "abbr": "NFS",
@@ -178,8 +165,7 @@
       "嵌入式开发常用 NFS 挂载根文件系统调试",
       "内核需开启 CONFIG_NFS_FS 与 nfsroot 支持",
       "服务端配置 /etc/exports"
-    ],
-    "usage": "开发调试 mount -t nfs 服务器IP:/rootfs /mnt 挂载根文件系统；内核命令行 nfsroot=IP:/path 直接网络启动；服务端在 /etc/exports 配置共享后 exportfs -ra；内核需开启 CONFIG_NFS_FS"
+    ]
   },
   {
     "abbr": "SMB",
@@ -191,8 +177,7 @@
       "Linux 通过 Samba 与 Windows 互通共享",
       "CIFS 是其早期方言",
       "嵌入式 NAS 设备的核心协议之一"
-    ],
-    "usage": "mount -t cifs //服务器/共享 /mnt -o username=xxx 挂载 Windows 共享；smbclient -L IP 查看共享列表；嵌入式 NAS 用 Samba（smbd）提供服务端；注意与 NFS 的认证与权限差异"
+    ]
   },
   {
     "abbr": "Telnet",
@@ -204,8 +189,7 @@
       "默认 TCP 23 端口，无加密",
       "BusyBox 内置 telnetd，资源占用极小",
       "生产环境应替换为 SSH"
-    ],
-    "usage": "telnet IP 登录调试设备；BusyBox 内置 telnetd -l /bin/sh 提供 shell 服务；明文传输仅限局域网开发调试，量产设备应替换为 SSH"
+    ]
   },
   {
     "abbr": "SSH",
@@ -217,8 +201,7 @@
       "默认 TCP 22 端口，支持密码与密钥认证",
       "嵌入式常用轻量实现 Dropbear",
       "可承载 SCP/SFTP 文件传输与端口转发"
-    ],
-    "usage": "ssh 用户@IP 远程登录；嵌入式常用轻量实现 Dropbear（服务端 sshd、客户端 dbclient）；ssh-keygen 生成密钥对实现免密登录；可承载 scp/sftp 与端口转发"
+    ]
   },
   {
     "abbr": "SCP",
@@ -230,8 +213,7 @@
       "语法：scp 文件 user@host:路径",
       "加密传输，替代 rcp",
       "大量小文件场景建议用 rsync"
-    ],
-    "usage": "scp 文件 用户@IP:目标路径 上传；scp -r 传目录；-P 端口 指定非 22 端口；基于 SSH 加密传输替代明文 rcp；大量小文件场景建议改用 rsync"
+    ]
   },
   {
     "abbr": "SFTP",
@@ -243,8 +225,7 @@
       "与 FTP 无协议关系，仅名字相似",
       "支持断点续传、目录操作",
       "Dropbear/OpenSSH 均可提供服务端"
-    ],
-    "usage": "sftp 用户@IP 进入交互式会话；put/get 上传下载；支持断点续传与目录操作；由 Dropbear/OpenSSH 提供，无需单独部署服务；比 FTP 安全"
+    ]
   },
   {
     "abbr": "TLS",
@@ -256,8 +237,7 @@
       "当前主流版本 TLS 1.2 / 1.3",
       "握手协商密码套件并交换密钥",
       "嵌入式常用 mbedTLS（前身 PolarSSL）"
-    ],
-    "usage": "嵌入式常用 mbedTLS/wolfSSL，RAM 占用小；openssl s_client -connect IP:443 检查对端证书与握手；需预置 CA 根证书与设备证书链；当前主流为 TLS 1.2/1.3"
+    ]
   },
   {
     "abbr": "SSL",
@@ -269,8 +249,7 @@
       "SSL 3.0 之后演进为 TLS 1.0",
       "OpenSSL 库名保留了这一历史称呼",
       "新设计应直接使用 TLS 1.2+"
-    ],
-    "usage": "历史称呼，OpenSSL 库名仍沿用；SSL 3.0 存在 POODLE 等严重漏洞已废弃；新开发一律使用 TLS 1.2 以上；openssl version 查看库版本"
+    ]
   },
   {
     "abbr": "MQTT",
@@ -282,8 +261,7 @@
       "默认 TCP 1883 端口（TLS 为 8883）",
       "QoS 0/1/2 三级消息质量，支持遗嘱消息",
       "常用实现：mosquitto（Broker）、paho（客户端）"
-    ],
-    "usage": "mosquitto_pub -t 主题 -m 消息 发布；mosquitto_sub -t 主题 订阅；paho 提供 C/Python 客户端库；默认 1883、TLS 走 8883；QoS 0/1/2 按可靠性需求选择；支持遗嘱消息做离线通知"
+    ]
   },
   {
     "abbr": "CoAP",
@@ -295,8 +273,7 @@
       "默认 UDP 5683 端口，支持 GET/PUT/POST/DELETE",
       "专为 6LoWPAN 等低功耗网络设计",
       "支持观察模式（Observe）实现订阅"
-    ],
-    "usage": "coap-client -m get coap://IP/资源 发起请求；libcoap 提供 C API；Observe 选项实现订阅推送；基于 UDP 5683，报文极小，适合 6LoWPAN 等低功耗网络"
+    ]
   },
   {
     "abbr": "AMQP",
@@ -308,8 +285,7 @@
       "支持消息确认、路由、事务",
       "比 MQTT 重，适合网关/云端侧",
       "默认 TCP 5672 端口"
-    ],
-    "usage": "RabbitMQ 默认监听 5672；rabbitmqctl list_queues 查看队列状态；适合网关与云端之间的消息路由与事务，比 MQTT 重；嵌入式端一般只做客户端"
+    ]
   },
   {
     "abbr": "WS",
@@ -321,8 +297,7 @@
       "通过 HTTP Upgrade 握手升级",
       "嵌入式 Web 配置界面实时刷新常用",
       "ws:// 明文、wss:// 加密"
-    ],
-    "usage": "浏览器端 new WebSocket(ws://IP/路径) 建立实时通道；经 HTTP Upgrade 握手升级；嵌入式 Web 配置界面实时刷新、设备状态推送常用；wss:// 走 TLS 加密"
+    ]
   },
   {
     "abbr": "NTP",
@@ -334,8 +309,7 @@
       "默认 UDP 123 端口",
       "嵌入式常用轻量实现 SNTP 或 busybox ntpd",
       "精度可达毫秒级"
-    ],
-    "usage": "busybox ntpd -n -p 服务器IP 后台同步；sntp 服务器IP 一次性校准；chronyd 可作常驻服务；嵌入式设备常配合 RTC 芯片开机校时；默认 UDP 123"
+    ]
   },
   {
     "abbr": "SNMP",
@@ -347,8 +321,7 @@
       "基于 UDP 161/162 端口",
       "通过 MIB/OID 树描述被管理对象",
       "v3 版本才支持认证与加密"
-    ],
-    "usage": "snmpwalk -v2c -c public IP 遍历 OID；snmpget 读取指定 OID 值；net-snmp 提供 agent 开发框架自定义 MIB；v3 版本才支持认证与加密，生产环境不应使用 public 团体名"
+    ]
   },
   {
     "abbr": "PPP",
@@ -360,8 +333,7 @@
       "4G 模块拨号上网（pppd）核心协议",
       "支持 LCP 链路协商与 CHAP/PAP 认证",
       "嵌入式蜂窝通信中仍广泛使用"
-    ],
-    "usage": "pppd call 配置名 拨号，配合 chat 脚本与 AT 指令；4G 模块经串口拨号后由 pppd 建立链路；BusyBox 内置 pppd；内核需开启 CONFIG_PPP 及串口相关选项"
+    ]
   },
   {
     "abbr": "PPPoE",
@@ -373,8 +345,7 @@
       "家用路由器 WAN 口拨号标准方式",
       "分发现（PADI/PADO）与会话两个阶段",
       "MTU 通常为 1492"
-    ],
-    "usage": "Debian 系用 pppoeconf 交互式配置拨号；手动拨号 pppd plugin pppoe；MTU 需降为 1492 避免分片；家用路由器 WAN 口宽带拨号的标准方式"
+    ]
   },
   {
     "abbr": "VLAN",
@@ -386,8 +357,7 @@
       "802.1Q 标签 4 字节，VLAN ID 12 位（0-4095）",
       "Linux 用 ip link 创建 VLAN 子接口",
       "交换机芯片（DSA）驱动中常见概念"
-    ],
-    "usage": "ip link add link eth0 name eth0.10 type vlan id 10 创建子接口再 up；802.1Q 标签多由交换芯片（DSA 驱动）处理；嵌入式交换芯片需配置端口与 VID 映射；VLAN ID 范围 1-4094"
+    ]
   },
   {
     "abbr": "NAT",
@@ -399,8 +369,7 @@
       "Linux 由 netfilter/iptables MASQUERADE 实现",
       "分 SNAT/DNAT/端口映射",
       "IPv6 普及后需求减弱"
-    ],
-    "usage": "iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE 做上网共享；DNAT 端口映射把公网端口转发到内网设备；4G 网关典型用法；IPv6 普及后需求减弱"
+    ]
   },
   {
     "abbr": "VPN",
@@ -412,8 +381,7 @@
       "常见实现：WireGuard、OpenVPN、IPsec",
       "WireGuard 已并入 Linux 内核，性能优",
       "嵌入式网关设备的常见功能"
-    ],
-    "usage": "wg-quick up wg0 启用 WireGuard 隧道；openvpn --config 客户端配置文件 连接；IPsec 常用 strongSwan；WireGuard 已并入 Linux 内核性能好；嵌入式网关常内置 VPN 客户端"
+    ]
   },
   {
     "abbr": "LwIP",
@@ -425,8 +393,7 @@
       "支持 RAW/Netconn/Socket 三种 API",
       "广泛用于 STM32、ESP32 等 MCU 平台",
       "可裁剪配置在 lwipopts.h 中完成"
-    ],
-    "usage": "裁剪配置集中在 lwipopts.h；RAW API（tcp_new()/tcp_connect()）可无 OS 运行，netconn/socket API 适合 RTOS 环境；STM32、ESP32 等平台默认协议栈；内存与缓冲需按应用调优"
+    ]
   },
   {
     "abbr": "mDNS",
@@ -438,8 +405,7 @@
       "使用 224.0.0.251:5353 组播地址",
       ".local 域名解析，配合 DNS-SD 做服务发现",
       "Linux 实现为 Avahi，苹果称 Bonjour"
-    ],
-    "usage": "avahi-daemon 提供 mDNS/DNS-SD 服务；avahi-browse -a 浏览局域网服务；在 /etc/avahi/services 放置 .service 文件发布服务；设备名.local 即可直接访问"
+    ]
   },
   {
     "abbr": "RTSP",
@@ -451,8 +417,7 @@
       "默认 TCP 554 端口，媒体数据通常走 RTP",
       "IP 摄像头的标准取流协议",
       "URL 形如 rtsp://ip/stream"
-    ],
-    "usage": "ffplay rtsp://IP/stream 预览取流；ffmpeg -re -i 输入文件 -f rtsp rtsp://IP/ 推流；IP 摄像头取流的标准协议；信令走 TCP 554，媒体数据通常走 RTP"
+    ]
   },
   {
     "abbr": "RTP",
@@ -464,8 +429,7 @@
       "头部含序列号与时间戳用于抖动处理",
       "配套 RTCP 反馈传输质量",
       "视频监控、VoIP 的数据面协议"
-    ],
-    "usage": "一般经 GStreamer/ffmpeg 处理而非直接编程；gst-launch-1.0 udpsrc 可接收 RTP 流；头部序列号与时间戳用于抖动处理；与 RTCP 配合做丢包统计；视频监控、VoIP 的数据面协议"
+    ]
   },
   {
     "abbr": "SIP",
@@ -477,8 +441,7 @@
       "默认 UDP/TCP 5060 端口",
       "文本协议，格式类似 HTTP",
       "媒体协商配合 SDP 完成"
-    ],
-    "usage": "pjsip 提供嵌入式 VoIP 协议栈（pjsua 示例可快速验证）；软电话 Linphone 便于调试；默认 UDP/TCP 5060；配合 SDP 协商媒体参数，媒体面走 RTP"
+    ]
   },
   {
     "abbr": "gRPC",
@@ -490,8 +453,7 @@
       "使用 Protocol Buffers 序列化，体积小",
       "支持双向流式调用",
       "嵌入式网关与云端通信常用"
-    ],
-    "usage": "用 protoc 根据 .proto 文件生成客户端/服务端代码；grpcurl -plaintext 调试远程调用；支持流式双向通信；Protobuf 序列化体积小，嵌入式网关与云端对接常用"
+    ]
   },
   {
     "abbr": "6LoWPAN",
@@ -503,8 +465,7 @@
       "通过头部压缩与分片适配 127 字节帧",
       "Thread 协议的底层基础",
       "常与 CoAP 搭配使用"
-    ],
-    "usage": "Linux 内核 ieee802154 子系统与 lowpan 模块支持；OpenThread、Contiki 等协议栈有实现；通过头部压缩与分片适配 802.15.4 的 127 字节短帧；常与 CoAP 组合构成典型物联网协议栈"
+    ]
   },
   {
     "abbr": "BLE",
@@ -516,8 +477,7 @@
       "GATT 协议以服务/特征值组织数据",
       "广播与连接两种通信方式",
       "Linux 协议栈为 BlueZ"
-    ],
-    "usage": "Linux 端协议栈为 BlueZ，bluetoothctl 可扫描、配对、连接；GATT 以服务/特征值组织数据，外设开发需实现 Service 与 Characteristic；支持广播与连接两种模式；可穿戴、传感设备典型场景"
+    ]
   },
   {
     "abbr": "LoRa",
@@ -529,8 +489,7 @@
       "工作在 Sub-GHz 免授权频段（433/470/868MHz）",
       "速率低（0.3-50kbps），适合传感数据",
       "组网层标准为 LoRaWAN"
-    ],
-    "usage": "物理层用 SX1276/77 等扩频射频芯片驱动；LoRaWAN 组网用 Semtech LoRaMac-node 协议栈；网关侧常用 ChirpStack 部署；频段（433/470/868MHz）与扩频因子需按区域法规配置"
+    ]
   },
   {
     "abbr": "UART",
@@ -542,8 +501,7 @@
       "常用波特率 9600/115200，格式 8N1",
       "嵌入式调试串口控制台的标准接口",
       "电平常见 TTL 3.3V，与 RS-232 电平不兼容"
-    ],
-    "usage": "stty -F /dev/ttyS0 115200 配置；cat/echo 或 minicom 读写 /dev/ttyS0；设备树 serial@... 节点配置时钟与引脚复用；波特率/数据位/校验位必须与对端匹配"
+    ]
   },
   {
     "abbr": "USART",
@@ -555,8 +513,7 @@
       "同步模式额外提供时钟线",
       "STM32 等 MCU 常见外设名称",
       "异步模式下用法与 UART 相同"
-    ],
-    "usage": "异步模式用法与 UART 完全相同（stty + /dev/ttyS*）；同步模式需额外接 CLK 时钟线；STM32 下用 HAL_UART_Transmit/HAL_UART_Receive 收发；设备树按 UART 节点配置"
+    ]
   },
   {
     "abbr": "SPI",
@@ -568,8 +525,7 @@
       "主从结构，通过片选 CS 选择从机",
       "CPOL/CPHA 组合出 4 种工作模式",
       "常接 Flash、显示屏、传感器；Linux 驱动框架为 spidev/spi-core"
-    ],
-    "usage": "spidev_test -D /dev/spidev0.0 -s 1000000 测试收发；设备树 spi@... 子节点配置模式与频率挂从机；驱动用 spi_sync/spi_write/spi_read 传输；CPOL/CPHA 与片选时序须匹配从机"
+    ]
   },
   {
     "abbr": "I2C",
@@ -581,8 +537,7 @@
       "标准 100kHz、快速 400kHz、高速 3.4MHz",
       "开漏结构需上拉电阻",
       "Linux 下用 i2c-tools（i2cdetect/i2cget）调试"
-    ],
-    "usage": "i2cdetect -y 0 扫描总线；i2cget/i2cset 读写寄存器；设备树 i2c@... 子节点挂设备并配 reg 地址；驱动用 i2c_transfer() 或 regmap"
+    ]
   },
   {
     "abbr": "I2S",
@@ -594,8 +549,7 @@
       "三线：SCK（位时钟）、WS（左右声道选择）、SD（数据）",
       "连接 CPU 与音频 Codec 的标准方式",
       "Linux 音频框架 ALSA/ASoC 中的底层接口"
-    ],
-    "usage": "设备树用 simple-audio-card 连接 CPU 与 Codec；ASoC 框架注册 DAI link 与机器驱动；aplay/arecord 播放录音验证通路；SCK/WS/SD 三线按主从方向接好"
+    ]
   },
   {
     "abbr": "I3C",
@@ -607,8 +561,7 @@
       "速率可达 12.5MHz 以上",
       "支持动态地址分配",
       "面向传感器聚合场景"
-    ],
-    "usage": "内核 i3c 子系统（drivers/i3c）管理控制器与从设备；设备树 i3c@... 节点声明 I3C 及兼容 I2C 设备；驱动用 i3c_device_do_priv_xfers() 做私有传输；动态地址分配由控制器自动完成"
+    ]
   },
   {
     "abbr": "CAN",
@@ -620,8 +573,7 @@
       "经典 CAN 最高 1Mbps，报文数据段最多 8 字节",
       "按标识符（ID）优先级无损仲裁",
       "Linux 提供 SocketCAN 框架（candump/cansend）"
-    ],
-    "usage": "ip link set can0 up type can bitrate 500000 启动；candump can0 监听报文；cansend can0 123#DEADBEEF 发送；应用用 socket(PF_CAN, SOCK_RAW, CAN_RAW) 收发"
+    ]
   },
   {
     "abbr": "CAN FD",
@@ -633,8 +585,7 @@
       "仲裁段与数据段可用不同波特率",
       "数据段最高可达 5-8Mbps",
       "与经典 CAN 网络需注意兼容性"
-    ],
-    "usage": "ip link set can0 up type can bitrate 500000 dbitrate 2000000 fd on 配置；cansend 用 ID##flags 双井号格式发 FD 帧；candump 直接抓取 FD 报文；确认控制器与对端都支持 FD"
+    ]
   },
   {
     "abbr": "LIN",
@@ -646,8 +597,7 @@
       "最高 20kbps，单主多从",
       "基于增强型 UART 帧实现",
       "用于车窗、座椅等低速节点"
-    ],
-    "usage": "通常由 UART 外设加 LIN 收发器（TJA1020 等）实现；主节点按调度表周期发送帧头、从节点应答；主流波特率固定 19200；调试用逻辑分析仪抓取帧头同步间隔"
+    ]
   },
   {
     "abbr": "RS-232",
@@ -659,8 +609,7 @@
       "逻辑 1 为 -3~-15V，逻辑 0 为 +3~+15V",
       "与 TTL 串口需 MAX3232 等芯片转换",
       "传输距离一般 15 米内"
-    ],
-    "usage": "TTL 电平需 MAX3232 等芯片转换后再接 PC；minicom/picocom 连接串口调试；驱动层面与普通 UART 一致；TX/RX 交叉连接并共地"
+    ]
   },
   {
     "abbr": "RS-485",
@@ -672,8 +621,7 @@
       "差分 A/B 两线，抗共模干扰",
       "一条总线最多 32 个标准节点，距离可达 1200 米",
       "常作为 Modbus RTU 的物理层"
-    ],
-    "usage": "半双工需用 GPIO 控制收发方向（DE/RE）；常作 Modbus RTU 物理层跑 libmodbus；设备树/驱动与 UART 相同但注意方向引脚配置；总线两端各接 120Ω 终端电阻"
+    ]
   },
   {
     "abbr": "RS-422",
@@ -685,8 +633,7 @@
       "一主发送、多从接收",
       "速率与距离优于 RS-232",
       "工业仪表中常见"
-    ],
-    "usage": "四线差分 TX+/TX-/RX+/RX- 全双工；可通过 USB-422 转换器接调试机；长距离传输注意终端匹配；驱动层面仍按 UART 处理"
+    ]
   },
   {
     "abbr": "Modbus",
@@ -698,8 +645,7 @@
       "RTU 帧以 CRC16 校验，TCP 默认 502 端口",
       "功能码读写线圈/寄存器（01/03/06/16 常用）",
       "开源实现 libmodbus 使用广泛"
-    ],
-    "usage": "用 libmodbus 的 modbus_new_rtu/modbus_read_registers 开发；modpoll/mbpoll 命令行测试读写；TCP 模式连对端 502 端口；功能码 03/06/16 读写保持寄存器"
+    ]
   },
   {
     "abbr": "1-Wire",
@@ -711,8 +657,7 @@
       "每个器件有唯一 64 位 ROM 序列号",
       "通过精确时序区分读写 0/1",
       "Linux 内核有 w1 子系统支持"
-    ],
-    "usage": "加载 w1-gpio/w1_therm 内核模块；cat /sys/bus/w1/devices/28-*/w1_slave 读温度；设备树用 compatible 为 w1-gpio 的 onewire 节点绑 GPIO；数据线上拉 4.7kΩ 电阻"
+    ]
   },
   {
     "abbr": "USB",
@@ -724,8 +669,7 @@
       "USB2.0 高速 480Mbps，USB3.x 可达 5-20Gbps",
       "嵌入式 Linux 中分 Host/Device/OTG 三种角色",
       "常用 Gadget 框架模拟串口/网卡/U 盘"
-    ],
-    "usage": "lsusb 查看设备枚举；dmesg 观察枚举与供电信息；设备树 usb@... 节点配置控制器；Gadget 用 configfs 模拟串口/网卡/U 盘"
+    ]
   },
   {
     "abbr": "OTG",
@@ -737,8 +681,7 @@
       "通过 ID 引脚判断角色",
       "嵌入式开发板 OTG 口既可接 U 盘也可连 PC",
       "Linux 中由 dwc2/dwc3 等控制器驱动支持"
-    ],
-    "usage": "设备树 dr_mode 属性选 host/peripheral/otg；角色切换经 usb-role-switch 或 extcon 通知；dwc2/dwc3 驱动支持 OTG 功能；device 角色下配合 Gadget 挂功能"
+    ]
   },
   {
     "abbr": "PCIe",
@@ -750,8 +693,7 @@
       "Gen3 单 lane 约 1GB/s，x1/x4/x16 可扩展",
       "枚举后通过 BAR 空间访问设备",
       "嵌入式常接 NVMe、WiFi 模块、FPGA"
-    ],
-    "usage": "lspci -v 枚举设备并查看 BAR 与中断；设备树 pcie@... 节点配置供电与复位；驱动用 pci_register_driver 匹配并映射 BAR 空间访问；接 NVMe/WiFi/FPGA 时检查链路速率"
+    ]
   },
   {
     "abbr": "AMBA",
@@ -763,8 +705,7 @@
       "AXI 高性能、AHB 高速、APB 低速外设",
       "SoC 内部 IP 互连的事实标准",
       "设备树中外设地址即挂在这些总线上"
-    ],
-    "usage": "设备树外设节点的 reg 地址即挂在 AXI/AHB/APB 总线上的地址；内核 AMBA 驱动用 amba_driver 匹配；总线桥接决定外设时钟与访问延迟；SoC 集成时确定，用户一般无需配置"
+    ]
   },
   {
     "abbr": "AXI",
@@ -776,8 +717,7 @@
       "五个独立通道：读地址/读数据/写地址/写数据/写响应",
       "支持突发传输与多主设备",
       "FPGA（Zynq）开发中 PS-PL 互连的核心接口"
-    ],
-    "usage": "FPGA 中用 Vivado Address Editor 分配 AXI 地址；AXI4-Lite 适合寄存器访问、AXI4 全功能用于 DMA 突发；设备树 reg/中断与 Vivado 配置对应；驱动按内存映射方式 readl/writel 访问"
+    ]
   },
   {
     "abbr": "AHB",
@@ -789,8 +729,7 @@
       "单通道流水线结构",
       "比 AXI 简单、比 APB 快",
       "MCU（Cortex-M）内部主总线常用"
-    ],
-    "usage": "SoC 内部主总线，通常由硬件集成无需配置；Cortex-M 中经总线矩阵连接 Flash/SRAM/DMA；关注外设挂载的时钟域与仲裁优先级；调试时查看总线矩阵配置寄存器"
+    ]
   },
   {
     "abbr": "APB",
@@ -802,8 +741,7 @@
       "无流水线，两拍完成一次访问",
       "功耗与实现成本低",
       "通过桥接器连接到 AHB/AXI"
-    ],
-    "usage": "低速外设寄存器多挂 APB 总线；设备树外设节点地址即 APB 地址空间；驱动用 ioremap 加 readl/writel 访问寄存器；低功耗域外设注意时钟门控配置"
+    ]
   },
   {
     "abbr": "MIPI",
@@ -815,8 +753,7 @@
       "物理层多用 D-PHY 差分高速信号",
       "引脚少、速率高、功耗低",
       "嵌入式屏幕与摄像头的主流接口"
-    ],
-    "usage": "显示走 DSI、摄像头走 CSI-2；设备树中配置 D-PHY 时钟与数据 lane 数；差分走线需做阻抗与等长控制；Linux 由 DRM/V4L2 框架配合驱动"
+    ]
   },
   {
     "abbr": "DSI",
@@ -828,8 +765,7 @@
       "支持视频模式与命令模式",
       "1-4 条数据 lane，每 lane 可达 Gbps 级",
       "Linux 中由 DRM 框架的 mipi_dsi 驱动支持"
-    ],
-    "usage": "设备树 panel 节点经 ports 端口连 dsi@... 控制器；DRM 的 mipi_dsi 驱动注册面板；modetest 查看与设置显示模式；video/command 模式按屏规格选择"
+    ]
   },
   {
     "abbr": "CSI",
@@ -841,8 +777,7 @@
       "常见为 CSI-2 规范",
       "Linux 由 V4L2 子设备框架管理",
       "树莓派摄像头排线即为 CSI 接口"
-    ],
-    "usage": "设备树 sensor 节点经 ports 连 csi@... 控制器并配 lane 数；media-ctl -l/-V 配置 V4L2 pipeline；v4l2-ctl --stream-mmap 抓帧验证；分辨率/帧率与数据 lane 带宽匹配"
+    ]
   },
   {
     "abbr": "LVDS",
@@ -854,8 +789,7 @@
       "摆幅约 350mV，抗干扰强",
       "工业屏与笔记本屏的传统接口",
       "逐渐被 eDP/MIPI DSI 取代"
-    ],
-    "usage": "设备树用 panel-lvds 兼容节点配 display-timings；DRM 面板驱动配置映射关系；差分对走线注意阻抗与等长；可经 LT8912 等转换桥接 MIPI DSI 屏"
+    ]
   },
   {
     "abbr": "HDMI",
@@ -867,8 +801,7 @@
       "基于 TMDS 差分传输",
       "HDMI 2.0 带宽 18Gbps 支持 4K60",
       "Linux 中由 DRM/KMS 驱动输出"
-    ],
-    "usage": "设备树 hdmi@... 节点配置时钟、供电与中断；DRM/KMS 输出用 modetest/kmscube 测试；读取 EDID 查看分辨率能力；热插拔经中断通知应用层"
+    ]
   },
   {
     "abbr": "SDIO",
@@ -880,8 +813,7 @@
       "复用 SD 卡插槽与协议",
       "4 位并行数据线，时钟可达 50MHz+",
       "Linux 的 mmc 子系统统一管理"
-    ],
-    "usage": "设备树 sdio@... 节点挂 WiFi 等模块；mmc 子系统枚举为 mmcX 与 wlan0 接口；ifconfig/iw 管理无线网络；注意 4 位总线模式与 1.8V 电平切换"
+    ]
   },
   {
     "abbr": "eMMC 总线",
@@ -893,8 +825,7 @@
       "HS200 达 200MB/s、HS400 达 400MB/s",
       "协议由 JEDEC 标准定义",
       "Linux mmc 子系统枚举为 mmcblkX"
-    ],
-    "usage": "设备树 mmc@... 配 bus-width=<8> 与 mmc-hs200-1_8v；枚举为 /dev/mmcblk0 用 dd/fdisk/mkfs 分区；mmc-utils 的 mmc extcsd read 查看参数；HS400 需 1.8V 供电与 DLL 校准"
+    ]
   },
   {
     "abbr": "JTAG",
@@ -906,8 +837,7 @@
       "标准五线：TCK/TMS/TDI/TDO/TRST",
       "配合 OpenOCD + GDB 进行底层调试",
       "支持菊花链连接多个器件"
-    ],
-    "usage": "openocd -f interface.cfg -f target.cfg 启动调试服务器；GDB 用 target remote :3333 连接；flash write_image 烧写固件；TCK/TMS/TDI/TDO 引脚对应接好"
+    ]
   },
   {
     "abbr": "SWD",
@@ -919,8 +849,7 @@
       "仅需 SWDIO/SWCLK 两根线",
       "Cortex-M 系列 MCU 的主流调试方式",
       "J-Link/ST-Link/DAPLink 均支持"
-    ],
-    "usage": "SWDIO/SWCLK 两根线即可调试；OpenOCD 选 stlink/jlink 等接口配置；配合 arm-none-eabi-gdb 单步与断点调试；复位引脚与电源共地"
+    ]
   },
   {
     "abbr": "SMBus",
@@ -932,8 +861,7 @@
       "时钟限制 10-100kHz，有 35ms 超时要求",
       "笔记本电池（Smart Battery）通信标准",
       "Linux i2c 子系统兼容支持"
-    ],
-    "usage": "i2c-tools 兼容 SMBus 设备可直接读写；电池电量计走标准 SMBus 命令集并带 PEC；设备树按 i2c 节点挂载设备；时钟 10-100kHz 并满足超时要求"
+    ]
   },
   {
     "abbr": "MDIO",
@@ -945,8 +873,7 @@
       "由 IEEE 802.3 Clause 22/45 定义",
       "两线：MDC 时钟 + MDIO 数据",
       "Linux 中由 phylib/phylink 框架管理"
-    ],
-    "usage": "设备树 mdio@... 节点下挂 PHY；mdio-tools 的 mdio read/write 调寄存器；ethtool/mii-tool 查看链路状态；内核 phylib 用 phy_read/phy_write 管理 PHY"
+    ]
   },
   {
     "abbr": "RGMII",
@@ -958,8 +885,7 @@
       "4 位数据线双沿采样达 1Gbps",
       "常见需要配置 TX/RX 时钟延迟（delay）",
       "设备树 phy-mode 属性常见取值 rgmii-id"
-    ],
-    "usage": "设备树 phy-mode 配 rgmii-id 打开收发延迟；TX/RX clock delay 由 MAC 或 PHY 一侧配置；ethtool 确认千兆链路与双工；RXC 走线等长且延迟匹配"
+    ]
   },
   {
     "abbr": "EtherCAT",
@@ -971,8 +897,7 @@
       "从站在帧经过时实时读写数据，周期可达微秒级",
       "主站可用开源 IgH EtherCAT Master",
       "广泛用于伺服与运动控制"
-    ],
-    "usage": "主站用 IgH EtherCAT Master 并加载 ec_master 模块；ethercat slaves/ethercat pdos 命令查看拓扑与映射；应用用 ecrt_master_* API 配 PDO 与周期任务；从站按 ESI 文件配置"
+    ]
   },
   {
     "abbr": "GPIO",
@@ -984,8 +909,7 @@
       "Linux 新接口为 libgpiod（gpioset/gpioget），sysfs 方式已弃用",
       "可配置上下拉、中断触发沿",
       "设备树中通过 gpios 属性引用"
-    ],
-    "usage": "设备树 gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>；驱动 gpiod_get()/gpiod_set_value()/gpiod_direction_output()；调试用 gpioget/gpioset（libgpiod）或旧 sysfs 接口 echo 1 > /sys/class/gpio/gpioN/value"
+    ]
   },
   {
     "abbr": "IRQ",
@@ -997,8 +921,7 @@
       "Linux 中 request_irq() 注册处理函数",
       "上半部快速响应，下半部（tasklet/workqueue）处理耗时工作",
       "/proc/interrupts 查看中断统计"
-    ],
-    "usage": "request_irq() 注册中断处理函数；设备树 interrupts = <&gic 42 IRQ_TYPE_EDGE_RISING> 指定中断号与触发方式；cat /proc/interrupts 查看各中断计数与触发信息"
+    ]
   },
   {
     "abbr": "DMA",
@@ -1010,8 +933,7 @@
       "Linux 提供 dmaengine 框架统一管理",
       "需处理缓存一致性（dma_alloc_coherent 等）",
       "高速外设（网卡/音频/显示）的标配"
-    ],
-    "usage": "设备树 dmas = <&dma0 3>；驱动 dma_request_chan()→dmaengine_prep_slave_single()→dmaengine_submit()；一致性内存用 dma_alloc_coherent() 分配，避免缓存一致性问题"
+    ]
   },
   {
     "abbr": "MMU",
@@ -1023,8 +945,7 @@
       "Linux 运行的硬件前提（uClinux 除外）",
       "以页（通常 4KB）为单位映射",
       "缺页异常是按需分页与 mmap 的基础"
-    ],
-    "usage": "驱动用 ioremap()/devm_ioremap() 把物理地址映射为虚拟地址；cat /proc/iomem 查看物理内存占用；/proc/smaps 查看进程虚拟内存映射详情"
+    ]
   },
   {
     "abbr": "IOMMU",
@@ -1036,8 +957,7 @@
       "防止外设越界访问内存",
       "虚拟化设备直通（VFIO）的基础",
       "ARM 平台称 SMMU"
-    ],
-    "usage": "内核启用后设备 DMA 自动经 IOMMU 地址转换，驱动一般无感；/sys/kernel/iommu_groups 查看设备分组；VFIO 直通需把设备绑定到 vfio-platform/vfio-pci 驱动"
+    ]
   },
   {
     "abbr": "TLB",
@@ -1049,8 +969,7 @@
       "TLB miss 会显著增加访存延迟",
       "进程切换可能引发 TLB 刷新",
       "大页（HugePage）可减少 TLB 压力"
-    ],
-    "usage": "大页降低 TLB miss：mount -t hugetlbfs 后 mmap 大页，/proc/meminfo 中 HugePages_Total 查看；嵌入式一般无需手动配置，交给内核默认策略"
+    ]
   },
   {
     "abbr": "RTOS",
@@ -1062,8 +981,7 @@
       "关键指标是最坏情况响应延迟而非吞吐",
       "抢占式优先级调度 + 优先级反转处理",
       "Linux 可用 PREEMPT_RT 补丁获得软实时能力"
-    ],
-    "usage": "FreeRTOS 用 xTaskCreate() 建任务、xQueueSend/xSemaphoreGive 做任务间通信；靠优先级调度保证确定性；Linux 侧用 PREEMPT_RT 补丁获得软实时"
+    ]
   },
   {
     "abbr": "IPC",
@@ -1075,8 +993,7 @@
       "常用：管道、消息队列、共享内存、信号量、socket、信号",
       "共享内存最快但需自行同步",
       "嵌入式高层框架常用 D-Bus、Binder"
-    ],
-    "usage": "进程间通信选型：大流量用共享内存（shmget/shmat）+ 信号量同步；消息型用 Unix socket 或消息队列；嵌入式桌面框架常用 D-Bus"
+    ]
   },
   {
     "abbr": "VFS",
@@ -1088,8 +1005,7 @@
       "核心对象：superblock、inode、dentry、file",
       "'一切皆文件'的实现基础",
       "新文件系统通过注册 file_operations 接入"
-    ],
-    "usage": "驱动实现 file_operations（open/read/write/ioctl）后注册到内核即接入 VFS；mount -t ext4 /dev/mmcblk0p1 /mnt 挂载；cat /proc/filesystems 查看内核支持的文件系统"
+    ]
   },
   {
     "abbr": "sysfs",
@@ -1101,8 +1017,7 @@
       "目录结构对应总线/设备/驱动关系",
       "读写属性文件即可与驱动交互",
       "udev 依据 sysfs 事件创建设备节点"
-    ],
-    "usage": "设备目录位于 /sys/bus/xxx/devices/ 与 /sys/class/xxx/；驱动用 DEVICE_ATTR 宏 + device_create_file() 导出属性；用户态 cat/echo 读写属性即可与驱动交互"
+    ]
   },
   {
     "abbr": "procfs",
@@ -1114,8 +1029,7 @@
       "/proc/cpuinfo、/proc/meminfo 常用于查看系统信息",
       "/proc/<pid>/ 下是进程详细状态",
       "部分内核参数可通过 /proc/sys 在线调整"
-    ],
-    "usage": "cat /proc/cpuinfo、/proc/meminfo 查看硬件与内存；echo 1 > /proc/sys/vm/drop_caches 清缓存（调试用）；/proc/<pid>/status 查看单进程状态"
+    ]
   },
   {
     "abbr": "udev",
@@ -1127,8 +1041,7 @@
       "规则文件位于 /etc/udev/rules.d/",
       "嵌入式常用精简版 mdev（BusyBox）或 eudev",
       "可实现设备插拔自动挂载等动作"
-    ],
-    "usage": "规则写 /etc/udev/rules.d/*.rules，如 KERNEL==\"ttyUSB*\", SYMLINK+=\"modem\"；ACTION==\"add\" 可触发脚本实现自动挂载；BusyBox 环境用 mdev -s 替代"
+    ]
   },
   {
     "abbr": "UIO",
@@ -1140,8 +1053,7 @@
       "内核只负责中断通知，逻辑在用户态",
       "适合 FPGA 寄存器访问等场景",
       "读 /dev/uioX 阻塞等待中断"
-    ],
-    "usage": "内核侧 uio_register_device() 注册；用户态 open /dev/uio0 后 mmap 映射寄存器，read() 阻塞等待中断，write() 使能中断；/sys/class/uio/uio0 查看映射与事件计数"
+    ]
   },
   {
     "abbr": "LKM",
@@ -1153,8 +1065,7 @@
       "insmod/rmmod/modprobe 管理，lsmod 查看",
       "入口 module_init()、出口 module_exit()",
       "版本与内核需匹配（vermagic）"
-    ],
-    "usage": "insmod xxx.ko 加载、rmmod 卸载、lsmod 查看、modprobe 自动解决依赖；入口 module_init()/module_exit()；编译需对应内核源码或 headers，版本不匹配会报 vermagic 错误"
+    ]
   },
   {
     "abbr": "OOM",
@@ -1166,8 +1077,7 @@
       "按 oom_score 挑选牺牲进程",
       "可通过 oom_score_adj 调整优先级",
       "嵌入式设备内存小，需重点防范内存泄漏"
-    ],
-    "usage": "cat /proc/<pid>/oom_score_adj 调整进程被杀优先级（-1000 保护关键进程）；dmesg 查看 OOM killer 日志定位内存泄漏进程；嵌入式小内存设备重点监控 free 与 /proc/buddyinfo"
+    ]
   },
   {
     "abbr": "SMP",
@@ -1179,8 +1089,7 @@
       "自旋锁/每 CPU 变量解决并发",
       "CPU 亲和性（affinity）可绑定任务到指定核",
       "与之相对的是 AMP（非对称多处理）"
-    ],
-    "usage": "taskset -c 0 ./app 或 sched_setaffinity() 绑定 CPU 核；多核并发用自旋锁/每 CPU 变量（per_cpu）减少竞争；nproc 查看核数，top 的 CPU 行看各核负载"
+    ]
   },
   {
     "abbr": "cgroup",
@@ -1192,8 +1101,7 @@
       "容器技术（Docker）的两大基石之一",
       "v2 版本统一了层级结构",
       "嵌入式可用于限制业务进程内存上限"
-    ],
-    "usage": "v2 挂载：mount -t cgroup2 none /sys/fs/cgroup；echo 64M > /sys/fs/cgroup/<组>/memory.max 限制内存；systemd 下用 .slice/.scope 单元管理；Docker 容器资源限制即基于 cgroup"
+    ]
   },
   {
     "abbr": "Netlink",
@@ -1205,8 +1113,7 @@
       "ip/iproute2 配置网络即通过 Netlink",
       "支持组播通知（如网卡状态变化）",
       "比 ioctl 更适合复杂结构化数据"
-    ],
-    "usage": "用户态 socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE) 与内核通信；ip 命令配置网络底层即走 Netlink；内核侧用 genl 家族（generic netlink）定义私有协议"
+    ]
   },
   {
     "abbr": "ioctl",
@@ -1218,8 +1125,7 @@
       "命令码由 _IO/_IOR/_IOW 宏构造",
       "驱动在 unlocked_ioctl 中实现分发",
       "V4L2、串口参数配置等大量使用"
-    ],
-    "usage": "用户态 ioctl(fd, CMD, arg) 调设备控制命令；驱动在 unlocked_ioctl 中按命令分发；命令码用 _IO/_IOR/_IOW/_IOWR 宏编码保证唯一性；串口 termios、V4L2 均大量使用"
+    ]
   },
   {
     "abbr": "mmap",
@@ -1231,8 +1137,7 @@
       "零拷贝访问帧缓冲、寄存器的标准方式",
       "驱动端实现 mmap 接口配合 remap_pfn_range",
       "/dev/mem 配合 mmap 可直接访问物理地址（调试用）"
-    ],
-    "usage": "驱动实现 mmap 方法并调 remap_pfn_range() 映射物理内存；用户态 mmap(/dev/fb0) 后直接写像素；BusyBox devmem 基于 /dev/mem 的 mmap 读写寄存器，调试利器"
+    ]
   },
   {
     "abbr": "POSIX",
@@ -1244,8 +1149,7 @@
       "pthread 线程、信号量、mqueue 均属 POSIX 接口",
       "RTOS（如 Zephyr/RT-Thread）也常提供 POSIX 兼容层",
       "编译宏 _POSIX_C_SOURCE 控制特性可见性"
-    ],
-    "usage": "编译加 -pthread 使用 pthread_create()/pthread_mutex 等接口；RTOS 的 POSIX 兼容层（如 Zephyr 的 posix 子系统）让应用代码可跨平台复用；定义 _POSIX_C_SOURCE 控制标准特性开关"
+    ]
   },
   {
     "abbr": "ABI",
@@ -1257,8 +1161,7 @@
       "ARM 常见 ABI：aapcs、硬浮点 gnueabihf",
       "内核对用户空间承诺 ABI 稳定",
       "交叉编译工具链三元组中体现（如 arm-linux-gnueabihf）"
-    ],
-    "usage": "工具链三元组体现 ABI：arm-linux-gnueabihf 为硬浮点；编译加 -mfloat-abi=hard/-mabi=aapcs-linux；不同 ABI 编译的库不能混用，readelf -A 可查看文件 ABI 属性"
+    ]
   },
   {
     "abbr": "syscall",
@@ -1270,8 +1173,7 @@
       "ARM64 通过 svc 指令陷入内核",
       "glibc 封装了大部分系统调用",
       "strace 可跟踪进程的全部系统调用"
-    ],
-    "usage": "应用通过 glibc 封装调用系统调用，无需直接写汇编；strace ./app 跟踪全部系统调用定位问题；ARM64 上 svc #0 指令陷入内核；内核新系统调用通过 SYSCALL_DEFINEn 宏定义"
+    ]
   },
   {
     "abbr": "softirq",
@@ -1283,8 +1185,7 @@
       "网络收发（NET_RX/NET_TX）是最大用户",
       "tasklet 基于 softirq 实现",
       "ksoftirqd 线程处理积压的软中断"
-    ],
-    "usage": "驱动一般不直接使用，tasklet 与网络栈基于它；网络收发包由 NET_RX/NET_TX 软中断处理；cat /proc/softirqs 查看各 CPU 软中断计数，排查软中断风暴"
+    ]
   },
   {
     "abbr": "workqueue",
@@ -1296,8 +1197,7 @@
       "与 tasklet 的关键区别：可以睡眠/阻塞",
       "schedule_work() 提交工作项",
       "驱动中处理 I2C 读写等慢速操作常用"
-    ],
-    "usage": "schedule_work()/queue_work() 提交工作项；工作函数运行在内核线程上下文可以睡眠；读 I2C/SPI 等慢速外设适合把操作放进 workqueue；cat /proc/<pid>/stack 可查看工作线程状态"
+    ]
   },
   {
     "abbr": "RCU",
@@ -1309,8 +1209,7 @@
       "读端 rcu_read_lock() 不阻塞",
       "写端复制修改后等待宽限期回收旧数据",
       "内核路由表、dentry 缓存广泛使用"
-    ],
-    "usage": "读侧 rcu_read_lock() + rcu_dereference() 开销极小；写侧 rcu_assign_pointer() 更新指针后 synchronize_rcu() 等待旧数据回收；适合读多写少的链表等数据结构，内核路由表即典型用例"
+    ]
   },
   {
     "abbr": "DTS",
@@ -1322,8 +1221,7 @@
       "dtsi 为公共部分，板级 dts include 之",
       "节点通过 compatible 属性匹配驱动",
       "修改外设配置通常改 DTS 而非驱动代码"
-    ],
-    "usage": "dtsi 描述 SoC 公共外设，板级 dts 通过 #include 引用并做引脚、内存配置；dtc -I dts -O dtb 编译；/proc/device-tree 查看运行时设备树；节点 compatible 属性与驱动 of_match_table 匹配"
+    ]
   },
   {
     "abbr": "DTB",
@@ -1335,8 +1233,7 @@
       "U-Boot 通过寄存器传递 DTB 地址给内核",
       "dtc 工具可在 DTS/DTB 间双向转换",
       "支持 overlay 动态叠加（树莓派常用）"
-    ],
-    "usage": "U-Boot 中 fdt addr/fdt set 修改 DTB，bootm <kernel> <initrd> <fdt> 传递；dtc -I dtb -O dts 反编译查问题；uboot 环境变量 fdt_addr_r 指定 DTB 加载地址；overlay 用 fdtoverlay 动态叠加"
+    ]
   },
   {
     "abbr": "initramfs",
@@ -1348,8 +1245,7 @@
       "cpio 归档格式，可内嵌进内核镜像",
       "执行 /init 脚本完成早期初始化",
       "initrd 是其前身（块设备模拟方式）"
-    ],
-    "usage": "制作：find . | cpio -o -H newc | gzip > initramfs.cpio.gz；U-Boot 加载后内核自动解包，执行 /init 完成早期驱动加载与根文件系统挂载；内核参数 rdinit=/init 指定入口"
+    ]
   },
   {
     "abbr": "rootfs",
@@ -1361,8 +1257,7 @@
       "Buildroot/Yocto 的主要产物之一",
       "开发阶段常用 NFS 挂载，量产用 UBIFS/ext4/SquashFS",
       "内核参数 root= 指定其位置"
-    ],
-    "usage": "内核参数 root=/dev/mmcblk0p2 rootwait 指定根文件系统；开发阶段用 root=/dev/nfs nfsroot=<server>:/path 网络挂载；量产常见 ext4/UBIFS/SquashFS，Buildroot 或 Yocto 产出 rootfs 镜像"
+    ]
   },
   {
     "abbr": "tty",
@@ -1374,8 +1269,7 @@
       "串口设备节点如 /dev/ttyS0、/dev/ttyUSB0",
       "termios 接口配置波特率与行规程",
       "控制台参数 console=ttyS0,115200 常见于内核命令行"
-    ],
-    "usage": "串口设备节点 /dev/ttyS0（片上串口）/dev/ttyUSB0（USB 转串口）；stty -F /dev/ttyS0 115200 cs8 配置参数；内核命令行 console=ttyS0,115200n8 输出内核日志；minicom/screen 连接调试终端"
+    ]
   },
   {
     "abbr": "FB",
@@ -1387,8 +1281,7 @@
       "mmap 后直接写像素即可显示",
       "ioctl FBIOGET_VSCREENINFO 获取分辨率格式",
       "新项目建议使用 DRM/KMS 取代"
-    ],
-    "usage": "open /dev/fb0 后 mmap 映射显存直接写像素；fbset 查看/设置分辨率色深；ioctl FBIOGET_VSCREENINFO 获取屏幕参数；新项目建议改用 DRM/KMS 显示架构"
+    ]
   },
   {
     "abbr": "V4L2",
@@ -1400,8 +1293,7 @@
       "典型流程：REQBUFS→QBUF→STREAMON→DQBUF",
       "v4l2-ctl 工具调试常用",
       "配合 media controller 管理复杂管线"
-    ],
-    "usage": "采集流程 REQBUFS→QBUF→STREAMON→DQBUF；v4l2-ctl --list-devices、--set-fmt-video 调试配置；gstreamer 用 v4l2src 接采集源；驱动侧实现 vb2 框架的 queue_setup/buf_queue 回调"
+    ]
   },
   {
     "abbr": "ALSA",
@@ -1413,8 +1305,7 @@
       "aplay/arecord/amixer 是常用调试工具",
       "嵌入式音频驱动多基于 ASoC 子框架（Machine/Platform/Codec 三层）",
       "用户态库为 alsa-lib（libasound）"
-    ],
-    "usage": "aplay/arecord 播放录音、amixer 调音量；cat /proc/asound/cards 查看声卡；驱动侧按 ASoC 三层（Machine/Platform/Codec）用 snd_soc_register_card 注册声卡；应用层基于 alsa-lib（libasound）"
+    ]
   },
   {
     "abbr": "DRM",
@@ -1426,8 +1317,7 @@
       "KMS（内核模式设置）负责分辨率与显示管线",
       "对象模型：CRTC/Plane/Encoder/Connector",
       "Wayland/X11 底层均基于 DRM"
-    ],
-    "usage": "modetest 列出连接器与显示模式；/dev/dri/card0 为用户态入口，libdrm 提供 API；简单显示驱动可用 drm_simple_display_pipe 模板；KMS 配置分辨率/旋转，Wayland 合成器底层即基于 DRM"
+    ]
   },
   {
     "abbr": "eBPF",
@@ -1439,8 +1329,7 @@
       "程序经验证器校验后 JIT 执行",
       "bpftrace/BCC 是常用前端工具",
       "XDP 可在网卡驱动层高速处理报文"
-    ],
-    "usage": "bpftrace -e 'kprobe:do_sys_open { printf(\"%s\\n\", str(ctx->filename)) }' 快速观测内核；BCC 工具 trace/opensnoop 免写代码；XDP 程序 ip link set dev eth0 xdp obj xxx.o 挂到网卡高速处理报文"
+    ]
   },
   {
     "abbr": "KVM",
@@ -1452,8 +1341,7 @@
       "依赖 CPU 硬件虚拟化扩展（ARM VHE/x86 VT-x）",
       "/dev/kvm 是用户态入口",
       "嵌入式车载领域用于多系统隔离"
-    ],
-    "usage": "qemu-system-aarch64 -enable-kvm -M virt 使用硬件虚拟化；ls /dev/kvm 存在即支持；内核需 CONFIG_KVM 与 CONFIG_KVM_ARM_VHE；车载/边缘场景用 KVM 做多系统隔离"
+    ]
   },
   {
     "abbr": "PREEMPT_RT",
@@ -1465,8 +1353,7 @@
       "中断线程化、自旋锁可睡眠化",
       "配合 cyclictest 测量调度延迟",
       "工业控制场景可达百微秒级抖动"
-    ],
-    "usage": "内核配置 CONFIG_PREEMPT_RT=y 编译实时内核；cyclictest 测量调度延迟验证实时性（工业场景可到百微秒级）；实时任务配 chrt -f 99 设置 FIFO 最高优先级"
+    ]
   },
   {
     "abbr": "GCC",
@@ -1478,8 +1365,7 @@
       "交叉编译器命名如 arm-linux-gnueabihf-gcc",
       "-O2/-Os 优化等级，-g 生成调试信息",
       "__attribute__ 扩展在驱动/嵌入式代码中常见"
-    ],
-    "usage": "交叉编译：arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -g -O2 -o app.elf main.c；Linux 目标用 arm-linux-gnueabihf-gcc -o app app.c；-O0/-Os 调优化等级，-Wall 开告警，--specs=nosys.specs 用于裸机无系统调用"
+    ]
   },
   {
     "abbr": "GDB",
@@ -1491,8 +1377,7 @@
       "嵌入式常用 gdbserver 目标机 + 交叉 gdb 主机联调",
       "配合 OpenOCD/J-Link 可调试裸机与内核",
       "core dump 分析崩溃现场的标准工具"
-    ],
-    "usage": "裸机调试：openocd 起 gdb server 后执行 arm-none-eabi-gdb app.elf，再 target remote :3333；远程联调目标机跑 gdbserver :2345 ./app，主机 arm-linux-gnueabihf-gdb 连 target remote <ip>:2345；常用 break/watch/step/bt"
+    ]
   },
   {
     "abbr": "ELF",
@@ -1504,8 +1389,7 @@
       "readelf/objdump 分析段与符号",
       "包含 .text/.data/.bss 等段",
       "U-Boot 镜像、内核 vmlinux 也是 ELF 格式"
-    ],
-    "usage": "分析工具：arm-linux-gnueabihf-readelf -h app 查看头、-S 看段、-s 看符号；objdump -d app 反汇编、-S 混排源码；检查动态依赖用 readelf -d；内核 vmlinux 与 U-Boot 镜像均为 ELF"
+    ]
   },
   {
     "abbr": "LDD",
@@ -1517,8 +1401,7 @@
       "交叉环境下应用 ${CROSS}-readelf -d 代替",
       "排查嵌入式程序缺库问题常用",
       "同名经典书籍《Linux Device Drivers》也缩写为 LDD"
-    ],
-    "usage": "主机上 ldd ./app 列出依赖库；交叉目标机无 ldd 时用 arm-linux-gnueabihf-readelf -d app 查看 NEEDED 条目，再逐一确认库路径；常用以排查 GLIBC_2.xx not found 等缺库问题"
+    ]
   },
   {
     "abbr": "glibc",
@@ -1530,8 +1413,7 @@
       "提供系统调用封装、字符串、数学等基础能力",
       "版本兼容性问题（GLIBC_2.xx not found）常见",
       "资源受限设备可换 musl/uClibc-ng"
-    ],
-    "usage": "编译链接默认使用，arm-linux-gnueabihf-gcc 自带；目标机报 GLIBC_2.xx not found 时用 arm-linux-gnueabihf-ldd 与 strings libc.so.6 | grep GLIBC 核对版本；资源受限设备可在 Buildroot 中改选 musl 或 uClibc-ng 减小体积"
+    ]
   },
   {
     "abbr": "musl",
@@ -1543,8 +1425,7 @@
       "静态链接友好，产物体积小",
       "Buildroot 可直接选择 musl 工具链",
       "与 glibc 行为差异需注意（如 DNS 解析）"
-    ],
-    "usage": "Buildroot 中 make menuconfig 在 Toolchain→C library 选 musl 即可整套构建；单独使用可用 musl-gcc 编译静态程序；Alpine Linux 默认 musl，交叉编译产物需配套 musl 工具链，注意与 glibc 的 DNS 解析等行为差异"
+    ]
   },
   {
     "abbr": "uClibc",
@@ -1556,8 +1437,7 @@
       "可裁剪配置，体积远小于 glibc",
       "早期配合 uClinux 用于无 MMU 平台",
       "新项目多转向 musl"
-    ],
-    "usage": "旧项目维护：uClibc-ng 源码内 make menuconfig 裁剪配置后 make 编译；Buildroot 早期版本可选用；新项目建议直接换 musl，功能与维护更活跃"
+    ]
   },
   {
     "abbr": "Buildroot",
@@ -1569,8 +1449,7 @@
       "make menuconfig 配置，上手简单适合中小项目",
       "产物在 output/images/（镜像）与 output/host/（工具链）",
       "与 Yocto 相比无包管理，整体重建为主"
-    ],
-    "usage": "流程：make menuconfig 选目标平台与包，make 一键构建；产物在 output/images/（镜像、内核、dtb）与 output/host/（交叉工具链）；make savedefconfig 精简保存配置，make clean 全量重编，配合 defconfig 文件归档"
+    ]
   },
   {
     "abbr": "Yocto",
@@ -1582,8 +1461,7 @@
       "构建引擎为 BitBake，参考发行版叫 Poky",
       "layer/recipe/bbappend 是核心扩展机制",
       "NXP/TI/ST 等原厂 BSP 均基于 Yocto 发布"
-    ],
-    "usage": "初始化：source oe-init-build-env 后编辑 conf/local.conf 设 MACHINE，再 bitbake core-image-minimal 构建；bitbake-layers create-layer/add-layer 管理自定义 layer，bbappend 扩展原厂 BSP 配方；产物在 build/tmp/deploy/images/<machine>/"
+    ]
   },
   {
     "abbr": "BitBake",
@@ -1595,8 +1473,7 @@
       "bitbake core-image-minimal 构建镜像",
       "-c 指定任务（fetch/compile/devshell）",
       "共享状态缓存 sstate 加速重复构建"
-    ],
-    "usage": "bitbake core-image-minimal 构建整个镜像；bitbake <recipe> -c compile 执行单任务，-c devshell 进入配方源码 shell，-c clean 清理；bitbake -e <recipe> 查看变量解析结果；sstate 缓存加速重复构建"
+    ]
   },
   {
     "abbr": "U-Boot",
@@ -1608,8 +1485,7 @@
       "常用命令：tftpboot、bootm/booti、printenv/setenv",
       "环境变量 bootcmd/bootargs 控制启动流程",
       "支持 FIT 镜像、安全启动验签"
-    ],
-    "usage": "构建：make <board>_defconfig（如 mx6ull_14x14_evk_defconfig）后 make；运行时命令：tftpboot 80800000 zImage 网络加载，setenv bootargs 'console=ttymxc0,115200 root=/dev/mmcblk1p2'，bootm/booti 启动内核；saveenv 保存环境变量"
+    ]
   },
   {
     "abbr": "SPL",
@@ -1621,8 +1497,7 @@
       "受 BootROM 大小限制而存在",
       "启动链：BootROM→SPL→U-Boot→Kernel",
       "也可直接 Falcon 模式跳过 U-Boot 启动内核"
-    ],
-    "usage": "启动链 BootROM→SPL→U-Boot→Kernel；构建时使能 CONFIG_SPL 自动生成 spl/u-boot-spl.bin，烧写到片内 SRAM 可寻址的偏移（如 SD 卡 8KB 处）；Falcon 模式下 SPL 直接加载内核跳过 U-Boot 以加快启动"
+    ]
   },
   {
     "abbr": "ATF",
@@ -1634,8 +1509,7 @@
       "BL1/BL2/BL31 等启动阶段划分",
       "提供 PSCI 接口管理 CPU 上下电",
       "ARM64 平台启动链的标准组件"
-    ],
-    "usage": "编译：make PLAT=<平台> 生成 BL1/BL2/BL31（如 bl31.elf 放于 SD 卡 0x8000 起始）；启动链 ATF→U-Boot→Kernel 时配置 BL31 入口地址；通过 PSCI 接口供内核调用 CPU 上下电与休眠；Debug/Release 用 make DEBUG=1"
+    ]
   },
   {
     "abbr": "OP-TEE",
@@ -1647,8 +1521,7 @@
       "安全应用称 TA（Trusted Application）",
       "密钥存储、指纹比对等敏感逻辑的宿主",
       "与 Linux 侧通过 tee-supplicant 协作"
-    ],
-    "usage": "构建：optee_os 中 make PLATFORM=<平台> 生成 TEE 镜像，optee_client 提供 tee-supplicant 用户态服务；TA 用 TA dev kit 交叉编译成 .ta 放入 /lib/optee_armtz；内核配置 CONFIG_TEE/OPTEE 后与 Linux 经 secure monitor 通信"
+    ]
   },
   {
     "abbr": "QEMU",
@@ -1660,8 +1533,7 @@
       "qemu-system-arm 整机模拟，qemu-arm 用户态模拟",
       "无硬件时验证内核/rootfs 的利器",
       "配合 -s -S 可用 GDB 调试内核启动"
-    ],
-    "usage": "整机模拟：qemu-system-arm -M vexpress-a9 -kernel zImage -dtb vexpress-v2p-ca9.dtb -drive file=rootfs.ext4,format=raw -nographic；调试加 -s -S 后主机 gdb 连 target remote :1234；单程序可用 qemu-arm -L /path/rootfs ./app"
+    ]
   },
   {
     "abbr": "strace",
@@ -1673,8 +1545,7 @@
       "strace -f 跟踪子进程，-e trace=open 过滤",
       "排查打不开文件/权限问题第一选择",
       "基于 ptrace 实现，性能开销较大"
-    ],
-    "usage": "strace -f ./app 跟踪含子进程的全部系统调用，-e trace=open,read 过滤，-o log.txt 落盘；-c 统计调用次数耗时；排查打不开文件、权限与设备访问问题首选；目标机资源不足可交叉编译静态版 strace"
+    ]
   },
   {
     "abbr": "valgrind",
@@ -1686,8 +1557,7 @@
       "memcheck 是最常用子工具",
       "运行速度降低 10-30 倍，目标机资源需充足",
       "轻量替代：编译期 AddressSanitizer（ASan）"
-    ],
-    "usage": "valgrind --leak-check=full --show-leak-kinds=all ./app 检测内存泄漏与越界；memcheck 为默认工具，massif 分析堆内存；运行慢 10-30 倍建议目标机内存充足时用，或改用编译期 AddressSanitizer（-fsanitize=address）"
+    ]
   },
   {
     "abbr": "perf",
@@ -1699,8 +1569,7 @@
       "perf top 实时热点，perf record/report 采样分析",
       "可生成火焰图定位性能瓶颈",
       "需内核开启 CONFIG_PERF_EVENTS"
-    ],
-    "usage": "perf top 实时查看热点，perf record -g ./app 采样后 perf report 分析调用栈，perf stat ./app 统计计数器；导出火焰图：perf script 配合 FlameGraph 脚本生成 svg；需内核开启 CONFIG_PERF_EVENTS 且 root 权限"
+    ]
   },
   {
     "abbr": "ftrace",
@@ -1712,8 +1581,7 @@
       "/sys/kernel/debug/tracing/ 下操作",
       "function_graph 可看调用关系与耗时",
       "trace-cmd/kernelshark 是友好前端"
-    ],
-    "usage": "挂载后操作 tracefs：mount -t tracefs tracefs /sys/kernel/debug/tracing；echo function_graph > current_tracer 观察调用关系，echo <函数名> > set_ftrace_filter 过滤，cat trace 查看结果；前端工具 trace-cmd record/report 更友好"
+    ]
   },
   {
     "abbr": "CMake",
@@ -1725,8 +1593,7 @@
       "交叉编译通过 toolchain 文件（CMAKE_TOOLCHAIN_FILE）",
       "CMakeLists.txt 描述工程结构",
       "嵌入式 SDK（如 ESP-IDF、Zephyr）广泛采用"
-    ],
-    "usage": "交叉编译：编写 toolchain.cmake 设 CMAKE_SYSTEM_NAME 与 CMAKE_C_COMPILER 为 arm-none-eabi-gcc，cmake -DCMAKE_TOOLCHAIN_FILE=toolchain.cmake -S . -B build 配置，cmake --build build -j 构建；-G Ninja 换生成器，支持 CMakeLists.txt 声明目标与依赖"
+    ]
   },
   {
     "abbr": "Kconfig",
@@ -1738,8 +1605,7 @@
       "make menuconfig 交互式配置，结果存于 .config",
       "CONFIG_前缀宏控制编译开关",
       "Buildroot、U-Boot、Zephyr 均使用同套机制"
-    ],
-    "usage": "make menuconfig 交互式配置，结果存 .config；make savedefconfig 生成精简 defconfig 便于归档，make <board>_defconfig 应用默认配置；编译开关以 CONFIG_ 前缀宏进入代码，如 CONFIG_MMC；U-Boot/Buildroot/Zephyr 均用同一机制"
+    ]
   },
   {
     "abbr": "SoC",
@@ -1751,8 +1617,7 @@
       "典型如 i.MX6、RK3588、BCM2711（树莓派）",
       "选型关注算力、外设、功耗、BSP 成熟度",
       "与 MCU 区别：通常带 MMU 可跑 Linux"
-    ],
-    "usage": "cat /proc/cpuinfo 查看型号与架构；lscpu 查 CPU 信息；设备树根节点 compatible 匹配平台驱动；选型看 BSP（buildroot/Yocto）支持成熟度；数据手册查外设寄存器基址"
+    ]
   },
   {
     "abbr": "MCU",
@@ -1764,8 +1629,7 @@
       "典型如 STM32、GD32、ESP32",
       "通常无 MMU，跑裸机或 RTOS",
       "主频 MHz 级、RAM KB 级，功耗极低"
-    ],
-    "usage": "STM32CubeMX 图形化配置引脚与时钟并生成初始化代码；HAL 库 HAL_GPIO_WritePin/HAL_UART_Transmit；STM32CubeIDE/Keil 在线调试；裸机开发直接操作寄存器"
+    ]
   },
   {
     "abbr": "MPU",
@@ -1777,8 +1641,7 @@
       "Cortex-M 系列可配 8-16 个保护区域",
       "RTOS 用它隔离任务内存",
       "注意：MPU 在另一语境中也指 Microprocessor Unit（微处理器）"
-    ],
-    "usage": "Cortex-M 用 CMSIS 的 ARM_MPU_SetRegion 配置保护区域；FreeRTOS 可启用任务级内存保护；MPU 配置错误触发 HardFault；注意与 Microprocessor Unit 语境区分"
+    ]
   },
   {
     "abbr": "NPU",
@@ -1790,8 +1653,7 @@
       "算力单位 TOPS，RK3588 内置 6TOPS NPU",
       "需配套厂商工具链转换模型（如 RKNN）",
       "边缘 AI 盒子、智能摄像头的核心部件"
-    ],
-    "usage": "RK3588 用 rknn-toolkit2 在 PC 上把模型转换为 .rknn；板端用 RKNN Runtime 或 rknn-toolkit-lite2 加载推理；设备节点 /dev/rknpu；推理前确认共享内存与 cache 一致性"
+    ]
   },
   {
     "abbr": "DSP",
@@ -1803,8 +1665,7 @@
       "单周期 MAC（乘加）是标志性能力",
       "TI C6000、ADI SHARC 是经典产品线",
       "音频降噪、电机控制、雷达处理常用"
-    ],
-    "usage": "TI C6000 用 CCS 开发 DSP 侧固件；与 ARM 核通信用 RPMSG/OpenAMP 框架；音频/雷达场景先确认数据搬运路径（共享 DDR 内存）；DSP 侧用 linker cmd 文件管理内存布局"
+    ]
   },
   {
     "abbr": "FPGA",
@@ -1816,8 +1677,7 @@
       "主流厂商 AMD（Xilinx）与 Intel（Altera）",
       "Zynq 类 SoC 集成 ARM 核 + FPGA 逻辑",
       "适合高速并行、低延迟确定性处理"
-    ],
-    "usage": "Xilinx 用 Vivado 综合实现生成 bitstream；Zynq 用 petalinux/Vitis 构建；PL 逻辑经 AXI 总线挂到 PS 侧；Linux 用 fpga-region 设备树节点加载 bitstream"
+    ]
   },
   {
     "abbr": "CPLD",
@@ -1829,8 +1689,7 @@
       "基于 Flash，无需外部加载配置",
       "常做电源时序控制、接口胶合逻辑",
       "功耗低、确定性好"
-    ],
-    "usage": "Altera 用 Quartus、Xilinx 用 ISE 开发；JTAG 下载配置；常做电源时序控制与接口胶合逻辑；Linux 下一般无驱动，视为透明逻辑；上电即生效无需外部加载"
+    ]
   },
   {
     "abbr": "ASIC",
@@ -1842,8 +1701,7 @@
       "大批量下单片成本最低",
       "流片成本高、周期长",
       "FPGA 常作为 ASIC 前期验证平台"
-    ],
-    "usage": "流片前用 FPGA 做原型验证；寄存器级验证用 UVM 搭建 testbench；RTL 仿真用 VCS/Verilator；嵌入式侧按规格书寄存器手册编写驱动"
+    ]
   },
   {
     "abbr": "SRAM",
@@ -1855,8 +1713,7 @@
       "速度快、功耗低但密度低成本高",
       "CPU Cache、MCU 片内 RAM 均为 SRAM",
       "6 管单元结构"
-    ],
-    "usage": "片内 SRAM 在设备树建 sram@ 节点并用 genalloc 管理；DMA 用 dma_alloc_coherent 分配一致性内存；/proc/meminfo 查看内存；U-Boot 下 mtest 测试"
+    ]
   },
   {
     "abbr": "DRAM",
@@ -1868,8 +1725,7 @@
       "密度高、成本低，作主内存",
       "需内存控制器定时刷新",
       "SDRAM/DDR 均属 DRAM 家族"
-    ],
-    "usage": "DDR 初始化在 U-Boot SPL/DCD 阶段完成；运行期 /proc/meminfo 查看；memtester 压测内存稳定性；设备树 memory@ 节点声明物理内存布局"
+    ]
   },
   {
     "abbr": "DDR",
@@ -1881,8 +1737,7 @@
       "嵌入式常用 DDR3L/DDR4/LPDDR4",
       "LPDDR 系列面向低功耗移动场景",
       "硬件设计需严格等长布线与时序训练"
-    ],
-    "usage": "设备树 memory@... 节点声明内存；U-Boot 下 memtest/mtest 测内存；/proc/meminfo 查看用量；时序参数在 U-Boot 或 DCD 中配置，改参数需重新校准"
+    ]
   },
   {
     "abbr": "EEPROM",
@@ -1894,8 +1749,7 @@
       "典型器件 AT24C 系列（I2C 接口）",
       "擦写寿命百万次级",
       "常存标定参数、序列号、配置"
-    ],
-    "usage": "i2cget/i2cset 寄存器级读写 AT24C；设备树配 at24 节点后内核导出 /sys/bus/i2c/devices/0-0050/eeprom；dd 读写该文件即读写 EEPROM；存标定参数与序列号"
+    ]
   },
   {
     "abbr": "NAND",
@@ -1907,8 +1761,7 @@
       "存在位翻转，必须配合 ECC 使用",
       "Linux 通过 MTD + UBI/UBIFS 管理裸 NAND",
       "eMMC 内部即 NAND + 主控封装"
-    ],
-    "usage": "mtd-utils 的 mtdinfo/mtd_debug 查分区，nandwrite/nanddump 读写；UBI 用 ubiattach/ubimkvol 创建卷后挂载 ubifs；设备树 nand@ 节点配 nand-ecc-mode/nand-ecc-strength"
+    ]
   },
   {
     "abbr": "NOR",
@@ -1920,8 +1773,7 @@
       "SPI NOR（如 W25Q 系列）是引导存储主流",
       "读快写慢、容量小于 NAND",
       "可靠性高，常存 U-Boot 与关键配置"
-    ],
-    "usage": "flashcp 烧写镜像到 /dev/mtdX；mtdinfo 查分区；设备树配 SPI NOR 节点后由 spi-nor 框架管理；常存 U-Boot 与关键配置；支持 XIP 直读执行"
+    ]
   },
   {
     "abbr": "eMMC",
@@ -1933,8 +1785,7 @@
       "Linux 下设备节点 /dev/mmcblkX，分 boot/user 分区",
       "HS400 模式带宽约 400MB/s",
       "相比裸 NAND 免去 FTL 管理，开发成本低"
-    ],
-    "usage": "mmcblk0 为整卡，/dev/mmcblk0p1 为分区；mount /dev/mmcblk0p1 /mnt 挂载；mmc-utils 的 mmc extcsd read 查 eMMC 信息；设备树 mmc@... 配置总线模式与频率"
+    ]
   },
   {
     "abbr": "UFS",
@@ -1946,8 +1797,7 @@
       "全双工串行接口，UFS3.1 可达 2GB/s 级",
       "支持命令队列并发",
       "旗舰手机与高端嵌入式平台采用"
-    ],
-    "usage": "Linux 下 UFS 通常识别为 /dev/sda；ufs-utils 的 ufs-bsg 发管理命令；设备树 ufs@ 节点配置；fio 测顺序/随机读写性能"
+    ]
   },
   {
     "abbr": "ADC",
@@ -1959,8 +1809,7 @@
       "关键指标：分辨率（位数）与采样率（SPS）",
       "SAR、Sigma-Delta 是常见架构",
       "Linux 由 IIO 子系统管理"
-    ],
-    "usage": "IIO 子系统：cat /sys/bus/iio/devices/iio:device0/in_voltage0_raw 读原始值，结合 in_voltage0_scale 换算电压；设备树 adc@ 节点声明 channel；驱动实现 read_raw 回调"
+    ]
   },
   {
     "abbr": "DAC",
@@ -1972,8 +1821,7 @@
       "音频输出、波形发生、工控 4-20mA 回路常用",
       "分辨率与建立时间是关键参数",
       "Linux 同样归入 IIO 子系统"
-    ],
-    "usage": "IIO 子系统：echo 值 > /sys/bus/iio/devices/iio:device0/out_voltage0_raw 输出；设备树 dac@ 节点声明；驱动实现 write_raw 回调；用示波器验证输出波形"
+    ]
   },
   {
     "abbr": "PWM",
@@ -1985,8 +1833,7 @@
       "电机调速、背光亮度、风扇控制标配",
       "Linux 提供 pwm 子系统（/sys/class/pwm）",
       "关键参数：周期、占空比、极性"
-    ],
-    "usage": "设备树 pwm = <&pwm2 0 1000000> 引用；/sys/class/pwm/pwmchip0 下配置 period/duty_cycle/enable；驱动用 pwm_get()/pwm_config()/pwm_enable()"
+    ]
   },
   {
     "abbr": "RTC",
@@ -1998,8 +1845,7 @@
       "典型器件 DS1307/PCF8563（I2C）",
       "Linux 设备节点 /dev/rtc0，hwclock 同步系统时间",
       "需纽扣电池或超级电容保持供电"
-    ],
-    "usage": "hwclock -s 从 RTC 同步系统时间；date -s 设置后 hwclock -w 写回 RTC；/dev/rtc0；设备树配 rtc 节点；掉电走时靠纽扣电池或超级电容"
+    ]
   },
   {
     "abbr": "WDT",
@@ -2011,8 +1857,7 @@
       "Linux 设备节点 /dev/watchdog，写入即喂狗",
       "systemd 可接管喂狗（RuntimeWatchdogSec）",
       "无人值守设备防死机的标配"
-    ],
-    "usage": "向 /dev/watchdog 写入即喂狗，不喂则超时复位；设备树 watchdog 节点配 timeout-sec；systemd 配 RuntimeWatchdogSec 接管喂狗；无人值守设备防死机标配"
+    ]
   },
   {
     "abbr": "PMIC",
@@ -2024,8 +1869,7 @@
       "与 SoC 配套设计（如 PMIC PF8100 配 i.MX8）",
       "通过 I2C 受内核 regulator 框架控制",
       "负责 DVFS 动态调压与休眠电源域管理"
-    ],
-    "usage": "设备树 regulators 节点声明各路电压与上电顺序；内核 regulator 框架下 /sys/class/regulator/regulator.0 查看电压；i2cget 读 PMIC 寄存器排障；DVFS 由 cpufreq 驱动调压"
+    ]
   },
   {
     "abbr": "LDO",
@@ -2037,8 +1881,7 @@
       "适合给模拟/射频电路供电",
       "大压差大电流场景应用 DC-DC",
       "内核 regulator 框架统一抽象管理"
-    ],
-    "usage": "驱动用 regulator_get()/regulator_set_voltage() 管理电压；设备树配 regulator-min-microvolt/max-microvolt；/sys/class/regulator 查看状态；模拟/射频供电纹波要求高时选 LDO"
+    ]
   },
   {
     "abbr": "PHY",
@@ -2050,8 +1893,7 @@
       "以太网 MAC 通过 MDIO 管理 PHY 寄存器",
       "自协商确定速率与双工模式",
       "设备树中需指定 phy-mode 与复位引脚"
-    ],
-    "usage": "ethtool eth0 查链路速率与协商状态；mii-tool 看双工模式；mdio-tools 的 mdio 命令读写 PHY 寄存器；设备树配 phy-mode/phy-handle 与复位 GPIO"
+    ]
   },
   {
     "abbr": "ECC",
@@ -2063,8 +1905,7 @@
       "NAND 必须搭配 ECC（BCH/汉明码）",
       "服务器内存 ECC 可纠单比特错误",
       "工业高可靠场景的基本要求"
-    ],
-    "usage": "裸 NAND 设备树配 nand-ecc-strength/nand-ecc-step-size；位翻转由控制器硬件 ECC 纠正；mtd-utils 的 nandtest 测坏块与 ECC；DDR ECC 需带 ECC 颗粒的内存"
+    ]
   },
   {
     "abbr": "OTP",
@@ -2076,8 +1917,7 @@
       "eFuse 是常见实现形式",
       "安全启动的根公钥哈希通常烧入 OTP",
       "烧写不可逆，操作需极其谨慎"
-    ],
-    "usage": "i.MX 用 U-Boot fuse read/write 或 Linux ocotp 驱动读写；烧写不可逆，操作前确认并读回验证；常存安全启动密钥、MAC 地址与芯片配置"
+    ]
   },
   {
     "abbr": "ext4",
@@ -2089,8 +1929,7 @@
       "日志机制降低掉电损坏风险",
       "不能直接用于裸 NAND（需 FTL）",
       "mkfs.ext4/e2fsck 是配套工具"
-    ],
-    "usage": "创建：mkfs.ext4 /dev/mmcblk0p1；挂载：mount -t ext4 /dev/mmcblk0p1 /mnt；卸载后检查：fsck.ext4 /dev/mmcblk0p1；查看属性 tune2fs -l；适用 eMMC/SD 等块设备，不能直接用于裸 NAND"
+    ]
   },
   {
     "abbr": "FAT32",
@@ -2102,8 +1941,7 @@
       "单文件最大 4GB",
       "U-Boot 能直接读取（fatload），常作 boot 分区",
       "无权限与日志机制"
-    ],
-    "usage": "创建：mkfs.vfat -F 32 /dev/mmcblk0p1；挂载：mount -t vfat /dev/mmcblk0p1 /mnt；U-Boot 中 fatload mmc 0:1 0x80800000 zImage 直接读取，常作 boot 分区；单文件最大 4GB，无权限与日志"
+    ]
   },
   {
     "abbr": "exFAT",
@@ -2115,8 +1953,7 @@
       "Linux 5.4+ 内核原生支持",
       "SDXC 卡（>32GB）的标准文件系统",
       "仍无日志，意外掉电有风险"
-    ],
-    "usage": "创建：mkfs.exfat /dev/sdb1；挂载：mount -t exfat /dev/sdb1 /mnt；SDXC 卡（>32GB）默认格式，Linux 5.4+ 内核原生支持（CONFIG_EXFAT_FS）；突破 FAT32 4GB 单文件限制，但无日志、掉电有风险"
+    ]
   },
   {
     "abbr": "JFFS2",
@@ -2128,8 +1965,7 @@
       "适合小容量 NOR Flash",
       "挂载时扫描全盘，大容量下启动慢",
       "大容量 NAND 应改用 UBIFS"
-    ],
-    "usage": "制作镜像：mkfs.jffs2 -r rootfs -o rootfs.jffs2 -e 0x10000 -s 0x200（按擦除块/页大小设参数）；烧写：flash_erase 后 nandwrite 或 U-Boot 中烧录；挂载：mount -t jffs2 /dev/mtdblock0 /mnt；适合小容量 NOR，大容量 NAND 改用 UBIFS"
+    ]
   },
   {
     "abbr": "UBIFS",
@@ -2141,8 +1977,7 @@
       "相比 JFFS2 挂载快、扩展性好",
       "写回缓存机制需注意同步（fsync）",
       "配套工具 mkfs.ubifs/ubinize"
-    ],
-    "usage": "制作：mkfs.ubifs -r rootfs -m 2048 -e 126976 -c 2048 -o ubifs.img（-m 最小IO/-e LEB 大小/-c 卷块数），再 ubinize -o ubi.img -m 2048 -p 128KiB -s 2048 ubinize.cfg 生成 UBI 镜像；挂载：mount -t ubifs ubi0:rootfs /mnt；写回缓存需 fsync 保证落盘"
+    ]
   },
   {
     "abbr": "UBI",
@@ -2154,8 +1989,7 @@
       "将物理擦除块映射为逻辑擦除块",
       "ubiattach/ubimkvol 管理卷",
       "全局磨损均衡优于文件系统级方案"
-    ],
-    "usage": "附着：ubiattach -m 1 /dev/ubi_ctrl（-m 为 MTD 分区号）；建卷：ubimkvol /dev/ubi0 -N rootfs -s 100MiB，动态卷 -a 自动分配；查询：ubinfo -a；分离：ubidetach -m 1；UBIFS 挂载到 ubi0:卷名"
+    ]
   },
   {
     "abbr": "MTD",
@@ -2167,8 +2001,7 @@
       "cat /proc/mtd 查看分区",
       "flash_erase/nandwrite 等 mtd-utils 操作",
       "分区可由设备树或命令行 mtdparts 定义"
-    ],
-    "usage": "查看分区：cat /proc/mtd；擦除：flash_erase /dev/mtd0 0 0；写 NAND：nandwrite -p /dev/mtd0 image.bin；NOR 用 flashcp；分区由设备树或内核参数 mtdparts=<mtd-id>:<size>@<offset>(<name>) 定义；工具包为 mtd-utils"
+    ]
   },
   {
     "abbr": "SquashFS",
@@ -2180,8 +2013,7 @@
       "支持 gzip/xz/zstd 压缩",
       "OpenWrt 等路由固件标配，配合 OverlayFS 实现可写",
       "只读特性天然防篡改、抗掉电"
-    ],
-    "usage": "制作：mksquashfs rootfs rootfs.squashfs -comp xz -b 128K；挂载：mount -t squashfs -o loop rootfs.squashfs /mnt 或烧入分区后挂载；只读防篡改、抗掉电，OpenWrt 等固件 rootfs 标配，配合 OverlayFS 实现可写层"
+    ]
   },
   {
     "abbr": "tmpfs",
@@ -2193,8 +2025,7 @@
       "/tmp、/run 通常挂载为 tmpfs",
       "大小可限制（size=64M）",
       "频繁写临时数据放 tmpfs 可保护闪存寿命"
-    ],
-    "usage": "挂载：mount -t tmpfs -o size=64M tmpfs /mnt/tmp；内核在 /dev/shm、/run、/tmp 默认使用；数据在内存（可换出）、重启即清空；把频繁写入的临时文件放 tmpfs 可保护闪存寿命"
+    ]
   },
   {
     "abbr": "OverlayFS",
@@ -2206,8 +2037,7 @@
       "lowerdir+upperdir+workdir 三层结构",
       "OpenWrt、Docker 镜像分层均基于此",
       "固件升级只需替换只读底层，用户数据在上层保留"
-    ],
-    "usage": "挂载：mount -t overlay overlay -o lowerdir=/ro-rootfs,upperdir=/data/upper,workdir=/data/work /mnt；lower 只读底层（SquashFS 固件）与 upper 可写上层合并呈现，写时复制；OpenWrt/Docker 分层均基于此，固件升级只换底层、用户数据保留"
+    ]
   },
   {
     "abbr": "F2FS",
@@ -2219,8 +2049,7 @@
       "面向 eMMC/UFS/SD 等带 FTL 的设备",
       "随机小文件写性能优于 ext4",
       "Android 设备 data 分区广泛采用"
-    ],
-    "usage": "创建：mkfs.f2fs /dev/mmcblk0p1；挂载：mount -t f2fs /dev/mmcblk0p1 /mnt；检查：fsck.f2fs；面向 eMMC/UFS/SD 等带 FTL 设备，随机小文件写优于 ext4，Android data 分区广泛采用"
+    ]
   },
   {
     "abbr": "cramfs",
@@ -2232,8 +2061,7 @@
       "单文件限 16MB，压缩比一般",
       "无时间戳与完整权限信息",
       "仅在老项目维护中遇到"
-    ],
-    "usage": "制作：mkfs.cramfs rootfs rootfs.cramfs；挂载：mount -t cramfs -o loop rootfs.cramfs /mnt；只读、压缩但单文件限 16MB 且无时间戳；现已被 SquashFS 取代，仅在老项目维护中遇到"
+    ]
   },
   {
     "abbr": "PLL",
@@ -2245,8 +2073,7 @@
       "晶振低频输入经 PLL 倍频，如 i.MX6ULL 的 24MHz 倍频到 528MHz",
       "i.MX6ULL 有 ARM PLL、SYS PLL、USB PLL 等 7 路 PLL，还可经 PFD 再分频",
       "配置流程：设置倍频系数 → 等待 LOCK 位锁定 → 切换时钟源"
-    ],
-    "usage": "裸机流程：设置倍频系数 → 轮询 LOCK 位 → 切换时钟源；Linux 用 CCF 的 clk_set_rate()，经 clk_summary 确认实际频率；i.MX6ULL 在 CCM_ANALOG 寄存器配置"
+    ]
   },
   {
     "abbr": "CLK",
@@ -2258,8 +2085,7 @@
       "典型路径：OSC → PLL → 分频器 → 时钟门控 → 外设",
       "Linux 用 CCF（Common Clock Framework）统一管理：clk_get/clk_prepare_enable",
       "调试查看 /sys/kernel/debug/clk/clk_summary"
-    ],
-    "usage": "驱动用 clk_get()/clk_prepare_enable()/clk_get_rate()；调试看 /sys/kernel/debug/clk/clk_summary；设备树 clocks 与 clock-names 属性；外设时钟未使能是工作异常常见原因"
+    ]
   },
   {
     "abbr": "OSC",
@@ -2271,8 +2097,7 @@
       "无源晶体需芯片内部电路驱动，有源晶振直接输出方波",
       "24MHz 作为 PLL 参考，32.768kHz 供 RTC 与低功耗模式",
       "精度用 ppm 表示，时钟不准会影响 UART 波特率等"
-    ],
-    "usage": "设备树 clock-frequency 指定晶振频率；24MHz 主晶振精度（ppm）影响 UART 波特率；32.768kHz 供 RTC 与低功耗；不起振先查负载电容与焊接，用示波器验证"
+    ]
   },
   {
     "abbr": "CCM",
@@ -2284,8 +2109,7 @@
       "CCM_CCGRx 寄存器控制各外设时钟门控",
       "裸机开发第一步通常是配置 CCM 使能外设时钟",
       "作用等同于 STM32 的 RCC"
-    ],
-    "usage": "裸机配置 CCM_CCGRx 寄存器打开外设时钟门控；Linux 下由 CCF 统一管理，驱动无需直操寄存器；查 i.MX 参考手册 CCM 章节的时钟树框图理清分频链"
+    ]
   },
   {
     "abbr": "RCC",
@@ -2297,8 +2121,7 @@
       "使用任何外设前必须先使能其 RCC 时钟",
       "系统时钟可选 HSI/HSE/PLL",
       "外设时钟未使能是寄存器写不进去的最常见原因"
-    ],
-    "usage": "HAL 用 __HAL_RCC_GPIOA_CLK_ENABLE() 使能外设时钟；寄存器方式写 RCC->AHB1ENR/APB1ENR；系统时钟源可选 HSI/HSE/PLL；外设时钟未使能时寄存器写不进去"
+    ]
   },
   {
     "abbr": "GIC",
@@ -2310,8 +2133,7 @@
       "分 Distributor（分发）与 CPU Interface（接口）两部分",
       "中断号分类：SGI 0-15（核间）、PPI 16-31（私有）、SPI 32+（共享外设）",
       "Cortex-A7 常配 GICv2，设备树 interrupt-parent 指向它"
-    ],
-    "usage": "设备树中断控制器节点配 interrupt-controller/interrupt-cells；驱动用 request_irq()/devm_request_irq() 注册中断；/proc/interrupts 查看统计；SGI 0-15 用于核间通信"
+    ]
   },
   {
     "abbr": "NVIC",
@@ -2323,8 +2145,7 @@
       "优先级分抢占优先级与子优先级",
       "向量表可通过 VTOR 重映射（IAP 升级常用）",
       "作用对应 Cortex-A 的 GIC"
-    ],
-    "usage": "CMSIS 用 NVIC_EnableIRQ()/NVIC_SetPriority()；HAL 用 HAL_NVIC_EnableIRQ；向量表经 VTOR 重映射（IAP 升级常用）；优先级分组由 SCB->AIRCR 配置"
+    ]
   },
   {
     "abbr": "EPIT",
@@ -2336,8 +2157,7 @@
       "32 位向下计数，装载后自动重装（set-and-forget）",
       "正点原子裸机例程用 EPIT 实现定时中断点灯",
       "Linux 下一般改用 GPT 作系统时钟源"
-    ],
-    "usage": "裸机配置 EPIT 的 CR 与 LDVAL 寄存器实现周期中断，装载后自动重装；使能对应中断即可；Linux 下一般不用 EPIT 作系统时钟源，常被 GPT 替代"
+    ]
   },
   {
     "abbr": "GPT",
@@ -2349,8 +2169,7 @@
       "i.MX GPT 为 32 位，可选多种时钟源",
       "Linux 的 clocksource/clockevent 常基于它实现",
       "高精度延时可直接读计数器寄存器实现"
-    ],
-    "usage": "裸机读 GPT_CNT 计数器做高精度延时；Linux 内核把 GPT 注册为 clocksource/clockevent；dmesg 可见 clocksource 选择；设备树可配 gpt 节点"
+    ]
   },
   {
     "abbr": "IOMUXC",
@@ -2362,8 +2181,7 @@
       "每个 PAD 有 MUX 寄存器（选功能）和 CTL 寄存器（驱动强度/上下拉/速率）",
       "设备树 pinctrl 节点里的配置最终写入 IOMUXC",
       "裸机点灯第一步：把引脚 MUX 成 GPIO"
-    ],
-    "usage": "设备树 pinctrl 节点配 fsl,pins 属性（MUX 寄存器 + CTL 寄存器）；pinctrl-0/pinctrl-names 绑定到外设节点；裸机操作 IOMUXC_SW_MUX_CTL_PAD 与 SW_PAD_CTL 寄存器"
+    ]
   },
   {
     "abbr": "OCRAM",
@@ -2375,8 +2193,7 @@
       "i.MX6ULL 内置 128KB OCRAM",
       "SPL、DCD 阶段的代码/数据在此运行",
       "速度快、无需初始化，但容量小"
-    ],
-    "usage": "启动早期 DDR 未初始化时代码在 OCRAM 运行（SPL/DCD 阶段）；设备树 reserved-memory 可预留 OCRAM；访问快但容量小（i.MX6ULL 为 128KB）；调试可用 devmem 直接读写"
+    ]
   },
   {
     "abbr": "BootROM",
@@ -2388,8 +2205,7 @@
       "上电后最先执行，出厂固化不可修改",
       "按 BOOT_MODE 引脚/eFuse 选择 SD、eMMC、NAND、USB 等启动源",
       "i.MX 的 USB 烧写恢复模式（SDP）由 BootROM 提供"
-    ],
-    "usage": "BOOT_MODE 引脚/eFuse 选择 SD、eMMC、NAND、USB 等启动源；i.MX USB SDP 恢复模式配合 NXP 烧写工具；启动失败先确认 BootROM 正确解析了 IVT 头；出厂固化不可修改"
+    ]
   },
   {
     "abbr": "eFuse",
@@ -2401,8 +2217,7 @@
       "烧写不可逆，操作前务必确认",
       "安全启动（HAB）的公钥哈希存放于此",
       "i.MX 上通过 ocotp 驱动或 U-Boot fuse 命令访问"
-    ],
-    "usage": "U-Boot fuse read 读取、fuse prog 烧写；Linux 侧 i.MX 有 ocotp 驱动与 /sys/fsl_otp 接口；烧写不可逆，烧错可能锁死启动配置；存安全启动公钥哈希与 MAC 地址"
+    ]
   },
   {
     "abbr": "IVT",
@@ -2414,8 +2229,7 @@
       "包含 entry 入口、DCD 指针、boot data 等字段",
       "DCD（设备配置数据）可在镜像加载前初始化 DDR",
       "正点原子 imxdownload 工具即为裸机 bin 添加 IVT 头"
-    ],
-    "usage": "i.MX 裸机镜像需加 IVT 头（正点原子 imxdownload 工具生成）；IVT 内 DCD 表在镜像加载前初始化 DDR；BootROM 按 IVT 的 entry 字段跳转执行"
+    ]
   },
   {
     "abbr": "Cache",
@@ -2427,8 +2241,7 @@
       "Cortex-A7 每核 32KB L1I + 32KB L1D，多核共享 512KB L2",
       "DMA 与 CPU 共享内存时必须处理 cache 一致性（clean/invalidate）",
       "MMU 页表属性决定一段内存是否可缓存"
-    ],
-    "usage": "DMA 与 CPU 共享内存用 dma_alloc_coherent/dma_map_single 处理一致性；裸机手动 clean/invalidate（如 flush_dcache_range）；/proc/cpuinfo 查 cache 容量；MMU 页表属性决定是否可缓存"
+    ]
   },
   {
     "abbr": "TCM",
@@ -2440,8 +2253,7 @@
       "不经过 cache，没有命中/未命中的不确定延迟",
       "Cortex-M7/R 系列常见，分 ITCM（指令）与 DTCM（数据）",
       "中断向量表、实时控制代码适合放在这里"
-    ],
-    "usage": "STM32 链接脚本把实时代码段放 ITCM/DTCM；访问延迟确定，适合中断与实时控制代码；不经过 cache 无需一致性处理；设备树可预留 TCM 空间"
+    ]
   },
   {
     "abbr": "POR",
@@ -2453,8 +2265,7 @@
       "常见复位源：POR、外部复位脚、看门狗复位、软件复位",
       "复位原因可从 SRC（i.MX）/RCC（STM32）状态寄存器读取",
       "电源爬升不满足时序会导致启动异常"
-    ],
-    "usage": "上电复位由 POR 引脚时序保证；读 i.MX SRC_SRSR 或 STM32 RCC->CSR 查复位原因；电源爬升过慢或复位脚毛刺会导致启动异常；用示波器验证 POR 时序"
+    ]
   },
   {
     "abbr": "SD",
@@ -2466,8 +2277,7 @@
       "容量等级 SDSC/SDHC/SDXC，支持 SD 模式与 SPI 模式",
       "4 位数据线，UHS-I 总线可达 104MB/s",
       "Linux 由 mmc 子系统管理，设备节点 /dev/mmcblkX"
-    ],
-    "usage": "设备节点 /dev/mmcblk0；dd if=xxx.img of=/dev/mmcblk0 烧写镜像；mount /dev/mmcblk0p1 /mnt 挂载；设备树配 CD（卡检测）与 WP 引脚；mmc-utils 查卡容量与模式"
+    ]
   },
   {
     "abbr": "IMU",
@@ -2479,8 +2289,7 @@
       "6 轴 = 加速度 + 陀螺仪，9 轴再加磁力计",
       "正点原子 SPI 驱动例程使用 ICM-20608",
       "姿态解算常用互补滤波或卡尔曼滤波"
-    ],
-    "usage": "驱动注册到 IIO 或 input 子系统；ICM-20608 经 SPI/I2C 读加速度与角速度寄存器；IIO 下读 /sys/bus/iio/devices/iio:device0/in_accel_x_raw；姿态解算用互补滤波或卡尔曼滤波"
+    ]
   },
   {
     "abbr": "CTP",
@@ -2492,8 +2301,7 @@
       "常见控制器 GT911/FT5426，接口为 I2C + 中断脚",
       "Linux 用 input 子系统上报多点触摸（ABS_MT_* 事件）",
       "相比电阻屏（RTP）无需按压且支持多点"
-    ],
-    "usage": "evtest 调试触摸事件上报；GT911/FT5426 走 I2C + 中断脚；设备树配 touchscreen 节点（interrupt/irq-gpios）；input 子系统上报 ABS_MT_* 多点事件，设备节点 /dev/input/eventX"
+    ]
   },
   {
     "abbr": "Codec",
@@ -2505,8 +2313,7 @@
       "控制接口走 I2C，音频数据走 I2S/SAI",
       "常见芯片 WM8960、ES8388",
       "Linux 下由 ASoC（ALSA SoC）框架驱动"
-    ],
-    "usage": "ALSA 工具 aplay/arecord 播放录音，amixer 调音量；/proc/asound/cards 查看声卡；设备树配 codec 节点 + simple-audio-card；驱动走 ASoC 框架，DAI link 绑定 I2S/SAI 与 codec"
+    ]
   },
   {
     "abbr": "MAC",
@@ -2518,8 +2325,7 @@
       "MAC 与 PHY 之间用 MII/RMII/RGMII 接口连接",
       "MAC 地址 48 位，常存于 eFuse 或 EEPROM",
       "i.MX6ULL 的 ENET 外设就是内置 MAC"
-    ],
-    "usage": "ethtool eth0 查看链路状态；U-Boot 环境变量 ethaddr 设置 MAC 地址；设备树 mdio 节点管理 PHY，phy-handle 关联外设；MAC 地址常存于 eFuse 或 EEPROM 防止冲突"
+    ]
   },
   {
     "abbr": "MII",
@@ -2531,8 +2337,7 @@
       "MII 为 4 位 25MHz；RMII 精简为 2 位 50MHz，省引脚",
       "千兆场景用 GMII/RGMII",
       "管理通道 MDIO/MDC 用于读写 PHY 寄存器"
-    ],
-    "usage": "设备树 phy-mode 选 mii/rmii/rgmii 等模式；PHY 寄存器经 MDIO 通道读写；ethtool 查看速率/双工/协商结果；RMII 省引脚适合低成本设计"
+    ]
   },
   {
     "abbr": "QSPI",
@@ -2544,8 +2349,7 @@
       "吞吐约为普通 SPI 的 4 倍，支持 XIP 就地执行",
       "QSPI NOR 是常见的启动介质",
       "Linux 走 spi-nor 框架并以 MTD 分区呈现"
-    ],
-    "usage": "设备树 spi@... 下挂 NOR Flash 配 quad 模式；spi-nor 框架枚举为 /dev/mtdX；用 mtd-utils 的 flashcp/flash_erase 读写；支持 XIP 就地执行与启动镜像布局"
+    ]
   },
   {
     "abbr": "SAI",
@@ -2557,8 +2361,7 @@
       "支持 I2S、左/右对齐、DSP 等模式",
       "与 Codec 芯片之间传输 PCM 音频流",
       "在 ASoC 框架中作为 CPU DAI 出现"
-    ],
-    "usage": "ASoC 框架中 SAI 作为 CPU DAI 注册；设备树 simple-audio-card 连接 SAI 与 Codec；aplay/arecord 播放录音验证；I2S/左对齐/DSP 模式按 Codec 规格配置"
+    ]
   },
   {
     "abbr": "PTP",
@@ -2570,8 +2373,7 @@
       "精度远高于 NTP，依赖 MAC/PHY 硬件时间戳",
       "Linux 工具为 linuxptp（ptp4l/phc2sys）",
       "工业以太网与 TSN 时间敏感网络的基础"
-    ],
-    "usage": "linuxptp 工具包：ptp4l -i eth0 -s 作从钟同步、phc2sys 把 PHC 时间同步到系统时钟；需 MAC/PHY 硬件时间戳支持才能达亚微秒精度；工业以太网与 TSN 时间敏感网络的基础"
+    ]
   },
   {
     "abbr": "RNDIS",
@@ -2583,8 +2385,7 @@
       "Linux 端用 USB gadget（g_ether）实现",
       "插入后 PC 识别出网卡，即可 SSH/NFS 访问开发板",
       "Windows 原生支持 RNDIS，Linux 对端驱动为 usbnet"
-    ],
-    "usage": "Linux 端用 USB gadget 实现：modprobe g_ether 或 configfs 配置 usb_gadget；插入后 PC 识别为网卡，即可 SSH/NFS 访问开发板；Windows 原生支持 RNDIS，Linux 对端驱动为 usbnet"
+    ]
   },
   {
     "abbr": "cdev",
@@ -2596,8 +2397,7 @@
       "注册三步：alloc_chrdev_region → cdev_init → cdev_add",
       "通过 file_operations 提供 open/read/write/ioctl",
       "设备号 = 主设备号（对应驱动）+ 次设备号（区分实例）"
-    ],
-    "usage": "注册三步：alloc_chrdev_region()→cdev_init()→cdev_add()；mknod /dev/xxx c 主设备号 次设备号 手工建节点（或依赖 udev/mdev）；read/write 等回调在 file_operations 中实现"
+    ]
   },
   {
     "abbr": "misc",
@@ -2609,8 +2409,7 @@
       "misc_register 一步完成注册并自动创建 /dev 节点",
       "适合蜂鸣器、看门狗等简单外设",
       "比标准 cdev 少写大量样板代码"
-    ],
-    "usage": "misc_register() 一步注册并自动创建 /dev 节点；主设备号固定为 10，只分配次设备号；适合蜂鸣器、看门狗、EEPROM 等简单外设，比标准 cdev 少写样板代码"
+    ]
   },
   {
     "abbr": "platform",
@@ -2622,8 +2421,7 @@
       "设备树节点 compatible 与驱动 of_match_table 匹配后调用 probe",
       "寄存器地址、中断号用 platform_get_resource 获取",
       "现代嵌入式驱动开发的主流写法"
-    ],
-    "usage": "驱动用 of_match_table + module_platform_driver() 注册；设备树 compatible 匹配后调用 probe()；probe 中 platform_get_resource() 获取寄存器地址与中断号，devm_ioremap_resource() 映射"
+    ]
   },
   {
     "abbr": "pinctrl",
@@ -2635,8 +2433,7 @@
       "设备树用 pinctrl-names/pinctrl-0 指定引脚组",
       "驱动 probe 时自动应用 default 状态",
       "底层由各 SoC 的 IOMUX 驱动实现"
-    ],
-    "usage": "设备树 pinctrl-0 = <&pinctrl_uart0> 引用引脚组，pinctrl-names = \"default\",\"sleep\" 定义状态；驱动 probe 时自动应用 default 状态，可 pinctrl_get()/pinctrl_select_state() 手动切换"
+    ]
   },
   {
     "abbr": "input",
@@ -2648,8 +2445,7 @@
       "驱动只需上报事件：input_report_key/abs + input_sync",
       "事件经 /dev/input/eventX 传到用户态，可用 evtest 调试",
       "事件类型：EV_KEY 按键、EV_REL 相对坐标、EV_ABS 绝对坐标"
-    ],
-    "usage": "input_allocate_device() + input_register_device() 注册；上报事件 input_report_key()/input_report_abs() 后必须 input_sync()；evtest /dev/input/eventX 查看按键/触摸事件流"
+    ]
   },
   {
     "abbr": "IIO",
@@ -2661,8 +2457,7 @@
       "支持 sysfs 直读与 buffer+trigger 连续采集两种方式",
       "适合加速度计、光照/距离传感器、ADC 等",
       "比 hwmon 更通用，比 input 更面向原始数据"
-    ],
-    "usage": "iio_device_register() 注册设备；sysfs 直读 /sys/bus/iio/devices/iio:device0/in_voltage0_raw 单次采样；连续采集用 buffer + trigger（如 iio-trigger-hrtimer）；适合 ADC、加速度计、光感等传感器"
+    ]
   },
   {
     "abbr": "regmap",
@@ -2674,8 +2469,7 @@
       "regmap_read/regmap_write 屏蔽底层总线差异",
       "内置寄存器缓存与 debugfs 调试接口",
       "I2C/SPI 外设驱动的推荐写法"
-    ],
-    "usage": "devm_regmap_init_i2c()/devm_regmap_init_spi() 初始化，屏蔽 I2C/SPI/MMIO 总线差异；regmap_read()/regmap_write()/regmap_update_bits() 读写寄存器；debugfs 中可查看寄存器缓存，简化调试"
+    ]
   },
   {
     "abbr": "kthread",
@@ -2687,8 +2481,7 @@
       "kthread_run 创建并启动",
       "循环中需检查 kthread_should_stop() 以便退出",
       "没有用户地址空间，ps 中名字带方括号"
-    ],
-    "usage": "kthread_run() 创建并启动内核线程；循环体内检查 kthread_should_stop() 决定是否退出，退出调 kthread_stop()；线程没有用户地址空间，ps 中名字带方括号如 [mythread]"
+    ]
   },
   {
     "abbr": "tasklet",
@@ -2700,8 +2493,7 @@
       "同一 tasklet 不会在多核上并发执行",
       "运行于中断上下文，不允许睡眠",
       "新内核建议改用 threaded IRQ 或 workqueue"
-    ],
-    "usage": "tasklet_init() 初始化后 tasklet_schedule() 调度；运行于中断上下文不可睡眠，同一 tasklet 不会在多核并发；新内核建议改用 threaded IRQ（request_threaded_irq）或 workqueue"
+    ]
   },
   {
     "abbr": "spinlock",
@@ -2713,8 +2505,7 @@
       "持锁期间不能睡眠、不能调用可能睡眠的函数",
       "与中断共享数据用 spin_lock_irqsave 版本",
       "临界区必须尽量短，否则浪费 CPU"
-    ],
-    "usage": "spin_lock()/spin_unlock() 保护极短临界区，可于中断上下文使用；与中断处理共享数据用 spin_lock_irqsave()/spin_unlock_irqrestore()；持锁期间禁止睡眠或调用可睡眠函数"
+    ]
   },
   {
     "abbr": "mutex",
@@ -2726,8 +2517,7 @@
       "只能在进程上下文使用，拿不到锁会睡眠让出 CPU",
       "不可在中断上下文或持自旋锁时使用",
       "谁上锁谁解锁，不允许递归加锁"
-    ],
-    "usage": "mutex_lock()/mutex_unlock() 保护较长临界区；只能在进程上下文使用，拿不到锁会睡眠让出 CPU；不可在中断上下文或持自旋锁时使用，也不允许递归加锁"
+    ]
   },
   {
     "abbr": "semaphore",
@@ -2739,8 +2529,7 @@
       "down 获取（计数减一，为 0 则睡眠），up 释放",
       "二值信号量类似互斥锁，但没有所有者概念",
       "内核新代码多用 mutex/completion 替代"
-    ],
-    "usage": "内核侧 down() 获取（计数减一，为 0 则睡眠）、up() 释放；二值信号量无所有者概念；内核新代码多用 mutex/completion 替代；用户态对应 POSIX sem_wait()/sem_post()"
+    ]
   },
   {
     "abbr": "atomic",
@@ -2752,8 +2541,7 @@
       "atomic_t 类型配 atomic_inc/dec/read 等 API",
       "位原子操作：set_bit/clear_bit/test_bit",
       "典型用途：实现设备只允许被打开一次"
-    ],
-    "usage": "atomic_t 类型配 atomic_inc()/atomic_dec()/atomic_read() 等 API；位操作 set_bit()/clear_bit()/test_bit()；典型用途：open 计数判断设备只允许打开一次"
+    ]
   },
   {
     "abbr": "waitqueue",
@@ -2765,8 +2553,7 @@
       "wait_event_interruptible 睡眠，wake_up 唤醒",
       "驱动 read 无数据时让进程睡眠的典型手段",
       "配合 poll 方法可同时支持非阻塞访问"
-    ],
-    "usage": "DECLARE_WAIT_QUEUE_HEAD 定义队列；wait_event_interruptible() 睡眠等待条件，wake_up_interruptible() 唤醒；驱动 read 无数据时让进程睡眠的典型手段；配合 poll 方法支持非阻塞访问"
+    ]
   },
   {
     "abbr": "epoll",
@@ -2778,8 +2565,7 @@
       "事件到达通知为 O(1)，优于 select/poll 全量扫描",
       "三个接口：epoll_create/epoll_ctl/epoll_wait",
       "驱动需实现 poll 方法才能被 epoll 监视"
-    ],
-    "usage": "三个接口 epoll_create()/epoll_ctl()/epoll_wait()；事件通知 O(1)，适合监视大量 fd；高并发下用 EPOLLET 边缘触发 + 非阻塞 IO；被监视的设备驱动必须实现 poll 方法"
+    ]
   },
   {
     "abbr": "NAPI",
@@ -2791,8 +2577,7 @@
       "首包触发中断后关中断，改为轮询批量收包",
       "netif_napi_add 注册 poll 回调",
       "高吞吐网络驱动的标准写法"
-    ],
-    "usage": "netif_napi_add() 注册 poll 回调，首包触发中断后关闭中断改轮询批量收包；高吞吐网卡驱动的标准写法；netif_receive_skb() 把包送入协议栈；可避免高流量下的中断风暴"
+    ]
   },
   {
     "abbr": "SKB",
@@ -2804,8 +2589,7 @@
       "贯穿收发全路径，通过指针操作避免数据拷贝",
       "head/data/tail/end 四指针管理缓冲区空间",
       "驱动收包流程：netdev_alloc_skb → 填充 → napi_gro_receive"
-    ],
-    "usage": "收包路径：netdev_alloc_skb() 分配→填充数据→napi_gro_receive() 上交；skb_push()/skb_pull()/skb_put()/skb_reserve() 调整缓冲区指针；skb_dump() 可打印包结构辅助调试"
+    ]
   },
   {
     "abbr": "PM",
@@ -2817,8 +2601,7 @@
       "系统级休眠：echo mem > /sys/power/state",
       "驱动实现 dev_pm_ops 的 suspend/resume 保存恢复现场",
       "runtime PM 允许空闲设备单独掉电"
-    ],
-    "usage": "echo mem > /sys/power/state 进入休眠，echo on 唤醒（配合 RTC 闹钟）；驱动实现 dev_pm_ops 的 suspend()/resume() 保存恢复现场；runtime PM 用 pm_runtime_get()/pm_runtime_put() 让空闲设备单独掉电"
+    ]
   },
   {
     "abbr": "CPUFreq",
@@ -2830,8 +2613,7 @@
       "调节器：performance/powersave/ondemand/schedutil",
       "调压需要 PMIC 配合（regulator 框架）",
       "节点在 /sys/devices/system/cpu/cpufreq"
-    ],
-    "usage": "查看 cpupower frequency-info 或读 /sys/devices/system/cpu/cpufreq/policy0/scaling_governor；echo schedutil > .../scaling_governor 切换调节器（performance/powersave/ondemand/schedutil）；DVFS 调压需 PMIC 与 regulator 框架配合"
+    ]
   },
   {
     "abbr": "printk",
@@ -2843,8 +2625,7 @@
       "8 个级别：KERN_EMERG(0) 到 KERN_DEBUG(7)",
       "日志进环形缓冲区，用 dmesg 查看",
       "驱动代码建议用 dev_info/dev_err 自动带设备名"
-    ],
-    "usage": "驱动调试首选 dev_info()/dev_err()/dev_dbg()，自动带设备名便于过滤；dmesg 查看内核日志环形缓冲；printk_ratelimit() 限制高频打印；日志级别 KERN_ERR(3) 以下默认进 console"
+    ]
   },
   {
     "abbr": "Oops",
@@ -2856,8 +2637,7 @@
       "包含寄存器、调用栈、出错指令地址",
       "用 addr2line 或 gdb 把 PC 地址定位到源码行",
       "严重时升级为 panic，系统挂死"
-    ],
-    "usage": "dmesg 查看 Oops 现场（寄存器/调用栈/出错地址）；用 addr2line -e vmlinux <PC地址> 把地址定位到源码行；内核编译开启 CONFIG_DEBUG_INFO 与 CONFIG_KALLSYMS 便于反查；模块崩了先确认 PC 落在哪个 .ko"
+    ]
   },
   {
     "abbr": "slab",
@@ -2869,8 +2649,7 @@
       "按对象大小组织 cache，减少内存碎片",
       "实现有 SLAB/SLUB/SLOB，现代内核默认 SLUB",
       "/proc/slabinfo 查看各对象池使用情况"
-    ],
-    "usage": "kmalloc()/kfree() 分配释放小对象；cat /proc/slabinfo 查看各对象池数量与占用，定位内存泄漏；大量同构对象可 kmem_cache_create() 建专用 cache 提升效率"
+    ]
   },
   {
     "abbr": "BusyBox",
@@ -2882,8 +2661,7 @@
       "make menuconfig 可裁剪需要的命令",
       "rootfs 里的 init/sh/ls 等都是指向它的符号链接",
       "正点原子手工构建根文件系统的第一步就是编译它"
-    ],
-    "usage": "构建：make menuconfig 勾选所需 applet 后 make，make install CONFIG_PREFIX=<rootfs目录> 安装；rootfs 中 /bin/sh、/sbin/init 等是指向 busybox 的符号链接；作 init 时读 /etc/inittab 拉起系统"
+    ]
   },
   {
     "abbr": "systemd",
@@ -2895,8 +2673,7 @@
       "服务用 unit 文件描述，systemctl 统一管理",
       "journalctl 查看日志",
       "资源紧张的嵌入式系统常用 BusyBox init/SysVinit 替代"
-    ],
-    "usage": "服务管理：systemctl start/stop/enable/status <service>；自定义服务在 /etc/systemd/system/xxx.service 写 unit 文件后 systemctl daemon-reload；journalctl -u xxx -f 实时看日志；资源受限设备可换 BusyBox init 或 SysVinit"
+    ]
   },
   {
     "abbr": "init",
@@ -2908,8 +2685,7 @@
       "由内核参数 init= 指定，默认 /sbin/init",
       "BusyBox init 读取 /etc/inittab，再执行 /etc/init.d/rcS",
       "PID 恒为 1，所有孤儿进程由它收养"
-    ],
-    "usage": "内核参数 init=/linuxrc 或 init=/sbin/init 指定 1 号进程；BusyBox init 按 /etc/inittab 逐行启动并执行 /etc/init.d/rcS；PID 恒为 1，收养孤儿进程；可用 ps 确认当前 init 实现"
+    ]
   },
   {
     "abbr": "LDS",
@@ -2921,8 +2697,7 @@
       "SECTIONS 命令定义 .text/.data/.bss 的排布",
       "裸机开发必须指定链接地址（如 i.MX6ULL 的 0x87800000）",
       "ENTRY() 指定程序入口符号"
-    ],
-    "usage": "裸机链接：arm-none-eabi-ld -T link.lds -o app.elf *.o，链接脚本用 SECTIONS 排布 .text/.data/.bss，ENTRY(_start) 指定入口；常用 MEMORY 命令划分 RAM/FLASH 地址域；如 i.MX6ULL 链接地址 0x87800000"
+    ]
   },
   {
     "abbr": "objcopy",
@@ -2934,8 +2709,7 @@
       "arm-xxx-objcopy -O binary a.elf a.bin 生成烧写镜像",
       "裸机编译流程的最后一步",
       "配合 objdump -D 反汇编验证生成结果"
-    ],
-    "usage": "生成烧写镜像：arm-none-eabi-objcopy -O binary -S app.elf app.bin；-O ihex 输出 hex，-O srec 输出 S 记录；配合 objdump -D app.elf 反汇编核对机器码；裸机编译流程的最后一步"
+    ]
   },
   {
     "abbr": "mkimage",
@@ -2947,8 +2721,7 @@
       "uImage = zImage + 64 字节头（含加载地址与入口地址）",
       "可打包 FIT 镜像：内核 + DTB + ramdisk 合一",
       "U-Boot 的 bootm 命令依赖该头部信息"
-    ],
-    "usage": "生成 uImage：mkimage -A arm -O linux -T kernel -C none -a 0x80800000 -e 0x80800000 -d zImage uImage；打包 FIT：mkimage -f boot.its boot.itb 将内核+DTB+ramfs 合一；脚本镜像用 -T script；bootm 依赖该头部加载信息"
+    ]
   },
   {
     "abbr": "dtc",
@@ -2960,8 +2733,7 @@
       "dtc -I dts -O dtb 编译；-I dtb -O dts 反编译",
       "内核 make dtbs 内部调用它",
       "能检查节点语法与 phandle 引用错误"
-    ],
-    "usage": "编译：dtc -I dts -O dtb -o board.dtb board.dts；反编译 -I dtb -O dts 查看二进制内容；内核内 make dtbs 批量生成；校验语法错误与 phandle 引用，交叉编译环境用 <arch>-dtc 或 scripts/dtc/dtc"
+    ]
   },
   {
     "abbr": "OpenOCD",
@@ -2973,8 +2745,7 @@
       "支持 J-Link/ST-Link/CMSIS-DAP 等适配器",
       "提供 GDB server，默认监听 3333 端口",
       "可烧写 Flash、复位芯片、单步调试裸机代码"
-    ],
-    "usage": "启动：openocd -f interface/stlink.cfg -f target/stm32f4x.cfg 监听 3333 端口；一键烧写：openocd -f ... -c 'program app.elf verify reset exit'；配合 gdb 执行 target remote :3333 调试裸机，支持 flash write_image、halt、reset 等命令"
+    ]
   },
   {
     "abbr": "Make",
@@ -2986,8 +2757,7 @@
       "规则三要素：目标、依赖、命令（命令行必须以 Tab 开头）",
       "内核常用：make -j$(nproc) zImage dtbs modules",
       "变量、模式规则、伪目标是 Makefile 进阶三件套"
-    ],
-    "usage": "内核/U-Boot 构建：make -j$(nproc) 并行编译，make clean 清理；内核常用 make zImage dtbs modules 与 make modules_install INSTALL_MOD_PATH=<rootfs>；Makefile 规则为 目标:依赖 加 Tab 缩进的命令，支持变量与模式规则"
+    ]
   },
   {
     "abbr": "c",
@@ -2999,8 +2769,7 @@
       "编译流程：预处理 -> 编译 -> 汇编 -> 链接",
       "常与同名 .h 头文件配对（如 main.c / main.h）",
       "gcc -c main.c 生成目标文件 main.o"
-    ],
-    "usage": "源文件：gcc -c foo.c 编译成 .o；交叉编译用 arm-none-eabi-gcc；与同名 .h 配对，编译加 -I 指定头文件路径"
+    ]
   },
   {
     "abbr": "h",
@@ -3012,8 +2781,7 @@
       "用 #ifndef/#define/#endif 或 #pragma once 防止重复包含",
       "声明放 .h，定义放 .c/.cpp",
       "嵌入式中寄存器地址、外设结构体常在此定义"
-    ],
-    "usage": "头文件：源文件中 #include \"foo.h\" 引入；用 #ifndef/#define/#endif 防重复包含；编译加 -I 指定搜索路径；寄存器地址与外设结构体常在此定义"
+    ]
   },
   {
     "abbr": "cpp",
@@ -3025,8 +2793,7 @@
       "编译用 g++ / arm-none-eabi-g++",
       "常与 .hpp 头文件配对",
       "嵌入式 C++ 需注意异常与 RTTI 带来的体积开销"
-    ],
-    "usage": "C++ 源文件：g++ -c foo.cpp 编译；嵌入式用 arm-none-eabi-g++；可加 -fno-exceptions -fno-rtti 减小体积；与 .hpp 配对"
+    ]
   },
   {
     "abbr": "hpp",
@@ -3038,8 +2805,7 @@
       "模板实现常直接写在头文件内",
       "与 .cpp 源文件配对",
       "现代风格用 .hpp 与 C 头文件 .h 区分"
-    ],
-    "usage": "C++ 头文件：源文件中 #include \"foo.hpp\" 引入；模板实现直接写在头文件内；与 .cpp 配对编译"
+    ]
   },
   {
     "abbr": "cc",
@@ -3051,8 +2817,7 @@
       "编译器按扩展名识别语言",
       "与 .cpp 完全等价",
       "Makefile 常用 %.cc 模式规则"
-    ],
-    "usage": "C++ 源文件替代扩展名：与 .cpp 等价，编译器按扩展名识别；g++ -c foo.cc 编译；Makefile 常用 %.cc 模式规则"
+    ]
   },
   {
     "abbr": "s",
@@ -3064,8 +2829,7 @@
       "arm-none-eabi 工具链用 .s 编写启动代码",
       "U-Boot、Linux 内核均有汇编入口",
       "配合链接脚本控制段布局"
-    ],
-    "usage": "GNU 汇编源文件：arm-none-eabi-gcc -c startup.s 编译；编写启动文件与中断向量表；U-Boot、Linux 内核汇编入口；由链接脚本控制段放置"
+    ]
   },
   {
     "abbr": "asm",
@@ -3077,8 +2841,7 @@
       "x86 常用 .asm（MASM/NASM 语法）",
       "ARM 常用 .s/.S（GNU 语法）",
       "用于启动、中断、上下文切换等关键路径"
-    ],
-    "usage": "汇编源文件：x86 用 nasm -f elf foo.asm（MASM 亦可）；ARM 用 GNU .s 语法；写启动、中断、上下文切换等底层代码"
+    ]
   },
   {
     "abbr": "i",
@@ -3090,8 +2853,7 @@
       "gcc -E main.c -o main.i 生成",
       "用于排查宏展开问题",
       "预处理阶段不检查语法"
-    ],
-    "usage": "预处理产物：gcc -E main.c -o main.i 生成；排查宏展开与头文件包含问题；预处理后不编译、不汇编"
+    ]
   },
   {
     "abbr": "d",
@@ -3103,8 +2865,7 @@
       "gcc -MM main.c 生成",
       "头文件变更时自动触发重新编译",
       "配合 -include 自动引入"
-    ],
-    "usage": "依赖文件：gcc -MM main.c > main.d 自动生成；make 用 -include 引入；头文件变更时自动触发重新编译"
+    ]
   },
   {
     "abbr": "o",
@@ -3116,8 +2877,7 @@
       "链接后成为可执行文件或库",
       "nm/objdump 可查看符号与反汇编",
       "ELF 格式，与 .a/.so 同族"
-    ],
-    "usage": "目标文件：gcc -c foo.c 生成 foo.o；链接 gcc foo.o bar.o -o app；nm 看符号、objdump 反汇编；与 .a/.so 同属 ELF 家族"
+    ]
   },
   {
     "abbr": "obj",
@@ -3129,8 +2889,7 @@
       "MSVC 编译器生成",
       "link.exe 将其组合为 .exe/.dll",
       "dumpbin 工具可查看内容"
-    ],
-    "usage": "目标文件（Windows）：MSVC cl /c foo.c 生成；link.exe 链接为 .exe/.dll；dumpbin 查看内容；COFF 格式"
+    ]
   },
   {
     "abbr": "a",
@@ -3142,8 +2901,7 @@
       "ar rcs libxxx.a xxx.o 创建",
       "命名规则：lib 前缀 + .a 后缀",
       "链接期解析，运行时不依赖"
-    ],
-    "usage": "静态库：ar rcs libfoo.a foo.o 打包；链接时 gcc app.c -lfoo -L. 使用；命名规则 lib 前缀 + .a；链接期整体拷入可执行文件"
+    ]
   },
   {
     "abbr": "lib",
@@ -3155,8 +2913,7 @@
       "静态库与导入库扩展名均为 .lib",
       "链接器搜索路径由 LIB 环境变量控制",
       "与 .dll 配套发布"
-    ],
-    "usage": "库文件（Windows）：MSVC 静态库或 DLL 导入库；链接用 link.exe 并设 LIBPATH 指定目录；与 .dll 配套发布；dumpbin /linkermember 查看符号"
+    ]
   },
   {
     "abbr": "so",
@@ -3168,8 +2925,7 @@
       "命名规则 libxxx.so.主版本号",
       "ldd 查看依赖，LD_LIBRARY_PATH 控制搜索",
       "嵌入式交叉编译注意架构匹配"
-    ],
-    "usage": "动态库：gcc -shared -fPIC -o libfoo.so foo.c 生成；运行时 ldd 查依赖、LD_LIBRARY_PATH 指定路径；嵌入式交叉编译需架构匹配"
+    ]
   },
   {
     "abbr": "dll",
@@ -3181,8 +2937,7 @@
       "导出用 __declspec(dllexport) 或 .def 文件",
       "DLL 搜索顺序影响加载",
       "依赖缺失常报 0xc000007b 等错误"
-    ],
-    "usage": "动态库（Windows）：导出用 __declspec(dllexport) 或 .def 文件；MSVC 或 gcc -shared 生成；与导入库 .lib 配套链接；依赖缺失常报 0xc000007b"
+    ]
   },
   {
     "abbr": "exe",
@@ -3194,8 +2949,7 @@
       "PE 头含入口点、导入导出表",
       "dumpbin /headers 可查看结构",
       "由链接器将 .obj 与 .lib 链接生成"
-    ],
-    "usage": "可执行文件（Windows）：PE 格式，链接器由 .obj/.lib 生成；双击或命令行运行；dumpbin /headers 查看结构；嵌入式工具多为 CLI 程序"
+    ]
   },
   {
     "abbr": "axf",
@@ -3207,8 +2961,7 @@
       "MDK 编译产物，含调试符号",
       "J-Link 可直接下载 .axf 调试",
       "可转成 .hex/.bin 量产烧录"
-    ],
-    "usage": "ARM 可执行文件：Keil MDK 编译产物，含调试符号；J-Link 直接下载 .axf 在线调试；量产用 fromelf 转 .hex/.bin 烧录"
+    ]
   },
   {
     "abbr": "bin",
@@ -3220,8 +2973,7 @@
       "objcopy -O binary 从 ELF 生成",
       "烧录地址必须与链接地址一致",
       "大小即固件体积，size 命令查看"
-    ],
-    "usage": "二进制镜像：objcopy -O binary app.elf app.bin 生成；烧录地址须与链接地址一致；J-Link/ST-LINK/OpenOCD 均可下载；size 查看固件体积"
+    ]
   },
   {
     "abbr": "hex",
@@ -3233,8 +2985,7 @@
       "每行格式 :LLAAAATT...CC",
       "支持非连续地址段，适合分块烧录",
       "相比 .bin 可记录加载地址"
-    ],
-    "usage": "Intel HEX 固件：objcopy -O ihex app.elf app.hex 生成；ASCII 文本带地址与校验和；烧录用 J-Flash/STM32CubeProgrammer 等"
+    ]
   },
   {
     "abbr": "uf2",
@@ -3246,8 +2997,7 @@
       "块大小 512 字节，带魔术字与校验",
       "bootrom 模式拖入即烧录并复位",
       "uf2conv.py 可将 .bin/.hex 转换"
-    ],
-    "usage": "UF2 烧录格式：树莓派 Pico/RP2040 拖入 U 盘即烧录；uf2conv.py 将 .bin/.hex 转 .uf2；块大小 512 字节带魔术字与校验"
+    ]
   },
   {
     "abbr": "map",
@@ -3259,8 +3009,7 @@
       "链接时加 -Map=xxx.map 生成",
       "排查内存溢出（.bss/.data 超限）的关键",
       "可查看函数/变量在 Flash 与 RAM 的分布"
-    ],
-    "usage": "链接映射文件：链接加 -Map=app.map（gcc 用 -Wl,-Map=app.map）生成；查各符号地址与内存占用；排查 .bss/.data 超限的关键"
+    ]
   },
   {
     "abbr": "ld",
@@ -3272,8 +3021,7 @@
       "MEMORY 定义 Flash/RAM 区域",
       "SECTIONS 控制 .text/.data/.bss 放置",
       "STM32 工程的 .ld 由芯片厂商提供"
-    ],
-    "usage": "链接脚本：gcc/ld 加 -T xxx.ld 指定；MEMORY 划分 Flash/RAM，SECTIONS 控制 .text/.data/.bss 布局；STM32 用厂商脚本或自行裁剪"
+    ]
   },
   {
     "abbr": "mk",
@@ -3285,8 +3033,7 @@
       "Linux 内核 Kbuild 大量使用 *.mk",
       "常见于模块化构建系统",
       "命名如 rules.mk、common.mk"
-    ],
-    "usage": "Makefile 片段：主 Makefile 用 include common.mk 引入；Linux 内核 Kbuild 大量使用；集中管理变量与规则供复用"
+    ]
   },
   {
     "abbr": "img",
@@ -3298,8 +3045,7 @@
       "dd 写入：dd if=xxx.img of=/dev/sdX",
       "树莓派系统镜像为 .img",
       "固件镜像常用于离线升级包"
-    ],
-    "usage": "镜像文件：dd if=xxx.img of=/dev/sdX bs=4M 写入 SD 卡/eMMC；开发板与树莓派系统镜像常用；fdisk/mount 可检查分区内容"
+    ]
   },
   {
     "abbr": "iso",
@@ -3311,8 +3057,7 @@
       "mount -o loop xxx.iso 直接挂载",
       "Linux 发行版安装介质常用",
       "可含引导信息（El Torito）"
-    ],
-    "usage": "光盘镜像：mount -o loop xxx.iso /mnt 挂载查看或安装；可用刻录软件刻盘；Linux 发行版与工具盘常用"
+    ]
   },
   {
     "abbr": "s19",
@@ -3324,8 +3069,7 @@
       "S0 头记录、S1/S2/S3 数据记录、S9 结束记录",
       "飞思卡尔/NXP 工具链常用",
       "与 HEX 类似，带地址与校验信息"
-    ],
-    "usage": "S-Record 烧录文件：objcopy -O srec app.elf app.s19 生成；飞思卡尔/NXP MCU 烧录常用；S0 头/S1-S3 数据/S9 结束记录；P&E/CW 工具下载"
+    ]
   },
   {
     "abbr": "dtsi",
@@ -3337,8 +3081,7 @@
       "SoC 厂商提供公共定义（如 imx8mp.dtsi）",
       "板级 .dts 覆盖或追加节点",
       "支持 C 预处理器语法"
-    ],
-    "usage": "设备树头文件：/include/ \"soc.dtsi\" 引入；定义 SoC 级外设，板级 dts 覆盖；dtc 编译成 dtb 供内核使用"
+    ]
   },
   {
     "abbr": "ko",
@@ -3350,8 +3093,7 @@
       "insmod/modprobe 加载，rmmod 卸载",
       "编译需内核源码与配置",
       "驱动开发常用，如 USB、GPIO 驱动"
-    ],
-    "usage": "内核模块：insmod foo.ko / modprobe foo 加载，rmmod 卸载；dmesg 看加载日志；交叉编译需目标内核源码与头文件"
+    ]
   },
   {
     "abbr": "patch",
@@ -3363,8 +3105,7 @@
       "diff -u 生成，patch -p1 应用",
       "内核社区以 patch 形式提交",
       "git format-patch 生成 git 补丁"
-    ],
-    "usage": "补丁文件：diff -u 旧文件 新文件 > x.patch 生成；patch -p1 < x.patch 应用；内核补丁用 git format-patch 生成、git am 应用"
+    ]
   },
   {
     "abbr": "py",
@@ -3376,8 +3117,7 @@
       "esptool、pyOCD、OpenOCD 生态基于 Python",
       "脚本化串口调试、批量烧录、CI 测试",
       "解释执行，无需编译"
-    ],
-    "usage": "Python 脚本：python3 foo.py 运行；嵌入式常用于构建、烧录、串口调试与 CI 测试；esptool、pyOCD、OpenOCD 工具链基于 Python"
+    ]
   },
   {
     "abbr": "js",
@@ -3389,8 +3129,7 @@
       "Vite/webpack 等前端构建工具",
       "Node.js 运行服务端脚本",
       "Tauri/Electron 桌面应用前端"
-    ],
-    "usage": "JavaScript 脚本：node foo.js 运行；Vite/webpack 前端构建；嵌入式 Web 配置界面与工具常用；node 可调 serialport 串口库做调试工具"
+    ]
   },
   {
     "abbr": "ts",
@@ -3402,8 +3141,7 @@
       "tsc 编译或 Vite 内联转译",
       "类型系统在编译期发现错误",
       "现代前端项目主流选择"
-    ],
-    "usage": "TypeScript 脚本：tsc foo.ts 编译为 JS；Vite/Webpack 内联转译；类型检查在编译期发现错误；适合嵌入式 Web 界面与桌面工具开发"
+    ]
   },
   {
     "abbr": "json",
@@ -3415,8 +3153,7 @@
       "Tauri 配置与插件配置均用 JSON",
       "JSON Schema 可定义校验规则",
       "相比 XML 更简洁、解析更快"
-    ],
-    "usage": "JSON 数据文件：程序配置与数据交换；jq 命令行解析查询；C/C++ 端用 cJSON 或 nlohmann-json 解析；部分嵌入式设备配置存 JSON"
+    ]
   },
   {
     "abbr": "md",
@@ -3428,8 +3165,7 @@
       "GitHub README、docs 均用 md",
       "代码块、表格、链接语法简单",
       "可渲染为 HTML/PDF"
-    ],
-    "usage": "Markdown 文档：README 与开发文档书写；GitHub/Gitee 直接渲染；pandoc 可转 PDF/HTML；嵌入式笔记与教程常用"
+    ]
   },
   {
     "abbr": "txt",
@@ -3441,8 +3177,7 @@
       "通用性最强，任何编辑器可打开",
       "注意编码（UTF-8/GBK）差异",
       "常作为程序输出/日志格式"
-    ],
-    "usage": "纯文本文件：说明、配置、日志通用格式；注意 UTF-8/GBK 编码差异；串口调试输出可用 tee 保存为 .txt"
+    ]
   },
   {
     "abbr": "sh",
@@ -3454,8 +3189,7 @@
       "chmod +x 后可直接执行",
       "嵌入式开发常用：刷机、构建、环境配置",
       "注意引号与转义"
-    ],
-    "usage": "Shell 脚本：#!/bin/sh 开头，chmod +x 后执行；嵌入式开发常用刷机、构建、环境配置脚本；source 加载交叉编译环境变量"
+    ]
   },
   {
     "abbr": "bat",
@@ -3467,8 +3201,7 @@
       "以 @echo off 开头抑制命令回显",
       "%1 表示命令行参数",
       "与 .cmd 基本等价"
-    ],
-    "usage": "批处理：@echo off 开头；双击或 cmd 中执行；%1 取命令行参数；Windows 下构建与烧录脚本常用；新项目建议用 PowerShell"
+    ]
   },
   {
     "abbr": "cmd",
@@ -3480,8 +3213,7 @@
       "与 .bat 语法相同",
       "现代自动化更推荐 PowerShell",
       "双击运行于命令行窗口"
-    ],
-    "usage": "批处理（cmd）：与 .bat 语法一致；cmd 中直接运行；%VAR% 取环境变量；用于 Windows 自动化任务与工具调用"
+    ]
   },
   {
     "abbr": "ps1",
@@ -3493,8 +3225,7 @@
       "执行策略默认限制脚本运行（Set-ExecutionPolicy）",
       "跨系统管理能力强",
       "开发工具链常用"
-    ],
-    "usage": "PowerShell 脚本：默认执行策略受限，需 Set-ExecutionPolicy RemoteSigned；.\\script.ps1 运行；对象化管道适合 Windows 构建与自动化"
+    ]
   },
   {
     "abbr": "yml",
@@ -3506,8 +3237,7 @@
       ".yaml 与 .yml 等价",
       "GitHub Actions、Docker Compose 均用",
       "缩进不能混用 Tab 与空格"
-    ],
-    "usage": "YAML 配置：与 .yaml 等价；缩进表层级，禁止混用 Tab 与空格；GitHub Actions、Docker Compose、Ansible 均用；Zephyr west 清单也用 YAML"
+    ]
   },
   {
     "abbr": "yaml",
@@ -3519,8 +3249,7 @@
       "列表用 - 开头，映射用 key: value",
       "锚点与别名支持复用",
       "常用于 CI/CD 与微服务配置"
-    ],
-    "usage": "YAML 配置（.yaml）：与 .yml 完全相同；列表用 - 开头、映射用 key: value；锚点与别名支持复用；CI/CD 与微服务配置常用"
+    ]
   },
   {
     "abbr": "toml",
@@ -3532,8 +3261,7 @@
       "Cargo.toml、pyproject.toml 等",
       "键值对 + 数组 + 表结构",
       "类型明确，解析歧义少"
-    ],
-    "usage": "TOML 配置：键值 + 数组 + 表结构，类型明确；Cargo.toml、pyproject.toml 使用；Rust 嵌入式工程依赖 Cargo.toml 管理"
+    ]
   },
   {
     "abbr": "ini",
@@ -3545,8 +3273,7 @@
       "Windows 传统配置格式",
       "Python configparser 可解析",
       "值都是字符串，无类型系统"
-    ],
-    "usage": "INI 配置：节 + key=value 结构；Windows 传统配置格式；Python configparser 可解析；部分嵌入式应用与工具使用"
+    ]
   },
   {
     "abbr": "cfg",
@@ -3558,8 +3285,7 @@
       "OpenOCD、gdb 等工具常用",
       "格式随程序而异（行式/键值式）",
       "注意结尾换行与注释符号"
-    ],
-    "usage": "配置文件：格式由程序定义；OpenOCD 用 -f interface/stlink.cfg -f target/stm32f4x.cfg 加载调试目标；注意注释符与编码"
+    ]
   },
   {
     "abbr": "conf",
@@ -3571,8 +3297,7 @@
       "nginx.conf、sshd_config 等",
       "修改后通常需重启服务",
       "注释用 # 开头"
-    ],
-    "usage": "系统配置文件：/etc 下服务配置，如 nginx.conf、sshd_config；修改后 systemctl restart 重启服务生效；注释用 #"
+    ]
   },
   {
     "abbr": "xml",
@@ -3584,8 +3309,7 @@
       "DTD/XSD 定义合法结构",
       "常见于配置文件与数据交换",
       "相比 JSON 冗长，解析开销大"
-    ],
-    "usage": "XML 标记文件：标签树结构，DTD/XSD 可校验；嵌入式解析常用 libxml2/expat；配置与数据交换场景使用；相比 JSON 更冗长"
+    ]
   },
   {
     "abbr": "csv",
@@ -3597,8 +3321,7 @@
       "Excel/WPS 可直接打开",
       "字段含逗号/引号时需转义",
       "嵌入式测试数据常用 CSV 存储"
-    ],
-    "usage": "CSV 表格数据：逗号分隔，Excel/WPS 直接打开；Python csv 模块、awk 处理；嵌入式测试用例与批量参数常存 CSV"
+    ]
   },
   {
     "abbr": "log",
@@ -3610,8 +3333,7 @@
       "常见轮转策略：按大小或时间切分",
       "串口调试信息常重定向到 log 文件",
       "分析用 grep/tail 过滤关键信息"
-    ],
-    "usage": "日志文件：程序运行记录，tail -f 实时跟踪、grep 过滤关键信息；串口调试输出重定向保存；logrotate 按大小/时间轮转"
+    ]
   },
   {
     "abbr": "proto",
@@ -3623,8 +3345,7 @@
       "protoc 编译生成 C/C++/Python 等代码",
       "字段号（tag）一经发布不可修改",
       "嵌入式与云端通信常选 protobuf 压缩体积"
-    ],
-    "usage": "protobuf 定义文件：protoc 编译生成多语言代码（--python_out/--c_out）；字段号发布后不可更改；嵌入式与云端通信常用 protobuf 减小体积"
+    ]
   },
   {
     "abbr": "lst",
@@ -3636,8 +3357,7 @@
       "arm-none-eabi-gcc 加 -Wa,-adhln 生成",
       "查看每条 C 语句对应的机器码",
       "优化排查与裸机调试利器"
-    ],
-    "usage": "汇编列表文件：arm-none-eabi-gcc -c -Wa,-adhln foo.c > foo.lst 生成；同时显示 C 源码、汇编指令与地址；排查优化与段布局问题"
+    ]
   },
   {
     "abbr": "ls",
