@@ -3380,12 +3380,12 @@
     "category": "文件后缀",
     "definition": "Unix/Linux 静态链接库，由多个 .o 打包而成，链接时整体拷贝进可执行文件。",
     "points": [
-      "ar rcs libxxx.a xxx.o 创建",
+      "ar -rcs libxxx.a xxx.o 创建",
       "命名规则：lib 前缀 + .a 后缀",
       "链接期解析，运行时不依赖"
     ],
-    "usage": "静态库：ar rcs libfoo.a foo.o 打包；链接时 gcc app.c -lfoo -L. 使用；命名规则 lib 前缀 + .a；链接期整体拷入可执行文件",
-    "example": "libmath.a\nar rcs libmath.a add.o sub.o && gcc app.c -lmath -L.   # 链接期整体拷入可执行文件"
+    "usage": "静态库：ar -rcs libfoo.a foo.o 打包；链接时 gcc app.c -lfoo -L. 使用；命名规则 lib 前缀 + .a；链接期整体拷入可执行文件",
+    "example": "libmath.a\nar -rcs libmath.a add.o sub.o && gcc app.c -lmath -L.   # 链接期整体拷入可执行文件"
   },
   {
     "abbr": "lib",
@@ -4866,9 +4866,9 @@
     "category": "Linux 命令",
     "definition": "将多个文件打包为归档（可选压缩），Linux 分发与备份的核心工具。",
     "points": [
-      "tar czf x.tar.gz dir 打包压缩",
-      "tar xzf x.tar.gz 解压",
-      "tar cjf 用 bzip2，tar cJf 用 xz"
+      "tar -czf x.tar.gz dir 打包压缩",
+      "tar -xzf x.tar.gz 解压",
+      "tar -cjf 用 bzip2，tar -cJf 用 xz"
     ],
     "usage": "tar [选项]... 归档文件 [文件/目录]...",
     "options": [
@@ -4917,7 +4917,7 @@
         "d": "仅更新比归档中新的文件"
       }
     ],
-    "example": "tar czf app.tar.gz /opt/app  # 打包 /opt/app 并用 gzip 压缩\ntar xzf app.tar.gz -C /opt/  # 解压到指定目录 /opt\ntar tvf app.tar.gz  # 不解压查看归档内的文件列表"
+    "example": "tar -czf app.tar.gz /opt/app  # 打包 /opt/app 并用 gzip 压缩\ntar -xzf app.tar.gz -C /opt/  # 解压到指定目录 /opt\ntar -tvf app.tar.gz  # 不解压查看归档内的文件列表"
   },
   {
     "abbr": "gzip",
@@ -8142,14 +8142,14 @@
     "full": "Archive",
     "zh": "静态库打包",
     "category": "构建与工具链",
-    "usage": "ar [选项] 库文件 目标文件...   （ar rcs libx.a a.o b.o）",
+    "usage": "ar [选项] 库文件 目标文件...   （ar -rcs libx.a a.o b.o）",
     "definition": "将多个 .o 目标文件打包为 .a 静态库。",
     "points": [
-      "ar rcs libmylib.a foo.o bar.o 创建",
+      "ar -rcs libmylib.a foo.o bar.o 创建",
       "ar t lib.a 列出成员",
       "ar x lib.a 解包"
     ],
-    "example": "ar rcs libutil.a util.o math.o   # 打包静态库\n# r 插入、c 创建、s 建索引\nar t libutil.a   # 列出库内成员\nar d libutil.a util.o   # 删除成员"
+    "example": "ar -rcs libutil.a util.o math.o   # 打包静态库\n# r 插入、c 创建、s 建索引\nar t libutil.a   # 列出库内成员\nar d libutil.a util.o   # 删除成员"
   },
   {
     "abbr": "strip",
@@ -9235,11 +9235,11 @@
     "usage": "*.gz   （gzip 压缩；tar.gz 打包压缩）",
     "definition": "gzip 压缩的文件后缀，Linux 环境最常见的压缩格式。",
     "points": [
-      "gzip -d 解压；tar xzf 解压 tar.gz",
+      "gzip -d 解压；tar -xzf 解压 tar.gz",
       "单文件压缩格式，不含归档",
       "与 gzip 命令词条配套"
     ],
-    "example": "readme.txt.gz\ngzip -d readme.txt.gz   # 单文件压缩；zcat readme.txt.gz 直接查看，tar czf 打包压缩"
+    "example": "readme.txt.gz\ngzip -d readme.txt.gz   # 单文件压缩；zcat readme.txt.gz 直接查看，tar -czf 打包压缩"
   },
   {
     "abbr": "tar.gz",
@@ -9249,7 +9249,7 @@
     "usage": "*.tar.gz（等价 .tgz）",
     "definition": "tar 打包 + gzip 压缩的归档格式，源码/固件分发最常见。",
     "points": [
-      "tar xzf 解压；tar czf 创建",
+      "tar -xzf 解压；tar -czf 创建",
       "源码包默认格式",
       "解压前 file 命令确认格式"
     ],
