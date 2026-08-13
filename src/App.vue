@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
 import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
@@ -703,6 +703,17 @@ function onKeydown(e) {
   }
 }
 
+// 指针位置跟踪：供失焦隐藏/收起判定（鼠标进入窗口视为"仍在操作"）
+function onPointerEnter() {
+  pointerInside = true;
+}
+function onPointerLeave() {
+  pointerInside = false;
+}
+function onPointerMove() {
+  pointerInside = true;
+}
+
 async function focusInput() {
   await nextTick();
   searchBox.value?.focus();
@@ -927,11 +938,19 @@ onMounted(async () => {
     }, 400);
   });
   window.addEventListener("keydown", onKeydown);
-  document.addEventListener("mouseenter", () => (pointerInside = true));
-  document.addEventListener("mouseleave", () => (pointerInside = false));
+  document.addEventListener("mouseenter", onPointerEnter);
+  document.addEventListener("mouseleave", onPointerLeave);
   // mousemove 兜底：避免错过 mouseenter 导致状态不准
-  document.addEventListener("mousemove", () => (pointerInside = true));
+  document.addEventListener("mousemove", onPointerMove);
   focusInput();
+});
+
+// 组件卸载时清理全局监听器（单实例常驻下主要在 HMR/开发环境触发）
+onUnmounted(() => {
+  window.removeEventListener("keydown", onKeydown);
+  document.removeEventListener("mouseenter", onPointerEnter);
+  document.removeEventListener("mouseleave", onPointerLeave);
+  document.removeEventListener("mousemove", onPointerMove);
 });
 </script>
 
