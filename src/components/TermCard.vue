@@ -196,7 +196,8 @@ h1 {
 
 .example {
   margin-top: 10px;
-  padding: 10px 14px;
+  /* 顶部留出「示例」标签空间（标签位于 top:6px，占约 6-20px） */
+  padding: 24px 14px 10px;
   background: #f0f7f4;
   border: 1px solid #d5e8de;
   border-left: 3px solid #6b9e78;
