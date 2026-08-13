@@ -11050,5 +11050,1243 @@
       "本仓库即用此文件管理推荐扩展"
     ],
     "example": "{\n  \"recommendations\": [\"ms-vscode.cpptools\", \"marus25.cortex-debug\"]\n}"
+  },
+  {
+    "abbr": "?",
+    "full": "-",
+    "zh": "帮助命令别名",
+    "category": "U-Boot 命令",
+    "definition": "? 是 help 命令的别名，用于在 U-Boot 控制台查询某个命令的用法说明。",
+    "points": [
+      "用法与 help 完全一致：? [command]",
+      "不带参数时列出当前固件支持的全部命令",
+      "对单个命令输出参数格式与子命令说明"
+    ],
+    "usage": "? [command]",
+    "example": "=> ? bootm\n=> ?            # 不带参数列出所有可用命令"
+  },
+  {
+    "abbr": "base",
+    "full": "-",
+    "zh": "地址偏移基准",
+    "category": "U-Boot 命令",
+    "definition": "base 用于显示或设置默认地址偏移量，设置后内存类命令中的裸地址都会自动加上该偏移。",
+    "points": [
+      "base <addr> 设置偏移，base 无参数时打印当前偏移",
+      "偏移以十六进制给出，默认通常为 0",
+      "影响 cmp/cp/md/mw 等命令对裸地址的解释"
+    ],
+    "usage": "base [addr]",
+    "example": "=> base 0x80000000\n=> base\nBase Address: 0x80000000"
+  },
+  {
+    "abbr": "bdinfo",
+    "full": "-",
+    "zh": "板级信息",
+    "category": "U-Boot 命令",
+    "definition": "bdinfo 打印 U-Boot 的 Board Info 结构体内容，包括内存配置、波特率、IP 地址、MAC 地址等板级信息。",
+    "points": [
+      "无参数，直接打印全部板级信息",
+      "常用于排查内存大小配置与网络参数是否正确",
+      "输出中包含内存 bank 起始地址、大小与当前环境变量摘要"
+    ],
+    "usage": "bdinfo",
+    "example": "=> bdinfo\narch_number = 0x00000000\nmem_start    = 0x80000000\nmem_size     = 0x10000000"
+  },
+  {
+    "abbr": "bmode",
+    "full": "-",
+    "zh": "启动模式切换",
+    "category": "U-Boot 命令",
+    "definition": "bmode 是 i.MX 系列 SoC 专用的启动模式切换命令，可选择 SD、QSPI、USB、SATA、eMMC 等启动设备。",
+    "points": [
+      "可选模式：sd1|sd2|qspi1|normal|usb|sata|ecspi1:0-3|esdhc1-4",
+      "加 noreset 参数只切换模式而不复位",
+      "用于在开发阶段快速验证不同启动介质"
+    ],
+    "usage": "bmode <mode> [noreset]",
+    "example": "=> bmode usb          # 切换到 USB 启动并复位\n=> bmode normal noreset  # 切换为正常启动但不复位"
+  },
+  {
+    "abbr": "bmp",
+    "full": "-",
+    "zh": "BMP 图像操作",
+    "category": "U-Boot 命令",
+    "definition": "bmp 用于显示或查询内存中 BMP 格式位图的信息，常用来显示启动 logo。",
+    "points": [
+      "bmp display <addr> [x y] 在指定坐标显示图像",
+      "bmp info <addr> 只打印位图尺寸/位深等信息而不显示",
+      "图像需先通过 fatload/tftp 等命令加载到内存"
+    ],
+    "usage": "bmp display <addr> [x y] | bmp info <addr>",
+    "example": "=> fatload mmc 0:1 0x80800000 logo.bmp\n=> bmp display 0x80800000 0 0"
+  },
+  {
+    "abbr": "boot",
+    "full": "-",
+    "zh": "启动默认命令",
+    "category": "U-Boot 命令",
+    "definition": "boot 执行环境变量 bootcmd 中定义的默认启动流程，是自动启动（autoboot）的入口。",
+    "points": [
+      "等价于 run bootcmd",
+      "bootcmd 可在 autoboot 倒计时结束后自动执行",
+      "修改 bootcmd 后需 saveenv 保存到存储介质"
+    ],
+    "usage": "boot",
+    "example": "=> setenv bootcmd 'fatload mmc 0:1 0x80800000 zImage; bootz 0x80800000'\n=> saveenv\n=> boot"
+  },
+  {
+    "abbr": "bootd",
+    "full": "-",
+    "zh": "启动默认命令",
+    "category": "U-Boot 命令",
+    "definition": "bootd 是 boot 的别名，同样执行 bootcmd 环境变量中的默认启动命令序列。",
+    "points": [
+      "与 boot 完全等价",
+      "常用于脚本中显式触发默认启动流程"
+    ],
+    "usage": "bootd",
+    "example": "=> bootd    # 与 boot 等价，执行 bootcmd"
+  },
+  {
+    "abbr": "bootelf",
+    "full": "-",
+    "zh": "启动 ELF 映像",
+    "category": "U-Boot 命令",
+    "definition": "bootelf 从内存加载并启动 ELF 格式的可执行映像（裸机程序、vxWorks 等），自动解析程序段并跳转执行。",
+    "points": [
+      "地址缺省时使用环境变量 loadaddr",
+      "加 -s 参数打印各段信息用于调试",
+      "常用于裸机程序或 RTOS 映像的开发调试"
+    ],
+    "usage": "bootelf [-s] [addr]",
+    "example": "=> tftp 0x80800000 app.elf\n=> bootelf 0x80800000"
+  },
+  {
+    "abbr": "bootm",
+    "full": "-",
+    "zh": "启动内核映像",
+    "category": "U-Boot 命令",
+    "definition": "bootm 从内存启动 U-Boot 格式的应用映像（uImage/FIT 或 raw 内核），支持传递 initrd 与设备树地址。",
+    "points": [
+      "参数格式：bootm <addr> [initrd[:size]] [fdt]",
+      "fdt 或 initrd 位置用 - 或 0 表示跳过",
+      "支持子命令：-c 校验映像、-l 列出 FIT 内容等"
+    ],
+    "usage": "bootm [addr [initrd[:size]] [fdt]]",
+    "example": "=> bootm 0x80800000 - 0x83000000    # 启动内核并加载 0x83000000 处的设备树"
+  },
+  {
+    "abbr": "bootp",
+    "full": "-",
+    "zh": "BOOTP/TFTP 网络启动",
+    "category": "U-Boot 命令",
+    "definition": "bootp 通过 BOOTP 协议向服务器获取 IP 地址与启动文件名，再用 TFTP 下载映像并启动，同时更新网络环境变量。",
+    "points": [
+      "成功后自动设置 ipaddr/serverip/filename 等变量",
+      "加载地址缺省使用 loadaddr",
+      "适合无盘网络启动场景"
+    ],
+    "usage": "bootp [loadAddress] [bootfilename]",
+    "example": "=> bootp 0x80800000 uImage    # BOOTP 获取配置后 TFTP 下载 uImage"
+  },
+  {
+    "abbr": "bootvx",
+    "full": "-",
+    "zh": "启动 vxWorks",
+    "category": "U-Boot 命令",
+    "definition": "bootvx 从内存中的 ELF 映像启动 vxWorks 实时操作系统，遵循 vxWorks 的引导约定。",
+    "points": [
+      "启动前需按 vxWorks 约定设置 bootargs 等环境变量",
+      "与 bootelf 类似，但针对 vxWorks 引导流程优化"
+    ],
+    "usage": "bootvx [addr]",
+    "example": "=> tftp 0x80800000 vxWorks\n=> bootvx 0x80800000"
+  },
+  {
+    "abbr": "bootz",
+    "full": "-",
+    "zh": "启动 Linux zImage",
+    "category": "U-Boot 命令",
+    "definition": "bootz 从内存启动 Linux zImage 格式的内核映像，可指定 initrd 与设备树（FDT）地址，是 ARM 平台最常见的启动命令。",
+    "points": [
+      "参数格式：bootz <addr> [initrd[:size]] [fdt]",
+      "地址缺省时使用 loadaddr",
+      "fdt 位置用 - 或 0 表示不加载设备树"
+    ],
+    "usage": "bootz [addr [initrd[:size]] [fdt]]",
+    "example": "=> fatload mmc 0:1 0x80800000 zImage\n=> bootz 0x80800000 - 0x83000000"
+  },
+  {
+    "abbr": "clocks",
+    "full": "-",
+    "zh": "显示时钟信息",
+    "category": "U-Boot 命令",
+    "definition": "clocks 显示 SoC 各时钟树与外围设备时钟的当前频率配置，用于时钟相关的调试。",
+    "points": [
+      "依赖平台时钟驱动（clock uclass）的支持",
+      "可查看 CPU、串口、总线等外设工作频率",
+      "配合 clk 命令排查时钟配置问题"
+    ],
+    "usage": "clocks",
+    "example": "=> clocks\nCPU:   996000000 Hz\nUART:   115200 Hz"
+  },
+  {
+    "abbr": "clrlogo",
+    "full": "-",
+    "zh": "清除启动 logo",
+    "category": "U-Boot 命令",
+    "definition": "clrlogo 将启动 logo 显示区域填充为黑色，用于清除屏幕上的 logo 图像。",
+    "points": [
+      "无参数，直接执行",
+      "需要已初始化 framebuffer/显示设备",
+      "常用于 logo 显示异常或需要清屏的场景"
+    ],
+    "usage": "clrlogo",
+    "example": "=> clrlogo    # 将启动 logo 区域填充为黑色"
+  },
+  {
+    "abbr": "cmp",
+    "full": "-",
+    "zh": "内存比较",
+    "category": "U-Boot 命令",
+    "definition": "cmp 逐字比较两段内存数据是否一致，常用于验证拷贝、下载或烧写结果的正确性。",
+    "points": [
+      "支持宽度后缀 .b/.w/.l（字节/字/长字）",
+      "count 为比较单元个数，地址按宽度递增",
+      "发现不一致时打印首个差异地址与数据"
+    ],
+    "usage": "cmp[.b,.w,.l] addr1 addr2 count",
+    "example": "=> cmp.l 0x80800000 0x80840000 100    # 比较 0x400 字节数据"
+  },
+  {
+    "abbr": "coninfo",
+    "full": "-",
+    "zh": "控制台设备信息",
+    "category": "U-Boot 命令",
+    "definition": "coninfo 打印当前控制台使用的设备列表（stdin/stdout/stderr）及其状态，用于排查串口或显示输出问题。",
+    "points": [
+      "显示设备名、可用标志与当前使用情况",
+      "可确认串口/视频设备是否被正确注册",
+      "无参数，直接执行"
+    ],
+    "usage": "coninfo",
+    "example": "=> coninfo\nList of available devices:\nserial   80000000.serial (stdin stdout stderr)"
+  },
+  {
+    "abbr": "cp",
+    "full": "-",
+    "zh": "内存拷贝",
+    "category": "U-Boot 命令",
+    "definition": "cp 将内存数据从源地址复制到目标地址，支持按字节、字或长字宽度操作。",
+    "points": [
+      "支持宽度后缀 .b/.w/.l",
+      "count 为复制的单元个数",
+      "目标地址同样受 base 偏移影响"
+    ],
+    "usage": "cp[.b,.w,.l] source target count",
+    "example": "=> cp.l 0x80800000 0x80840000 100    # 拷贝 0x400 字节到新地址"
+  },
+  {
+    "abbr": "crc32",
+    "full": "-",
+    "zh": "CRC32 校验",
+    "category": "U-Boot 命令",
+    "definition": "crc32 计算内存区域的 CRC32 校验值，可与已知值比对，用于验证映像数据的完整性。",
+    "points": [
+      "crc32 <addr> <count> 计算校验值",
+      "提供第三个参数时与给定 CRC 值比对并提示结果",
+      "常与烧写/下载前后校验配合使用"
+    ],
+    "usage": "crc32 addr count [crc]",
+    "example": "=> crc32 0x80800000 0x400000\nCRC32 for 80800000 ... 80bfffff ==> 2f1d7f23"
+  },
+  {
+    "abbr": "dcache",
+    "full": "-",
+    "zh": "数据缓存控制",
+    "category": "U-Boot 命令",
+    "definition": "dcache 用于开启、关闭或查询 CPU 数据缓存（D-Cache）状态，调试内存一致性问题时使用。",
+    "points": [
+      "dcache on / dcache off 开/关数据缓存",
+      "dcache status 查询当前缓存状态",
+      "调试 DMA 或内存访问异常时可尝试临时关闭"
+    ],
+    "usage": "dcache [on|off|status]",
+    "example": "=> dcache status    # 查看数据缓存状态\nData (H/W) Cache: ON"
+  },
+  {
+    "abbr": "dhcp",
+    "full": "-",
+    "zh": "DHCP/TFTP 网络启动",
+    "category": "U-Boot 命令",
+    "definition": "dhcp 通过 DHCP 协议动态获取 IP 地址及启动配置，再用 TFTP 下载映像并启动，同时更新 ipaddr 等网络环境变量。",
+    "points": [
+      "成功后自动设置 ipaddr/serverip/gatewayip 等变量",
+      "加载地址缺省使用 loadaddr",
+      "适用于动态分配 IP 的网络环境"
+    ],
+    "usage": "dhcp [loadAddress] [bootfilename]",
+    "example": "=> dhcp 0x80800000 zImage    # DHCP 获取地址后 TFTP 下载 zImage"
+  },
+  {
+    "abbr": "dm",
+    "full": "-",
+    "zh": "驱动模型访问",
+    "category": "U-Boot 命令",
+    "definition": "dm 提供对 U-Boot 驱动模型（Driver Model）的底层访问，用于调试设备、驱动与 uclass 的绑定关系。",
+    "points": [
+      "dm tree 打印设备驱动模型的树状结构",
+      "dm uclass 列出所有 uclass 及其设备",
+      "dm drivers 列出已注册驱动，dm devres 查看设备资源"
+    ],
+    "usage": "dm <tree|uclass|drivers|devres> ...",
+    "example": "=> dm tree    # 打印驱动模型设备树\n=> dm uclass"
+  },
+  {
+    "abbr": "dns",
+    "full": "-",
+    "zh": "DNS 域名解析",
+    "category": "U-Boot 命令",
+    "definition": "dns 通过 DNS 服务器查询主机名对应的 IP 地址并显示，用于验证网络域名解析是否正常。",
+    "points": [
+      "需先设置 dnsip 环境变量指定 DNS 服务器",
+      "仅输出查询结果，不修改网络配置",
+      "常用于网络启动前的连通性测试"
+    ],
+    "usage": "dns hostname",
+    "example": "=> setenv dnsip 192.168.1.1\n=> dns www.example.com\nwww.example.com is 93.184.216.34"
+  },
+  {
+    "abbr": "echo",
+    "full": "-",
+    "zh": "回显文本",
+    "category": "U-Boot 命令",
+    "definition": "echo 将参数原样输出到控制台，-n 选项表示输出后不换行，常用于脚本中的提示信息打印。",
+    "points": [
+      "echo -n 输出后不换行",
+      "支持环境变量展开（如 $bootargs）",
+      "脚本中常与 exit/$? 配合做流程提示"
+    ],
+    "usage": "echo [-n] [args...]",
+    "example": "=> echo -n 'Booting kernel...'    # 无换行输出提示\n=> echo 'bootargs = $bootargs'"
+  },
+  {
+    "abbr": "editenv",
+    "full": "-",
+    "zh": "编辑环境变量",
+    "category": "U-Boot 命令",
+    "definition": "editenv 进入行编辑器交互式修改指定环境变量的值，适合手工调整 bootargs 等复杂变量。",
+    "points": [
+      "必须指定要编辑的变量名",
+      "编辑过程中可用 Ctrl+C 取消",
+      "修改结果需 saveenv 保存才可持久化"
+    ],
+    "usage": "editenv name",
+    "example": "=> editenv bootargs    # 进入行编辑器修改 bootargs 的值"
+  },
+  {
+    "abbr": "env",
+    "full": "-",
+    "zh": "环境变量操作",
+    "category": "U-Boot 命令",
+    "definition": "env 是环境变量操作的总命令，提供打印、设置、删除、恢复默认、导入导出与保存等子命令。",
+    "points": [
+      "常用子命令：print/set/default/delete/import/export/save/load",
+      "env default -a 恢复全部出厂默认变量",
+      "修改后需 env save 写入存储介质才生效"
+    ],
+    "usage": "env <print|set|default|delete|save|load|import|export> ...",
+    "example": "=> env set bootdelay 3\n=> env save    # 保存到存储介质\n=> env print bootargs"
+  },
+  {
+    "abbr": "erase",
+    "full": "-",
+    "zh": "擦除 Flash",
+    "category": "U-Boot 命令",
+    "definition": "erase 擦除 NOR Flash 指定区域，支持按地址区间或 bank:offset:count 方式指定，擦除后数据变为 0xFF。",
+    "points": [
+      "常用格式：erase <start> +<len> 或 erase <bank> <offset> <count>",
+      "擦除粒度受 Flash 扇区大小限制",
+      "擦除为烧写前的必要步骤，操作不可恢复"
+    ],
+    "usage": "erase [start [end]] | erase bank offset count",
+    "example": "=> erase 0x10000000 +0x40000    # 擦除 0x10000000 起 256KB 区域"
+  },
+  {
+    "abbr": "exit",
+    "full": "-",
+    "zh": "退出脚本",
+    "category": "U-Boot 命令",
+    "definition": "exit 立即终止当前执行的 U-Boot 脚本（由 run/source 执行），返回 0 表示正常退出。",
+    "points": [
+      "用于脚本中条件分支的提前结束",
+      "在 autoboot 启动脚本中可中断后续命令",
+      "退出状态可通过 $? 在脚本中判断"
+    ],
+    "usage": "exit",
+    "example": "=> setenv bootflow 'echo start; exit; echo unreachable'\n=> run bootflow    # 只打印 start，exit 后不再执行"
+  },
+  {
+    "abbr": "ext2load",
+    "full": "-",
+    "zh": "从 ext2 加载文件",
+    "category": "U-Boot 命令",
+    "definition": "ext2load 从 ext2 文件系统分区读取文件到指定内存地址，常用于从 Linux 分区加载内核或设备树。",
+    "points": [
+      "格式：ext2load <interface> <dev[:part]> <addr> <filename>",
+      "分区号从 1 开始，接口如 mmc/usb/sata",
+      "路径为分区内绝对路径，以 / 开头"
+    ],
+    "usage": "ext2load <interface> <dev[:part]> <addr> <filename>",
+    "example": "=> ext2load mmc 0:1 0x80800000 /boot/uImage\nreading /boot/uImage\n4462360 bytes read"
+  },
+  {
+    "abbr": "ext2ls",
+    "full": "-",
+    "zh": "列出 ext2 目录",
+    "category": "U-Boot 命令",
+    "definition": "ext2ls 列出 ext2 文件系统指定目录下的文件与子目录，目录参数缺省为根目录。",
+    "points": [
+      "格式：ext2ls <interface> <dev[:part]> [directory]",
+      "目录缺省为 /，路径以 / 开头",
+      "用于查看分区内容并确认文件是否存在"
+    ],
+    "usage": "ext2ls <interface> <dev[:part]> [directory]",
+    "example": "=> ext2ls mmc 0:1 /boot\n<DIR>       1024 .\n<DIR>       1024 ..\nuImage     4462360"
+  },
+  {
+    "abbr": "ext4load",
+    "full": "-",
+    "zh": "从 ext4 加载文件",
+    "category": "U-Boot 命令",
+    "definition": "ext4load 从 ext4 文件系统分区读取文件到内存，兼容 ext2/ext3 分区，常用于从根文件系统分区加载内核。",
+    "points": [
+      "格式与 ext2load 相同，支持 ext4 特性与大文件",
+      "分区号从 1 开始，接口如 mmc/usb/sata",
+      "常用于 ext4 格式的 eMMC/SD 卡分区"
+    ],
+    "usage": "ext4load <interface> <dev[:part]> <addr> <filename>",
+    "example": "=> ext4load mmc 0:2 0x80800000 /boot/zImage\nreading /boot/zImage\n7411200 bytes read"
+  },
+  {
+    "abbr": "ext4ls",
+    "full": "-",
+    "zh": "列出 ext4 目录",
+    "category": "U-Boot 命令",
+    "definition": "ext4ls 列出 ext4 文件系统目录下的文件与子目录，目录参数缺省为根目录。",
+    "points": [
+      "格式：ext4ls <interface> <dev[:part]> [directory]",
+      "可用于确认分区格式与文件布局",
+      "路径以 / 开头，大小以字节显示"
+    ],
+    "usage": "ext4ls <interface> <dev[:part]> [directory]",
+    "example": "=> ext4ls mmc 0:2 /\n<DIR>       4096 lost+found\n<DIR>       4096 boot\n<DIR>       4096 etc"
+  },
+  {
+    "abbr": "ext4size",
+    "full": "-",
+    "zh": "查询 ext4 文件大小",
+    "category": "U-Boot 命令",
+    "definition": "ext4size 查询 ext4 分区中指定文件的字节大小，可配合加载命令确认文件长度或做校验。",
+    "points": [
+      "格式：ext4size <interface> <dev[:part]> <filename>",
+      "输出为文件字节数",
+      "可用于脚本中动态获取文件大小"
+    ],
+    "usage": "ext4size <interface> <dev[:part]> <filename>",
+    "example": "=> ext4size mmc 0:2 /boot/zImage\n7411200"
+  },
+  {
+    "abbr": "ext4write",
+    "full": "-",
+    "zh": "写入 ext4 文件",
+    "category": "U-Boot 命令",
+    "definition": "ext4write 将内存中的数据写入 ext4 分区中的文件，用于在开发阶段向文件系统写入文件。",
+    "points": [
+      "格式：ext4write <interface> <dev[:part]> <addr> <filename> [size]",
+      "文件名使用绝对路径，缺省写入根目录",
+      "size 缺省为 0 时不写入数据，一般需显式指定"
+    ],
+    "usage": "ext4write <interface> <dev[:part]> <addr> <filename> [size]",
+    "example": "=> ext4write mmc 0:2 0x80800000 /test.txt 100    # 将内存 100 字节写入 /test.txt"
+  },
+  {
+    "abbr": "false",
+    "full": "-",
+    "zh": "空操作（失败）",
+    "category": "U-Boot 命令",
+    "definition": "false 不做任何事但返回失败状态，与 true 相对，用于脚本中构造分支或作为占位命令。",
+    "points": [
+      "返回非零退出状态",
+      "常与 && / || 组合控制脚本流程",
+      "与 Linux shell 的 false 同名但仅作用于 U-Boot 环境"
+    ],
+    "usage": "false",
+    "example": "=> false && echo yes || echo no\nno"
+  },
+  {
+    "abbr": "fatinfo",
+    "full": "-",
+    "zh": "FAT 文件系统信息",
+    "category": "U-Boot 命令",
+    "definition": "fatinfo 打印 FAT 文件系统分区的类型、容量与扇区等基本信息，用于确认分区格式。",
+    "points": [
+      "格式：fatinfo <interface> <dev[:part]>",
+      "分区号从 1 开始",
+      "可确认 FAT12/16/32 类型与卷信息"
+    ],
+    "usage": "fatinfo <interface> <dev[:part]>",
+    "example": "=> fatinfo mmc 0:1\nInterface:  MMC\n  Device 0: MMC/SD Card\n    Filesystem: FAT32"
+  },
+  {
+    "abbr": "fatload",
+    "full": "-",
+    "zh": "从 FAT 加载文件",
+    "category": "U-Boot 命令",
+    "definition": "fatload 从 FAT（DOS）文件系统分区读取文件到内存，是 SD 卡/U 盘启动最常见的映像加载方式。",
+    "points": [
+      "格式：fatload <interface> <dev[:part]> <addr> <filename> [bytes]",
+      "bytes 可选，用于限制读取长度",
+      "FAT 文件名不区分大小写"
+    ],
+    "usage": "fatload <interface> <dev[:part]> <addr> <filename> [bytes]",
+    "example": "=> fatload mmc 0:1 0x80800000 zImage\nreading zImage\n7411200 bytes read"
+  },
+  {
+    "abbr": "fatls",
+    "full": "-",
+    "zh": "列出 FAT 目录",
+    "category": "U-Boot 命令",
+    "definition": "fatls 列出 FAT 文件系统指定目录下的文件与大小，目录参数缺省为根目录。",
+    "points": [
+      "格式：fatls <interface> <dev[:part]> [directory]",
+      "输出文件大小与名称",
+      "用于确认 SD 卡/U 盘中的启动文件"
+    ],
+    "usage": "fatls <interface> <dev[:part]> [directory]",
+    "example": "=> fatls mmc 0:1 /\n  7411200   zImage\n  4462360   uImage\n   logo.bmp"
+  },
+  {
+    "abbr": "fatsize",
+    "full": "-",
+    "zh": "查询 FAT 文件大小",
+    "category": "U-Boot 命令",
+    "definition": "fatsize 查询 FAT 分区中指定文件的字节大小，可用于校验文件或确定读取长度。",
+    "points": [
+      "格式：fatsize <interface> <dev[:part]> <filename>",
+      "输出为文件字节数",
+      "文件不存在时返回错误状态"
+    ],
+    "usage": "fatsize <interface> <dev[:part]> <filename>",
+    "example": "=> fatsize mmc 0:1 zImage\n7411200"
+  },
+  {
+    "abbr": "fdt",
+    "full": "-",
+    "zh": "设备树操作",
+    "category": "U-Boot 命令",
+    "definition": "fdt 提供对内存中扁平设备树（FDT）的查看与修改命令，支持打印、设置节点属性、移动与启动时绑定。",
+    "points": [
+      "常用子命令：addr/print/set/get/move/list/boot",
+      "修改须在 bootm/bootz 之前对内存中的 DT 进行",
+      "fdt set 可动态修改 bootargs 等 chosen 节点属性"
+    ],
+    "usage": "fdt <addr|print|set|get|move|list|boot> ...",
+    "example": "=> fdt addr 0x83000000\n=> fdt print /chosen\n=> fdt set /chosen bootargs 'console=ttymxc0,115200'"
+  },
+  {
+    "abbr": "flinfo",
+    "full": "-",
+    "zh": "Flash 信息",
+    "category": "U-Boot 命令",
+    "definition": "flinfo 打印 NOR Flash 的制造商、型号、容量与扇区结构等详细信息，可指定 bank 查看。",
+    "points": [
+      "flinfo [bank]，缺省打印所有 bank",
+      "显示扇区大小与数量，便于规划擦写分区",
+      "仅对 CFI/NOR Flash 驱动有效"
+    ],
+    "usage": "flinfo [bank]",
+    "example": "=> flinfo\nBank # 1: INTEL 28F128J3 flash (128 MB)\n  Size: 128 MB in 1024 Sectors"
+  },
+  {
+    "abbr": "fstype",
+    "full": "-",
+    "zh": "识别文件系统类型",
+    "category": "U-Boot 命令",
+    "definition": "fstype 检测指定块设备分区上的文件系统类型（fat/ext4/ext2 等）并打印，也可存入环境变量。",
+    "points": [
+      "格式：fstype <interface> <dev[:part]> [varname]",
+      "给出 varname 时把检测结果写入环境变量",
+      "常用于脚本中按分区类型选择加载命令"
+    ],
+    "usage": "fstype <interface> <dev[:part]> [varname]",
+    "example": "=> fstype mmc 0:1\nfat\n=> fstype mmc 0:2 fst\nfst=ext4"
+  },
+  {
+    "abbr": "fuse",
+    "full": "-",
+    "zh": "熔丝（OTP）操作",
+    "category": "U-Boot 命令",
+    "definition": "fuse 是 i.MX 系列 SoC 的 OTP 熔丝读写命令，用于读取或烧写一次性可编程存储区（如加解密密钥、启动配置）。",
+    "points": [
+      "常用子命令：read/prog/sense/override",
+      "fuse read <bank> <word> <cnt> 读取熔丝值",
+      "prog 烧写不可逆，操作前务必确认，烧写后复位生效"
+    ],
+    "usage": "fuse <read|prog|sense|override> <bank> <word> <cnt>",
+    "example": "=> fuse read 0 0 4    # 读取 bank0 前 4 个字\nReading bank 0:\n\nWord 0x00000000: 0x00000001"
+  },
+  {
+    "abbr": "go",
+    "full": "-",
+    "zh": "跳转执行",
+    "category": "U-Boot 命令",
+    "definition": "go 直接跳转到指定内存地址执行程序（通常为裸机程序），不做任何映像格式解析，跳转后不再返回 U-Boot。",
+    "points": [
+      "go <addr> [args...]，可传递参数",
+      "程序需已通过 tftp/fatload 等加载到内存",
+      "跳转后 U-Boot 不接管控制，适合裸机调试"
+    ],
+    "usage": "go addr [arg ...]",
+    "example": "=> tftp 0x80800000 bare.bin\n=> go 0x80800000    # 直接跳转执行裸机程序"
+  },
+  {
+    "abbr": "gpio",
+    "full": "-",
+    "zh": "GPIO 操作",
+    "category": "U-Boot 命令",
+    "definition": "gpio 用于查询和配置 GPIO 引脚，支持读取电平、设置/清除输出以及查询所有引脚状态。",
+    "points": [
+      "常用子命令：status/input/set/clear/toggle",
+      "引脚编号依赖具体平台的定义",
+      "加 -v 参数显示详细的引脚状态信息"
+    ],
+    "usage": "gpio <status|input|set|clear|toggle> [-v] [pin]",
+    "example": "=> gpio set 3        # 将 3 号引脚输出高电平\n=> gpio input 4      # 读取 4 号引脚电平\n=> gpio status"
+  },
+  {
+    "abbr": "help",
+    "full": "-",
+    "zh": "帮助",
+    "category": "U-Boot 命令",
+    "definition": "help 打印 U-Boot 命令的用法说明，不带参数时列出当前固件支持的全部命令。",
+    "points": [
+      "help [command]，可用 ? 代替",
+      "输出包含参数格式与子命令说明",
+      "是查阅命令用法的第一入口"
+    ],
+    "usage": "help [command]",
+    "example": "=> help bootm\nbootm [addr [initrd[:size]] [fdt]]\n    - boot application image from memory"
+  },
+  {
+    "abbr": "i2c",
+    "full": "-",
+    "zh": "I2C 总线操作",
+    "category": "U-Boot 命令",
+    "definition": "i2c 提供 I2C 总线选择、设备探测、寄存器读写等操作，是调试 I2C 外设（EEPROM、传感器、PMIC）的常用工具。",
+    "points": [
+      "常用子命令：bus/dev/speed/probe/md/mw/mm/read/write",
+      "i2c probe 扫描总线上存在的设备地址",
+      "i2c md 读寄存器、i2c mw 写寄存器，地址与数据为十六进制"
+    ],
+    "usage": "i2c <bus|dev|speed|probe|md|mw|mm|read|write> ...",
+    "example": "=> i2c dev 1\n=> i2c probe\nValid chip addresses: 50 51\n=> i2c md 0x50 0 10"
+  },
+  {
+    "abbr": "icache",
+    "full": "-",
+    "zh": "指令缓存控制",
+    "category": "U-Boot 命令",
+    "definition": "icache 用于开启、关闭或查询 CPU 指令缓存（I-Cache）状态，调试指令取指与自修改代码时使用。",
+    "points": [
+      "icache on / icache off 开/关指令缓存",
+      "icache status 查询当前缓存状态",
+      "调试裸机程序或代码段异常时可尝试关闭"
+    ],
+    "usage": "icache [on|off|status]",
+    "example": "=> icache status\nInstruction (H/W) Cache: ON"
+  },
+  {
+    "abbr": "iminfo",
+    "full": "-",
+    "zh": "查看镜像头信息",
+    "category": "U-Boot 命令",
+    "definition": "打印指定内存地址处 U-Boot 应用镜像（如 uImage/内核/FIT）头部中的校验信息与描述字段。",
+    "points": [
+      "镜像头包含 magic、操作系统类型、加载地址、入口地址、CRC 校验等信息",
+      "会实际校验镜像头 CRC 与镜像数据 CRC，校验失败会给出警告",
+      "常用于检查 tftpboot/load 到内存的镜像是否完整合法"
+    ],
+    "usage": "iminfo <addr> [addr ...]，addr 为镜像所在内存地址，可一次检查多个地址。",
+    "example": "=> tftpboot 80800000 zImage\n=> iminfo 80800000\n## Checking Image at 80800000 ...\n   Image Name:   Linux-5.10.0\n   Data Size:    4567890 Bytes"
+  },
+  {
+    "abbr": "imxtract",
+    "full": "-",
+    "zh": "提取多镜像组件",
+    "category": "U-Boot 命令",
+    "definition": "从多镜像（multi-image）或 FIT 镜像中提取指定组件（如内核、ramdisk）到指定内存地址。",
+    "points": [
+      "多镜像按编号 0、1、2… 选取组件，FIT 镜像可按配置名或子镜像名选取",
+      "提取前会校验组件 CRC，确保数据完整",
+      "常用于只从大镜像中取内核或文件系统镜像用于 bootm"
+    ],
+    "usage": "imxtract <addr> <component> [<addr2>]，addr 为多镜像/FIT 地址，component 为组件编号或 FIT 节点名，addr2 为提取目标地址。",
+    "example": "=> tftpboot 80800000 multi.img\n=> imxtract 80800000 1 81000000\n## Checking Image at 81000000 ...\n## Loading part 1 from multi image at 80800000 ... OK"
+  },
+  {
+    "abbr": "itest",
+    "full": "-",
+    "zh": "整数比较测试",
+    "category": "U-Boot 命令",
+    "definition": "对两个数值或内存内容做整数比较，结果供 && 和 || 等脚本逻辑使用（返回真/假）。",
+    "points": [
+      "支持 -eq -ne -lt -gt -le -ge 等比较操作符",
+      "操作数支持十六进制/十进制数值，也支持 *addr 形式读取内存值",
+      "常用于环境脚本中的条件分支，如比较 filesize 判断加载是否成功"
+    ],
+    "usage": "itest [.b, .w, .l] <expr>，expr 形如 <val1> <op> <val2>，val 可为数值或 *addr 内存引用。",
+    "example": "=> itest ${filesize} -gt 0 && echo 文件加载成功\n=> itest *80000000 -eq 0xdeadbeef && echo 内存内容匹配"
+  },
+  {
+    "abbr": "load",
+    "full": "-",
+    "zh": "从文件系统加载文件",
+    "category": "U-Boot 命令",
+    "definition": "将存储设备（MMC/USB/SATA 等）文件系统中的二进制文件读入指定内存地址。",
+    "points": [
+      "接口可为 mmc/usb/sata/scsi 等，设备格式为 dev[:part]（分区号可选）",
+      "支持 ext4/fat 等文件系统，部分实现需对应文件系统支持编译进 U-Boot",
+      "加载成功后会把文件字节数写入 filesize 环境变量，供后续脚本使用"
+    ],
+    "usage": "load <interface> <dev[:part]> <addr> <filename> [bytes [pos]]，bytes 限制读取长度，pos 为文件内偏移。",
+    "example": "=> load mmc 0:1 80800000 /boot/zImage\nReading zImage from mmc 0:1\n7567890 bytes read in 312 ms (23.1 MiB/s)"
+  },
+  {
+    "abbr": "loadb",
+    "full": "-",
+    "zh": "串口 Kermit 模式加载",
+    "category": "U-Boot 命令",
+    "definition": "通过串口以 Kermit 协议接收二进制文件并写入指定内存地址，常用于无网络环境的固件传输。",
+    "points": [
+      "接收方为 U-Boot，发送端需使用支持 Kermit 的软件（如 C-Kermit、Minicom）",
+      "可选指定波特率，发送前应保持两端波特率一致",
+      "传输完成后可用 iminfo 或 md 检查内存中的文件"
+    ],
+    "usage": "loadb [addr] [baud]，addr 为内存地址（默认 loadaddr），baud 为串口波特率。",
+    "example": "=> loadb 80800000 115200\n## Ready for binary (kermit) download to 0x80800000 at 115200 bps..."
+  },
+  {
+    "abbr": "loads",
+    "full": "-",
+    "zh": "串口 S-Record 加载",
+    "category": "U-Boot 命令",
+    "definition": "通过串口接收 Motorola S-Record（S19）格式文件，解析其中的记录并写入对应内存地址。",
+    "points": [
+      "S-Record 为文本格式，每行带地址与校验和，适合老式交叉工具链输出",
+      "接收过程中会显示已接收记录数，'?' 或 Ctrl-C 可中止",
+      "无需指定加载地址，地址由 S-Record 记录本身携带"
+    ],
+    "usage": "loads [addr]，addr 为可选起始内存地址（默认由 S-Record 记录决定）。",
+    "example": "=> loads\n## Ready for S-Record download ...\nS00600004844521B\nS11380800000DEADBEEF12345678AABBCCDD0011223344E1\nS5030002F8\n## Loaded 2 records from S-Record file"
+  },
+  {
+    "abbr": "loadx",
+    "full": "-",
+    "zh": "串口 Xmodem 模式加载",
+    "category": "U-Boot 命令",
+    "definition": "通过串口以 Xmodem 协议接收二进制文件到指定内存地址，适合传输小到中等尺寸文件。",
+    "points": [
+      "Xmodem 每次传输 128 字节数据块，带校验，速度较慢但可靠",
+      "发送端需用支持 Xmodem 的终端软件（如 SecureCRT、Minicom）选择发送",
+      "建议传输前确认波特率一致，大文件耗时较长"
+    ],
+    "usage": "loadx [addr] [baud]，addr 为内存地址（默认 loadaddr），baud 为串口波特率。",
+    "example": "=> loadx 80800000 115200\n## Ready for binary (xmodem) download to 0x80800000 at 115200 bps...\nCC\n*** xmodem block 50"
+  },
+  {
+    "abbr": "loady",
+    "full": "-",
+    "zh": "串口 Ymodem 模式加载",
+    "category": "U-Boot 命令",
+    "definition": "通过串口以 Ymodem 协议接收二进制文件到指定内存地址，比 Xmodem 支持更大文件与文件名传输。",
+    "points": [
+      "Ymodem 带 1K 块模式与 CRC 校验，速度优于 Xmodem",
+      "支持一次性发送多个文件，接收端收到文件后写入连续地址",
+      "发送端终端软件需选择 Ymodem 协议发送"
+    ],
+    "usage": "loady [addr] [baud]，addr 为内存地址（默认 loadaddr），baud 为串口波特率。",
+    "example": "=> loady 80800000 115200\n## Ready for binary (ymodem) download to 0x80800000 at 115200 bps...\nCCCC\n### Loading image.bin ...\n#### 文件接收完成，可用 iminfo 检查内容"
+  },
+  {
+    "abbr": "loop",
+    "full": "-",
+    "zh": "无限循环读写内存",
+    "category": "U-Boot 命令",
+    "definition": "在指定内存地址范围内反复读取并递增显示数据（行为类似 md 但永不停止），直到按 Ctrl-C 中断。",
+    "points": [
+      "地址从指定起始地址开始，每轮循环地址递增 number 个对象，周而复始",
+      "可按 .b/.w/.l 指定每次访问宽度（字节/半字/字）",
+      "常用于总线调试、观察内存值是否被外部修改；按 Ctrl-C 退出"
+    ],
+    "usage": "loop [.b, .w, .l] <addr> <number>，addr 为起始地址，number 为每轮循环的对象个数。",
+    "example": "=> loop.l 80000000 100\n80000000: deadbeef 12345678 00aabbcc 11223344\n80000010: deadbeef 12345678 00aabbcc 11223344\n...（循环滚动显示，按 Ctrl-C 中断）"
+  },
+  {
+    "abbr": "ls",
+    "full": "-",
+    "zh": "列出文件系统目录",
+    "category": "U-Boot 命令",
+    "definition": "列出存储设备文件系统中指定目录（默认根目录 /）下的文件与子目录信息。",
+    "points": [
+      "接口可为 mmc/usb/sata 等，设备格式为 dev[:part]",
+      "支持 fat/ext4 等文件系统，显示文件大小与目录项",
+      "常用于确认分区文件布局后再用 load 命令加载镜像"
+    ],
+    "usage": "ls <interface> <dev[:part]> [directory]，directory 缺省为根目录 /。",
+    "example": "=> ls mmc 0:1 /\n  2097152   zImage\n  8192      boot.scr\n      512   uEnv.txt\n3 file(s), 0 dir(s)"
+  },
+  {
+    "abbr": "md",
+    "full": "-",
+    "zh": "内存显示",
+    "category": "U-Boot 命令",
+    "definition": "按十六进制格式显示指定内存地址区间的数据，是 U-Boot 最常用的内存查看命令。",
+    "points": [
+      "可按 .b/.w/.l 指定显示宽度（字节/半字/字），默认按字显示",
+      "右侧同时给出 ASCII 可打印字符视图，便于识别字符串",
+      "count 缺省时默认显示一屏；地址支持十六进制写法"
+    ],
+    "usage": "md [.b, .w, .l] <addr> [count]，addr 为起始地址，count 为要显示的对象个数。",
+    "example": "=> md.l 80800000 8\n80800000: 00000000 00000000 00000000 00000000    ................\n80800010: 12345678 9abcdef0 13579bdf 2468ace0    xV4.....\n=> md.b 80800000 16  显示 16 字节"
+  },
+  {
+    "abbr": "mdio",
+    "full": "-",
+    "zh": "MDIO 总线寄存器访问",
+    "category": "U-Boot 命令",
+    "definition": "通过 MDIO（管理数据输入输出）总线读写 PHY 等以太网器件的管理寄存器，用于调试网口链路。",
+    "points": [
+      "read 用于读取 PHY 寄存器，write 用于写入，均可指定器件地址与寄存器号",
+      "list 列出当前 MDIO 总线上的设备，info 打印 PHY 基本信息",
+      "常见用法是读 PHY 状态寄存器（如 0x01 的 link 位）判断网线是否插好"
+    ],
+    "usage": "mdio read <phydev> <addr> | mdio write <phydev> <addr> <data> | mdio list | mdio info。",
+    "example": "=> mdio read 0 1\nReading from MDIO device at address 0, register 1:\n0x796d  (链路建立，1000M 全双工)\n=> mdio write 0 0 0x8000  写控制寄存器"
+  },
+  {
+    "abbr": "mii",
+    "full": "-",
+    "zh": "MII 管理接口工具",
+    "category": "U-Boot 命令",
+    "definition": "通过 MII（媒体独立接口）管理总线读写 PHY 寄存器、枚举 PHY 地址，用于调试以太网物理层。",
+    "points": [
+      "info 列出系统发现的 PHY 设备及其地址",
+      "read/write 可读写指定 PHY 的任意管理寄存器",
+      "dev 显示/设置当前使用的 PHY 设备，dump 转储 PHY 全部寄存器"
+    ],
+    "usage": "mii info | mii read <addr> <reg> | mii write <addr> <reg> <data> | mii dev [addr] | mii dump [addr] [reg]。",
+    "example": "=> mii info\nPHY 0x01: OUI = 0x0018, Model = 0x22, Rev = 0x01\nPHY 0x00: OUI = 0x0000, Model = 0x00, Rev = 0x00\n=> mii read 1 1  读 PHY1 状态寄存器"
+  },
+  {
+    "abbr": "mm",
+    "full": "-",
+    "zh": "内存修改（地址自动递增）",
+    "category": "U-Boot 命令",
+    "definition": "交互式修改内存内容，每写入一个值后地址自动递增，适合连续修改一段内存区域。",
+    "points": [
+      "可按 .b/.w/.l 指定修改宽度，默认按字",
+      "直接输入回车保持原值不变并递增地址，输入 '.' 或空行结束",
+      "地址值如被修改会立即显示当前值，便于核对"
+    ],
+    "usage": "mm [.b, .w, .l] <addr>，addr 为起始地址，进入交互模式后逐个写入新值。",
+    "example": "=> mm.l 80000000\n80000000: 00000000 ? 12345678\n80000004: 00000000 ? aabbccdd\n80000008: 00000000 ? .\n（输入 . 结束修改）"
+  },
+  {
+    "abbr": "mmc",
+    "full": "-",
+    "zh": "MMC 子系统操作",
+    "category": "U-Boot 命令",
+    "definition": "MMC/SD 存储子系统管理命令，涵盖设备切换、枚举、分区与读写等操作。",
+    "points": [
+      "dev 切换当前 MMC 设备，list 列出所有 MMC 设备，rescan 重新扫描总线",
+      "part 显示设备分区表，read/write 直接在设备上按块读写数据",
+      "erase 擦除块（需硬件支持），bootpart/bootbus 等用于配置 eMMC 启动分区",
+      "典型流程：mmc dev 1 选择设备后，再用 mmc read 加载镜像"
+    ],
+    "usage": "mmc <subcommand>，常用子命令：dev [dev] [part]、list、rescan、part、read <addr> <blk#> <cnt>、write、erase。",
+    "example": "=> mmc dev 1\nswitch to partitions #0, OK\nmmc1 is current device\n=> mmc read 80800000 1000 800\nMMC read: dev # 1, block # 4096, count 2048 ... 2048 blocks read: OK"
+  },
+  {
+    "abbr": "mmcinfo",
+    "full": "-",
+    "zh": "显示 MMC 设备信息",
+    "category": "U-Boot 命令",
+    "definition": "显示指定（或当前）MMC/SD 设备的详细信息，包括容量、块大小、总线宽度与工作模式等。",
+    "points": [
+      "参数缺省时显示当前 MMC 设备信息",
+      "输出含 Manufacturer、Name、容量、块数、总线宽度（4/8-bit）与时钟频率",
+      "常用于确认 eMMC/SD 是否被正确识别及容量是否正常"
+    ],
+    "usage": "mmcinfo [dev]，dev 为设备号（如 0、1），缺省显示当前设备。",
+    "example": "=> mmcinfo 0\nDevice: mmc@4804d000\nManufacturer: 45 SanDisk\nName: 8GTF4\nTran Speed: 52000000\nCapacity: 7.4 GiB\nBus Width: 8-bit"
+  },
+  {
+    "abbr": "mtest",
+    "full": "-",
+    "zh": "内存读写测试",
+    "category": "U-Boot 命令",
+    "definition": "对指定内存区间执行简单的读写校验测试（写入固定数据并回读比对），用于验证 RAM 是否正常。",
+    "points": [
+      "默认测试数据为 0xAAAAAAAA 与 0x55555555 交替写入回读",
+      "iterations 指定迭代次数，缺省为无限循环，Ctrl-C 可中止",
+      "只能用于空闲内存区域，切勿对正在使用的内存（如栈、镜像缓冲区）执行测试",
+      "失败时会报告出错地址，可用于排查内存焊接或时序问题"
+    ],
+    "usage": "mtest [start [end [pattern [iterations]]]]，start/end 为测试区间（缺省用配置的 mtest_addr）。",
+    "example": "=> mtest 80000000 80100000\nTesting 80000000 ... 80100000:\nIteration:     1 of 65536\nPattern 55555555  Writing... Reading...\nTested 1 iteration(s) with 0 errors"
+  },
+  {
+    "abbr": "mw",
+    "full": "-",
+    "zh": "内存写（填充）",
+    "category": "U-Boot 命令",
+    "definition": "将指定值填充写入内存地址区间，常用于清空内存或预设特定数据模式。",
+    "points": [
+      "可按 .b/.w/.l 指定写入宽度，默认按字",
+      "count 缺省时只写一个对象；写满 count 个对象后停止",
+      "地址与值均支持十六进制，例如 mw.l 80000000 0 1000 清零 4KB"
+    ],
+    "usage": "mw [.b, .w, .l] <addr> <value> [count]，addr 为起始地址，value 为写入值，count 为写入对象个数。",
+    "example": "=> mw.l 80000000 0 1024\n（向 0x80000000 起填充 1024 个 32 位 0，即清零 4KB）\n=> mw.b 80000000 ff 256  填充 256 字节 0xff"
+  },
+  {
+    "abbr": "nfs",
+    "full": "-",
+    "zh": "通过 NFS 网络启动",
+    "category": "U-Boot 命令",
+    "definition": "通过 NFS 协议从网络服务器加载启动镜像（内核/ramdisk 等）到指定内存地址，并可选自动启动。",
+    "points": [
+      "参数形式为服务器 IP:文件路径，文件路径可含 ':' 转义以支持含冒号的路径",
+      "加载前需保证网络可用（ethaddr、serverip 等环境变量正确，或先 ping）",
+      "加载成功后若带启动参数会执行 bootm，否则只加载文件"
+    ],
+    "usage": "nfs [loadAddress] [[hostIPaddr:]bootfilename]，loadAddress 缺省用 loadaddr 环境变量。",
+    "example": "=> setenv serverip 192.168.1.10\n=> nfs 80800000 192.168.1.10:/tftpboot/zImage\nFile transfer via NFS from server 192.168.1.10; our IP address is 192.168.1.100\nLoading: ######################## OK"
+  },
+  {
+    "abbr": "nm",
+    "full": "-",
+    "zh": "内存修改（地址固定）",
+    "category": "U-Boot 命令",
+    "definition": "交互式修改内存内容，写入后地址保持不变，适合反复修改同一个寄存器或内存单元。",
+    "points": [
+      "与 mm 的区别是地址不自动递增，每次都在同一地址写入",
+      "可按 .b/.w/.l 指定修改宽度",
+      "常用于调试时反复读写某个外设寄存器观察变化"
+    ],
+    "usage": "nm [.b, .w, .l] <addr>，addr 为固定修改地址，输入 '.' 结束。",
+    "example": "=> nm.l 80000000\n80000000: 00000000 ? 1\n80000000: 00000001 ? 2\n80000000: 00000002 ? .\n（地址始终为 0x80000000）"
+  },
+  {
+    "abbr": "ping",
+    "full": "-",
+    "zh": "网络连通性测试",
+    "category": "U-Boot 命令",
+    "definition": "向指定主机发送 ICMP ECHO_REQUEST 报文并等待应答，用于验证 U-Boot 网络链路是否正常。",
+    "points": [
+      "测试前需正确配置 ipaddr、serverip 等网络环境变量",
+      "返回 host is alive 表示连通，否则提示无法到达主机",
+      "常用于 tftpboot/nfs 前的网络排查，也用于让主机 ARP 学习到开发板地址"
+    ],
+    "usage": "ping <hostIP>，hostIP 为目标主机 IP 地址。",
+    "example": "=> setenv ipaddr 192.168.1.100\n=> ping 192.168.1.1\nUsing ethernet@0 device\nhost 192.168.1.1 is alive"
+  },
+  {
+    "abbr": "pmic",
+    "full": "-",
+    "zh": "PMIC 电源管理芯片操作",
+    "category": "U-Boot 命令",
+    "definition": "对系统电源管理芯片（PMIC）执行枚举、设备选择、寄存器读写与电压/稳压器信息查询等操作。",
+    "points": [
+      "list 列出系统已注册的 PMIC 设备，dev 选择当前操作对象",
+      "dump 转储 PMIC 全部寄存器，read/write 按地址读写寄存器",
+      "部分 PMIC 支持 buck/ldo 等稳压器枚举，可用 regulators 类子命令查看",
+      "常用于调试供电异常或配置 PMIC 输出电压"
+    ],
+    "usage": "pmic list | pmic dev [devname] | pmic dump | pmic read <reg> | pmic write <reg> <value>。",
+    "example": "=> pmic list\nPMIC:  rn5t567@32 (Rn5t567)\n=> pmic dev rn5t567@32\npmic rn5t567@32 is current device\n=> pmic dump"
+  },
+  {
+    "abbr": "printenv",
+    "full": "-",
+    "zh": "打印环境变量",
+    "category": "U-Boot 命令",
+    "definition": "显示全部或指定环境变量的名称与值，是查看 U-Boot 当前配置状态的基本命令。",
+    "points": [
+      "不带参数时列出所有环境变量，带参数可指定一个或多个变量名",
+      "输出格式为 name=value，便于理解 bootcmd、bootargs 等关键变量",
+      "配合 setenv/saveenv 构成环境变量的查看-修改-保存闭环"
+    ],
+    "usage": "printenv [name ...]，name 为环境变量名，缺省打印全部环境变量。",
+    "example": "=> printenv bootcmd\nbootcmd=run distro_bootcmd\n=> printenv\nbaudrate=115200\nbootdelay=2\nbootcmd=run distro_bootcmd\nbootargs=console=ttyS0,115200 root=/dev/mmcblk0p2"
+  },
+  {
+    "abbr": "protect",
+    "full": "-",
+    "zh": "FLASH 写保护控制",
+    "category": "U-Boot 命令",
+    "definition": "启用或关闭 NOR FLASH（以及部分带保护功能的存储设备）的写保护，控制可擦写区域。",
+    "points": [
+      "on/off 后跟 bank 范围或 all，决定保护/开放哪些 flash 扇区",
+      "在擦写固件前通常需先 protect off 对应区域",
+      "保护状态记录在 flash 设备结构中，复位后重新生效"
+    ],
+    "usage": "protect on|off [bank ...] | protect on|off all，bank 为 flash 扇区/区域编号。",
+    "example": "=> protect off 1:0-3\nProtected 4 sectors\n=> erase 1:0-3\nErase Flash from 0x00100000 to 0x001FFFFF ... done"
+  },
+  {
+    "abbr": "reset",
+    "full": "-",
+    "zh": "复位 CPU",
+    "category": "U-Boot 命令",
+    "definition": "触发 CPU 硬件复位，使系统重新从启动流程开始执行（等效于按复位键）。",
+    "points": [
+      "会立即重启系统，未保存的环境变量修改将丢失",
+      "常用于切换启动方式或测试启动流程后恢复系统",
+      "部分平台支持 'warm'/'cold' 参数（取决于实现），多数平台无参数直接复位"
+    ],
+    "usage": "reset，直接执行即触发 CPU 复位（部分实现支持 reset warm/cold）。",
+    "example": "=> reset\nresetting ...\n\nU-Boot 2024.04 (Aug 13 2026 - 10:00:00 +0800)\n\nCPU:   ARMv8 Processor"
+  },
+  {
+    "abbr": "run",
+    "full": "-",
+    "zh": "执行环境变量中的命令序列",
+    "category": "U-Boot 命令",
+    "definition": "将指定环境变量的值作为 U-Boot 命令序列展开并执行，是启动脚本组织的核心机制。",
+    "points": [
+      "可一次执行多个环境变量，按顺序依次展开执行",
+      "常与 setenv 配合把复杂启动流程存为 bootcmd、bootargs 等变量",
+      "变量值中可嵌套 run 其他变量与 ${var} 引用，形成可组合的启动脚本"
+    ],
+    "usage": "run <var> [var ...]，var 为存放命令序列的环境变量名。",
+    "example": "=> setenv loadkernel 'load mmc 0:1 80800000 /boot/zImage'\n=> setenv bootcmd 'run loadkernel; bootm 80800000'\n=> run bootcmd\nreading /boot/zImage\n7567890 bytes read"
+  },
+  {
+    "abbr": "save",
+    "full": "-",
+    "zh": "保存文件到文件系统",
+    "category": "U-Boot 命令",
+    "definition": "将内存中的数据按指定长度写入存储设备（MMC/USB 等）文件系统中的文件，是 load 的逆操作。",
+    "points": [
+      "支持 fat/ext4 等文件系统，接口与设备格式与 load 相同",
+      "bytes 指定写入长度，可选 pos 指定文件内偏移",
+      "目标文件已存在时通常覆盖写入；可配合 fatwrite 等命令"
+    ],
+    "usage": "save <interface> <dev[:part]> <addr> <filename> <bytes> [pos]，addr 为源内存地址，bytes 为写入字节数。",
+    "example": "=> save mmc 0:1 80800000 /boot/backup.bin 100000\nSaving 1048576 bytes to '/boot/backup.bin' from 0x80800000\n1048576 bytes written"
+  },
+  {
+    "abbr": "saveenv",
+    "full": "-",
+    "zh": "保存环境变量到持久存储",
+    "category": "U-Boot 命令",
+    "definition": "将当前内存中的环境变量写入持久化存储（eMMC/SPI Flash/EEPROM 等），使修改在重启后生效。",
+    "points": [
+      "setenv 修改只在内存中生效，必须 saveenv 才能持久保存",
+      "存储位置由 CONFIG_ENV_IS_IN_* 决定（MMC、SPI、NAND、EEPROM 等）",
+      "保存成功后输出 Saving Environment to ... OK",
+      "若提示环境空间不足可先 setenv 清理无用变量"
+    ],
+    "usage": "saveenv，无参数，直接将当前环境写入持久存储。",
+    "example": "=> setenv bootdelay 5\n=> saveenv\nSaving Environment to MMC... Writing to redundant MMC(0)... OK"
+  },
+  {
+    "abbr": "setenv",
+    "full": "-",
+    "zh": "设置环境变量",
+    "category": "U-Boot 命令",
+    "definition": "设置（或删除）环境变量，是配置启动参数、自定义脚本与硬件参数的基础命令。",
+    "points": [
+      "setenv name value 设置变量，setenv name（无值）删除变量",
+      "值含空格时用单引号括起；引号内 ${var} 的展开时机可用单/双引号控制",
+      "修改后需 saveenv 才能持久保存",
+      "bootargs、bootcmd、loadaddr、ethaddr 等是常用关键变量"
+    ],
+    "usage": "setenv <name> [value]，name 为变量名，value 为要设置的值（缺省表示删除该变量）。",
+    "example": "=> setenv bootargs 'console=ttyS0,115200 root=/dev/mmcblk0p2 rw'\n=> setenv loadaddr 0x80800000\n=> setenv bootdelay  删除 bootdelay 变量"
+  },
+  {
+    "abbr": "setexpr",
+    "full": "-",
+    "zh": "表达式求值赋给环境变量",
+    "category": "U-Boot 命令",
+    "definition": "对数值、字符串或内存数据进行运算/处理，把结果写入环境变量，实现脚本中的动态计算。",
+    "points": [
+      "支持 + - * / % 等整数运算与 .b/.w/.l 宽度后缀（对内存操作）",
+      "sub 做字符串子串提取，gsub/regsub 做字符串替换，format 做格式化",
+      "常用于脚本中动态计算地址、长度，如把 filesize 加上偏移"
+    ],
+    "usage": "setexpr <name> <value> | setexpr <name> <op1> <op2> <op3> | setexpr <name> sub <string> <start> <len> 等。",
+    "example": "=> setexpr filesize 0x200000 + 0x100\nfilesize=0x200100\n=> setexpr str sub 'hello world' 0 5\nstr=hello\n=> setexpr addr *0x80000000"
+  },
+  {
+    "abbr": "sf",
+    "full": "-",
+    "zh": "SPI Flash 子系统操作",
+    "category": "U-Boot 命令",
+    "definition": "SPI NOR Flash 管理命令集合，包括探测、读取、写入、擦除、更新固件与保护操作。",
+    "points": [
+      "probe 探测并初始化 SPI Flash（必须先执行），可用参数指定总线/CSP",
+      "read/write 以 addr、offset、len 为参数在内存与 Flash 间搬移数据",
+      "erase 按扇区/块擦除，update 先比较差异再写（减少擦写次数）",
+      "写前需保证目标区域已擦除或使用 update，否则数据可能出错"
+    ],
+    "usage": "sf probe [[bus:]cs] [hz] [mode] | sf read <addr> <offset> <len> | sf write <addr> <offset> <len> | sf erase <offset> <len> | sf update。",
+    "example": "=> sf probe\nSF: Detected w25q128 with page size 256 Bytes, erase size 4 KiB, total 16 MiB\n=> sf erase 0 100000\nSF: 1048576 bytes @ 0x0 Erased: OK\n=> sf write 80800000 0 100000\nSF: 1048576 bytes @ 0x0 Written: OK"
+  },
+  {
+    "abbr": "showvar",
+    "full": "-",
+    "zh": "显示 hush shell 局部变量",
+    "category": "U-Boot 命令",
+    "definition": "打印 hush shell 脚本环境中的局部变量（非环境变量表），用于调试脚本变量状态。",
+    "points": [
+      "不带参数时列出所有局部变量，带参数显示指定变量",
+      "局部变量由脚本内赋值产生，与 printenv 显示的环境变量不同",
+      "主要用于调试复杂启动脚本的中间变量"
+    ],
+    "usage": "showvar [var ...]，var 为局部变量名，缺省显示全部局部变量。",
+    "example": "=> set myvar hello\n=> showvar myvar\nmyvar=hello\n=> showvar\nmyvar=hello"
+  },
+  {
+    "abbr": "size",
+    "full": "-",
+    "zh": "获取文件大小",
+    "category": "U-Boot 命令",
+    "definition": "查询存储设备文件系统中指定文件的大小（字节数），常用于脚本中判断文件是否存在及长度。",
+    "points": [
+      "接口与设备格式同 load 命令，如 mmc 0:1",
+      "文件不存在时会报错，可用于脚本中判断文件是否存在",
+      "显示输出为文件字节数"
+    ],
+    "usage": "size <interface> <dev[:part]> <filename> [pos]，pos 为可选文件内偏移。",
+    "example": "=> size mmc 0:1 /boot/zImage\nSize: 7567890\n=> setexpr total 7567890 / 1024  换算为 KB"
+  },
+  {
+    "abbr": "sleep",
+    "full": "-",
+    "zh": "延时执行",
+    "category": "U-Boot 命令",
+    "definition": "让 U-Boot 暂停指定秒数后再继续执行，常用于启动脚本中等待设备就绪或倒计时。",
+    "points": [
+      "参数为秒数，支持浮点小数（部分实现），也支持 msec 等后缀",
+      "延时期间按任意键可提前返回（具体行为取决于配置）",
+      "常用于脚本中等待电源稳定或外设初始化完成"
+    ],
+    "usage": "sleep <seconds>，seconds 为延时秒数（如 5、0.5）。",
+    "example": "=> sleep 3\n（等待 3 秒）\n=> sleep 0.5\n（等待 500 毫秒）"
+  },
+  {
+    "abbr": "source",
+    "full": "-",
+    "zh": "运行内存中的脚本",
+    "category": "U-Boot 命令",
+    "definition": "将内存中存储的 U-Boot 脚本（boot script，boot.scr 格式）作为命令序列执行。",
+    "points": [
+      "脚本通常先用 mkimage 工具把文本命令打包为 boot script 镜像再烧写",
+      "脚本地址缺省用 loadaddr，可指定地址与长度参数",
+      "常用 boot.scr 配合 distro boot 流程，实现可跨平台复用的启动脚本"
+    ],
+    "usage": "source <addr> [bytes] [name]，addr 为脚本镜像所在内存地址，bytes 为脚本长度。",
+    "example": "=> load mmc 0:1 80800000 /boot.scr\n=> source 80800000\n## Executing script at 80800000\n## Loading kernel from FIT Image at 82000000 ..."
+  },
+  {
+    "abbr": "test",
+    "full": "-",
+    "zh": "表达式测试（类 shell）",
+    "category": "U-Boot 命令",
+    "definition": "对字符串/数值/文件执行类似 /bin/sh test 的最小化测试，返回真或假供脚本条件判断使用。",
+    "points": [
+      "支持 = != -eq -ne -gt -lt 等字符串与数值比较操作符",
+      "支持 -z（为空）-n（非空）-e（存在）-f（普通文件）-d（目录）等文件测试",
+      "常与 && 和 || 组合构成脚本条件分支"
+    ],
+    "usage": "test <expr>，expr 支持 [string1 = string2]、[num1 -gt num2]、[-f file] 等形式。",
+    "example": "=> test ${filesize} -gt 0 && echo 已加载文件\n=> test -f /boot/zImage && echo 存在\n=> test -n ${serverip} || echo 未设置 serverip"
+  },
+  {
+    "abbr": "tftpboot",
+    "full": "-",
+    "zh": "通过 TFTP 网络启动",
+    "category": "U-Boot 命令",
+    "definition": "通过 TFTP 协议从网络服务器加载启动镜像（内核等）到指定内存地址，是开发阶段最常用的镜像加载方式。",
+    "points": [
+      "文件服务器由 serverip 环境变量指定，本机地址为 ipaddr",
+      "文件名可省略，缺省使用 bootfile 环境变量",
+      "加载成功后可用 bootm 启动，或先 iminfo 检查镜像",
+      "目标 IP 可用带 [ip:] 前缀的 hostIPaddr:filename 形式指定"
+    ],
+    "usage": "tftpboot [loadAddress] [[hostIPaddr:]bootfilename]，loadAddress 缺省用 loadaddr，bootfilename 缺省用 bootfile。",
+    "example": "=> setenv serverip 192.168.1.10\n=> tftpboot 80800000 zImage\nUsing ethernet@0 device\nTFTP from server 192.168.1.10; our IP address is 192.168.1.100\nFilename 'zImage'. Load address: 0x80800000\nLoading: ##################################################\n7567890 bytes downloaded"
+  },
+  {
+    "abbr": "true",
+    "full": "-",
+    "zh": "空操作（返回成功）",
+    "category": "U-Boot 命令",
+    "definition": "什么都不执行并返回成功状态，与 false 相对，用于脚本占位或强制分支成立。",
+    "points": [
+      "在脚本中常用于需要成功返回的占位符",
+      "与 && 组合可强制执行后续命令，或构造恒真条件",
+      "通常与 false 命令成对出现"
+    ],
+    "usage": "true，无参数，直接执行即返回成功。",
+    "example": "=> true && echo 总是执行到这里\n=> setenv flag 1; if test ${flag} -eq 1; then true; fi"
+  },
+  {
+    "abbr": "usb",
+    "full": "-",
+    "zh": "USB 子系统操作",
+    "category": "U-Boot 命令",
+    "definition": "USB 总线与存储子系统管理命令，包括启动/停止 USB、枚举设备、查看设备树与存储信息等。",
+    "points": [
+      "start 初始化 USB 主机控制器并枚举设备，stop/reset 停止或复位总线",
+      "tree 显示 USB 设备拓扑，info 显示设备描述信息",
+      "storage 显示存储类设备，dev/part 选择设备与分区，配合 usb ls 浏览文件",
+      "使用 USB 存储前必须先 usb start"
+    ],
+    "usage": "usb start | usb stop | usb reset | usb tree | usb info [dev] | usb storage | usb dev [dev] | usb part | usb ls <dev[:part]>。",
+    "example": "=> usb start\nstarting USB...\nBus usb@52080000: USB EHCI 1.00\nscanning bus for devices... 2 USB Device(s) found\n=> usb tree\nUSB device tree:\n  1  Hub (480 Mb/s, 0mA)\n  2  Mass Storage (480 Mb/s, 200mA)"
+  },
+  {
+    "abbr": "usbboot",
+    "full": "-",
+    "zh": "从 USB 设备启动",
+    "category": "U-Boot 命令",
+    "definition": "从 USB 存储设备（U 盘）按分区加载启动镜像到内存（类似 diskboot），实现从 USB 启动系统。",
+    "points": [
+      "设备格式为 dev[:part]，文件名取自 bootfile 环境变量",
+      "执行前需 usb start 初始化 USB 并枚举出存储设备",
+      "加载成功后可用 bootm 启动镜像"
+    ],
+    "usage": "usbboot [loadAddr] [dev[:part]]，loadAddr 为内存加载地址，dev[:part] 为 USB 设备与分区。",
+    "example": "=> usb start\n=> setenv bootfile /boot/zImage\n=> usbboot 80800000 0:1\nreading /boot/zImage\n7567890 bytes read\n=> bootm 80800000"
+  },
+  {
+    "abbr": "version",
+    "full": "-",
+    "zh": "显示 U-Boot 版本信息",
+    "category": "U-Boot 命令",
+    "definition": "打印 U-Boot 版本号、编译时间以及编译器与链接器版本信息。",
+    "points": [
+      "输出包括 U-Boot 版本、构建日期、编译器（如 GCC）与链接器版本",
+      "可用于确认板卡运行的 U-Boot 固件版本，便于与源码对应",
+      "等效信息也会在开机时打印"
+    ],
+    "usage": "version，无参数，直接执行。",
+    "example": "=> version\n\nU-Boot 2024.04 (Aug 13 2026 - 10:00:00 +0800)\n\naarch64-linux-gnu-gcc (GCC) 12.3.0\nGNU ld (GNU Binutils) 2.40"
   }
 ]
