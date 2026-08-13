@@ -59,6 +59,18 @@ function catStyle(cat) {
       </button>
       <p class="usage">{{ term.usage }}</p>
     </div>
+    <div v-if="term.example" class="code-block example-block">
+      <span class="example-label">示例</span>
+      <button
+        class="copy-btn"
+        :class="{ done: copied === 'example' }"
+        title="复制示例"
+        @click="copyText(term.example, 'example')"
+      >
+        {{ copied === "example" ? "已复制 ✓" : "复制" }}
+      </button>
+      <p class="example">{{ term.example }}</p>
+    </div>
     <div v-if="term.options && term.options.length" class="options">
       <div v-for="(op, i) in term.options" :key="i" class="opt">
         <code>{{ op.o }}</code>
@@ -164,6 +176,35 @@ h1 {
   font-family: Consolas, "Courier New", monospace;
   font-size: 13px;
   color: #0f172a;
+  word-break: break-all;
+  line-height: 1.7;
+}
+
+/* 示例块：浅绿底 + 左侧强调边，与 usage（灰蓝）区分；多行示例保留换行 */
+.example-block {
+  margin-top: 10px;
+}
+
+.example-label {
+  position: absolute;
+  top: 6px;
+  left: 10px;
+  font-size: 11px;
+  color: #6b9e78;
+  font-weight: 600;
+}
+
+.example {
+  margin-top: 10px;
+  padding: 10px 14px;
+  background: #f0f7f4;
+  border: 1px solid #d5e8de;
+  border-left: 3px solid #6b9e78;
+  border-radius: 8px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: #0f172a;
+  white-space: pre-wrap;
   word-break: break-all;
   line-height: 1.7;
 }
