@@ -89,8 +89,12 @@ async function animateShrink() {
   } catch (e) {
     console.error("飞行动画计算失败", e);
   } finally {
-    // 动画期间若用户已重新展开（热键/托盘），放弃缩窗，仅清理动画样式
-    if (!shrinkCancel) await shrinkToDot();
+    // 等 main-view 淡出完成（opacity 归零/display:none）再缩窗：
+    // 避免窗口缩到 64×64 时白色卡片/顶栏残影与圆点重叠
+    if (!shrinkCancel) {
+      await waitMainHidden(500);
+      await shrinkToDot();
+    }
     animStyle.value = null;
     collapsing = false;
   }
@@ -118,6 +122,20 @@ async function onMainLeave() {
   if (shrinkTask) await shrinkTask; // 淡出与缩窗并行，此处等缩窗收尾
   await win.setIgnoreCursorEvents(false).catch(() => {}); // 动画结束恢复鼠标事件
   dotReady.value = true; // 缩窗完成后才挂载圆点并淡入
+}
+
+// 等待 main-view 的 v-show 淡出完成（display:none 生效）。
+// 避免窗口已缩到 64×64 时 main-view 仍显示（白色卡片+顶栏残影与圆点重叠）；
+// 启动/模式切换路径的窗口不可见或正在切换，等待无感知。
+async function waitMainHidden(timeout = 800) {
+  const t0 = Date.now();
+  while (Date.now() - t0 < timeout) {
+    const el = document.querySelector(".main-view");
+    if (!el) return;
+    const cs = getComputedStyle(el);
+    if (cs.display === "none" || cs.opacity === "0") return;
+    await new Promise((r) => setTimeout(r, 16));
+  }
 }
 
 // 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
@@ -194,8 +212,11 @@ async function enterCompact(animate = true) {
   shrinkCancel = false;
   // 圆点态：关闭毛玻璃背景，保持纯透明（圆点由 CSS 绘制）
   await win.clearEffects().catch(() => {});
-  await shrinkToDot();
+  // 先切圆点态让 main-view 淡出，等淡出完成（display:none）再缩窗：
+  // 避免窗口缩到 64×64 时白色卡片/顶栏残影与圆点重叠（启动/模式切换时窗口不可见，等待无感知）
   form.value = "compact";
+  await waitMainHidden(800);
+  await shrinkToDot();
   dotReady.value = true;
 }
 
