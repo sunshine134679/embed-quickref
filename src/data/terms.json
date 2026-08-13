@@ -12288,5 +12288,1281 @@
     ],
     "usage": "version，无参数，直接执行。",
     "example": "=> version\n\nU-Boot 2024.04 (Aug 13 2026 - 10:00:00 +0800)\n\naarch64-linux-gnu-gcc (GCC) 12.3.0\nGNU ld (GNU Binutils) 2.40"
+  },
+  {
+    "abbr": "ipconfig",
+    "full": "-",
+    "zh": "显示 IP 配置",
+    "category": "Windows 命令",
+    "definition": "显示本机所有网络适配器的 IP 地址、子网掩码、默认网关及 DNS 服务器等 TCP/IP 配置信息，是网络排障的基础命令。",
+    "points": [
+      "ipconfig /all 可查看网卡 MAC 地址、DHCP 服务器、租约过期时间等详细信息",
+      "ipconfig /flushdns 清空 DNS 解析缓存，DNS 排障时常用",
+      "ipconfig /release 与 /renew 用于释放并重新获取 DHCP 分配的 IP 地址",
+      "ipconfig /displaydns 显示本地 DNS 解析缓存内容"
+    ],
+    "usage": "ipconfig [/all] [/release] [/renew] [/flushdns] [/displaydns] —— 不带参数仅显示各适配器基本 IPv4/IPv6 地址，/all 显示完整配置",
+    "example": "ipconfig /all\n:: 查看完整网络配置（含 MAC 地址、DNS、租约信息）\nipconfig /flushdns\n:: 排障时刷新 DNS 解析缓存"
+  },
+  {
+    "abbr": "ping",
+    "full": "-",
+    "zh": "测试网络连通性",
+    "category": "Windows 命令",
+    "definition": "向目标主机发送 ICMP 回显请求并显示响应结果，用于测试网络连通性和测量往返延迟，是网络排障最常用的命令。",
+    "points": [
+      "ping -t 持续发送直到按 Ctrl+C 停止，适合长时间监测连通性",
+      "Windows 版默认只发送 4 个包（与 Linux 默认无限发送不同），用 -n 次数 指定发包数",
+      "ping -a 解析并显示目标主机名；ping -4 / -6 强制使用 IPv4 或 IPv6",
+      "ping -l 大小 可指定数据包大小，用于测试大包下的链路状况"
+    ],
+    "usage": "ping [-t] [-a] [-n 次数] [-l 大小] [-4|-6] 目标 —— 常用 -t 持续 ping、-n 指定次数、-l 指定包大小",
+    "example": "ping -n 4 www.baidu.com\n:: 发送 4 个 ICMP 包测试连通性与延迟\nping -t 192.168.1.1\n:: 持续 ping 网关监测网络，按 Ctrl+C 结束"
+  },
+  {
+    "abbr": "tracert",
+    "full": "-",
+    "zh": "路由追踪",
+    "category": "Windows 命令",
+    "definition": "追踪数据包到达目标主机所经过的每一跳路由，显示各节点的 IP 地址和响应时间，用于定位网络故障点。",
+    "points": [
+      "tracert -d 不解析主机名只显示 IP 地址，速度更快",
+      "tracert -h 30 指定最大跳数（默认 30 跳）",
+      "tracert -w 1000 指定每跳的等待超时时间（毫秒）",
+      "连续显示请求超时的节点通常是防火墙屏蔽或链路故障点"
+    ],
+    "usage": "tracert [-d] [-h 最大跳数] [-w 超时毫秒] 目标地址 —— 常用 -d 加快速度、-h 限制跳数",
+    "example": "tracert -d 8.8.8.8\n:: 追踪到 8.8.8.8 的路由，不解析主机名\n:: 观察每一跳的延迟，定位网络瓶颈所在"
+  },
+  {
+    "abbr": "netstat",
+    "full": "-",
+    "zh": "网络连接统计",
+    "category": "Windows 命令",
+    "definition": "显示本机活动的 TCP/UDP 连接、监听端口、路由表及网络接口统计信息，用于排查端口占用和连接状态。",
+    "points": [
+      "netstat -ano 显示所有连接及对应进程 PID，查找端口被哪个程序占用时必用",
+      "netstat -n 以数字形式显示地址和端口，不解析主机名，速度更快",
+      "netstat -b 显示每个连接对应的可执行程序（需要管理员权限）",
+      "netstat -rn 显示路由表，netstat -e 显示网卡收发统计"
+    ],
+    "usage": "netstat [-a] [-n] [-o] [-b] [-r] —— -a 全部连接与监听端口，-n 数字显示，-o 显示 PID",
+    "example": "netstat -ano\n:: 列出所有连接与监听端口，最后一列是进程 PID\nnetstat -ano | findstr :8080\n:: 查找 8080 端口被哪个进程占用"
+  },
+  {
+    "abbr": "nslookup",
+    "full": "-",
+    "zh": "DNS 查询工具",
+    "category": "Windows 命令",
+    "definition": "向 DNS 服务器查询域名对应的 IP 地址、反向解析、邮件交换等记录，用于诊断域名解析问题。",
+    "points": [
+      "nslookup 域名 直接在默认 DNS 服务器上查询解析结果",
+      "交互模式下输入 server 8.8.8.8 可切换 DNS 服务器",
+      "交互模式输入 set type=mx 或 set type=any 查询指定记录类型",
+      "nslookup -type=a 域名 一次查询 A 记录；-type=ptr 做反向解析"
+    ],
+    "usage": "nslookup [域名] [DNS服务器] —— 不带参数进入交互模式，可执行 server、set type= 等子命令",
+    "example": "nslookup www.example.com\n:: 查询域名的 A 记录解析结果\nnslookup -type=mx example.com 8.8.8.8\n:: 指定 8.8.8.8 查询邮件交换记录"
+  },
+  {
+    "abbr": "tasklist",
+    "full": "-",
+    "zh": "进程列表",
+    "category": "Windows 命令",
+    "definition": "显示当前系统中正在运行的所有进程及其 PID、内存占用、会话等信息，相当于任务管理器的命令行版。",
+    "points": [
+      "tasklist /fi \"imagename eq notepad.exe\" 按映像名称过滤进程",
+      "tasklist /svc 显示每个进程承载的服务，排查进程对应服务时常用",
+      "tasklist /v 显示窗口标题、状态等详细信息；/m 显示进程加载的模块",
+      "tasklist /fo csv 以 CSV 格式输出，便于脚本处理"
+    ],
+    "usage": "tasklist [/svc] [/v] [/fi 过滤器] [/fo 格式] —— /fi 支持 imagename、pid、memusage 等过滤条件",
+    "example": "tasklist /svc\n:: 列出所有进程及其承载的服务\n:: 先查到进程 PID，再配合 taskkill 结束进程"
+  },
+  {
+    "abbr": "taskkill",
+    "full": "-",
+    "zh": "结束进程",
+    "category": "Windows 命令",
+    "definition": "按进程名或 PID 结束一个或多个正在运行的进程，相当于任务管理器中的\"结束任务\"功能。",
+    "points": [
+      "taskkill /pid 1234 /f 强制结束指定 PID 的进程",
+      "taskkill /im notepad.exe /f 按映像名称结束所有同名进程",
+      "/t 参数同时结束该进程的全部子进程树",
+      "结束系统关键进程可能导致系统异常，操作前务必确认进程名"
+    ],
+    "usage": "taskkill [/pid PID] [/im 映像名] [/f] [/t] —— /f 强制终止，/t 连同子进程一起结束",
+    "example": "taskkill /pid 8824 /f\n:: 强制结束 PID 为 8824 的进程\n:: 先用 tasklist 或 netstat -ano 查出占用端口的 PID"
+  },
+  {
+    "abbr": "dir",
+    "full": "-",
+    "zh": "列出目录内容",
+    "category": "Windows 命令",
+    "definition": "显示指定目录下的文件和子目录列表，是 Windows CMD 中最常用的文件浏览命令，相当于 Linux 的 ls。",
+    "points": [
+      "dir /b 只显示文件名（简洁模式），常配合 for 循环做批处理",
+      "dir /s 递归列出所有子目录中的文件；/a 显示包括隐藏和系统文件在内的全部文件",
+      "dir /w 多列宽格式显示；dir /o:d 按日期排序",
+      "dir *.txt 支持通配符过滤；dir 不加参数显示当前目录内容"
+    ],
+    "usage": "dir [盘符:路径] [/b] [/s] [/a] [/w] [/o] —— 路径使用反斜杠，支持 * 和 ? 通配符",
+    "example": "dir C:\\Windows /b\n:: 仅列出 Windows 目录下的文件名，不含附加信息\ndir *.txt /s\n:: 递归查找当前目录及所有子目录中的 txt 文件"
+  },
+  {
+    "abbr": "cd",
+    "full": "-",
+    "zh": "切换当前目录",
+    "category": "Windows 命令",
+    "definition": "显示或更改命令提示符的当前工作目录，Windows 版使用盘符加反斜杠的路径格式。",
+    "points": [
+      "cd /d D:\\tools 跨盘符切换目录时必须加 /d 参数",
+      "cd .. 返回上一级目录；cd\\ 直接回到当前盘的根目录",
+      "cd 不带参数时显示当前目录路径",
+      "cd D: 只切换盘符，不改变该盘的工作目录，与 Linux 的 cd 行为不同"
+    ],
+    "usage": "cd [/d] [路径] —— /d 允许跨驱动器切换，.. 表示上级目录，cd 单独执行显示当前目录",
+    "example": "cd /d D:\\projects\\web\n:: 切换到 D 盘的 web 项目目录（跨盘必须加 /d）\ncd ..\n:: 返回上一级目录"
+  },
+  {
+    "abbr": "copy",
+    "full": "-",
+    "zh": "复制文件",
+    "category": "Windows 命令",
+    "definition": "将一个或多个文件从源位置复制到目标位置，是最基本的文件复制命令，不支持递归复制子目录。",
+    "points": [
+      "copy 源文件 目标文件 复制并可选重命名；目标为目录时路径以反斜杠结尾",
+      "copy /y 覆盖目标文件时不询问；/-y 反向，每次覆盖前都确认",
+      "copy 文件1+文件2 目标 可把多个文本文件合并为一个",
+      "copy con 文件名 可从键盘直接输入内容创建文本文件，Ctrl+Z 结束"
+    ],
+    "usage": "copy [/y] 源文件 [目标] —— 支持通配符，如 copy *.txt D:\\backup\\，复制目录树请用 xcopy 或 robocopy",
+    "example": "copy D:\\docs\\a.txt D:\\backup\\a.txt /y\n:: 复制文件到备份目录并覆盖同名文件\ncopy C:\\data\\*.log D:\\logs\\\n:: 通配符复制所有 log 文件，目标目录以反斜杠结尾"
+  },
+  {
+    "abbr": "xcopy",
+    "full": "-",
+    "zh": "复制文件与目录树",
+    "category": "Windows 命令",
+    "definition": "复制文件并递归复制子目录，支持更多控制选项，是 copy 的增强版（新脚本建议改用 robocopy）。",
+    "points": [
+      "xcopy /e 复制所有子目录（包括空目录）；/s 只复制非空子目录",
+      "xcopy /y 覆盖时不提示；/i 目标为目录时假定目标是目录",
+      "xcopy /h 复制隐藏和系统文件；/d 只复制源中比目标新的文件",
+      "xcopy 对超长路径（255 字符以上）支持不佳，此类场景应使用 robocopy"
+    ],
+    "usage": "xcopy 源 目标 [/s] [/e] [/y] [/h] [/d] —— 源或目标为目录时需以反斜杠结尾或用 /i 指定",
+    "example": "xcopy D:\\site D:\\site_bak /e /i /y\n:: 递归复制整个目录树（含空目录）并静默覆盖\nxcopy C:\\docs D:\\bak /d /y\n:: 只复制比目标更新的文件，适合做增量备份"
+  },
+  {
+    "abbr": "robocopy",
+    "full": "-",
+    "zh": "高级文件复制",
+    "category": "Windows 命令",
+    "definition": "功能强大的文件复制命令，支持多线程、镜像备份、断点续传和详细日志，是 xcopy 的现代替代品。",
+    "points": [
+      "robocopy 源 目标 /mir 镜像复制：使目标与源完全一致（会删除目标中多余的文件）",
+      "/mt:16 指定多线程数，大幅提升大目录复制速度",
+      "/log:文件 将日志写入文件；/np 不显示复制进度百分比",
+      "robocopy 退出码 0-7 表示成功或有跳过文件，8 及以上才是错误，批处理判断时需注意"
+    ],
+    "usage": "robocopy 源 目标 [文件] [/mir] [/mt:n] [/log:文件] [/np] —— 目录名后不加反斜杠",
+    "example": "robocopy D:\\data E:\\backup /mir /mt:8\n:: 镜像备份，目标与源完全一致（目标多余文件会被删除）\nrobocopy D:\\data E:\\backup /e /xo /log:bak.log\n:: 增量复制排除旧文件，日志写入 bak.log"
+  },
+  {
+    "abbr": "move",
+    "full": "-",
+    "zh": "移动或重命名文件",
+    "category": "Windows 命令",
+    "definition": "将文件或目录从一个位置移动到另一个位置，也可用于在同一目录内重命名文件或目录。",
+    "points": [
+      "move 源 目标 移动文件；目标写为新文件名时相当于重命名",
+      "move /y 覆盖目标文件时不提示确认",
+      "move 支持移动目录，如 move D:\\old D:\\new",
+      "跨盘符移动实际是复制后删除，大文件耗时较长"
+    ],
+    "usage": "move [/y] 源文件 目标 —— 支持通配符，目标为目录时以反斜杠结尾",
+    "example": "move D:\\temp\\file.txt D:\\archive\\\n:: 把文件移动到归档目录\nmove report.txt report_old.txt\n:: 在同一目录中重命名文件"
+  },
+  {
+    "abbr": "del",
+    "full": "-",
+    "zh": "删除文件",
+    "category": "Windows 命令",
+    "definition": "删除一个或多个文件，CMD 中删除的文件不经过回收站，属永久删除，需谨慎使用。",
+    "points": [
+      "del /q 静默删除，不逐一询问确认",
+      "del /s 删除所有子目录中的匹配文件；/f 强制删除只读文件",
+      "del /a:h 只删除具有隐藏属性的文件",
+      "注意：CMD 的 del 是永久删除（不进回收站），通配符使用前务必确认"
+    ],
+    "usage": "del [/f] [/q] [/s] [/a:属性] 文件 —— 支持 * 和 ? 通配符",
+    "example": "del /f /q C:\\temp\\*.tmp\n:: 强制静默删除 temp 下的临时文件（不进回收站）\ndel /s /q D:\\cache\\*.bak\n:: 递归删除所有子目录中的 bak 文件"
+  },
+  {
+    "abbr": "ren",
+    "full": "-",
+    "zh": "重命名文件或目录",
+    "category": "Windows 命令",
+    "definition": "重命名一个或多个文件或目录，只能改名称不能改变位置，不能跨盘符操作。",
+    "points": [
+      "ren 旧名 新名 只改名称不改路径；也支持 ren 目录名 新目录名",
+      "ren *.txt *.bak 可用通配符批量修改扩展名",
+      "目标名称已存在时报错，不会自动覆盖",
+      "需要移动位置时用 move，ren 不支持跨目录或跨盘符"
+    ],
+    "usage": "ren [盘符:路径]旧名 新名 —— 新名只写名称不要带路径，支持通配符",
+    "example": "ren report.txt report_2026.txt\n:: 重命名单个文件\nren *.log *.txt\n:: 批量把扩展名从 log 改为 txt"
+  },
+  {
+    "abbr": "mkdir",
+    "full": "-",
+    "zh": "创建目录",
+    "category": "Windows 命令",
+    "definition": "创建新目录，可一次创建多级嵌套目录，是 md 的完整写法。",
+    "points": [
+      "mkdir D:\\a\\b\\c 一次创建多级目录，Windows 会自动创建中间目录（无需 /p 参数）",
+      "mkdir \"D:\\my folder\" 路径含空格时必须用英文双引号括起来",
+      "目录已存在时提示\"子目录或文件已经存在\"，不影响后续命令",
+      "mkdir 可简写为 md"
+    ],
+    "usage": "mkdir 路径 —— 可一次创建多级目录，如 mkdir a\\b\\c",
+    "example": "mkdir D:\\projects\\myapp\\src\n:: 一次创建多级目录结构\nmkdir \"C:\\Program Files\\My Tools\"\n:: 路径含空格时用引号包裹"
+  },
+  {
+    "abbr": "rmdir",
+    "full": "-",
+    "zh": "删除目录",
+    "category": "Windows 命令",
+    "definition": "删除目录，配合参数可递归删除整个目录树，是 rd 的完整写法。",
+    "points": [
+      "rmdir /s /q 目录 递归删除目录及其所有内容且不确认（相当于 Linux 的 rm -rf）",
+      "不带 /s 时只能删除空目录，目录非空会报错",
+      "/q 静默模式，与 /s 连用跳过删除确认提示",
+      "删除后文件不进回收站、无法恢复，使用前务必确认路径"
+    ],
+    "usage": "rmdir [/s] [/q] 目录 —— /s 递归删除非空目录，/q 静默不询问",
+    "example": "rmdir D:\\old_temp\\sub\n:: 删除空目录 sub\nrmdir /s /q D:\\old_temp\n:: 递归删除整个目录树且不提示（不可恢复，慎用）"
+  },
+  {
+    "abbr": "type",
+    "full": "-",
+    "zh": "显示文本文件内容",
+    "category": "Windows 命令",
+    "definition": "在命令提示符中显示文本文件的完整内容，相当于 Linux 的 cat 命令。",
+    "points": [
+      "type 文件.txt 直接显示文件内容；文件较长时可接 more 分页查看",
+      "type 文件 > out.txt 可把内容重定向保存到新文件",
+      "type 不支持通配符，一次只能查看一个文件",
+      "type 只适合文本文件，查看二进制文件会显示乱码"
+    ],
+    "usage": "type [盘符:路径]文件名 —— 不支持通配符，常配合 more、findstr 使用",
+    "example": "type C:\\Users\\admin\\config.ini\n:: 显示配置文件内容\ntype readme.txt | findstr TODO\n:: 在文件内容中查找包含 TODO 的行"
+  },
+  {
+    "abbr": "find",
+    "full": "-",
+    "zh": "查找文件中的字符串",
+    "category": "Windows 命令",
+    "definition": "在文件或命令输出中搜索包含指定字符串的行，相当于 Linux grep 的简化版，适合简单过滤。",
+    "points": [
+      "find \"abc\" 文件.txt 区分大小写查找；/i 忽略大小写",
+      "find /v \"abc\" 文件.txt 显示不包含指定字符串的行（反向匹配）",
+      "find /c \"abc\" 文件.txt 只统计匹配的行数",
+      "搜索内容含空格或特殊字符时务必用英文双引号包裹"
+    ],
+    "usage": "find [/v] [/c] [/i] \"字符串\" [文件] —— 不带文件时从标准输入读取，可接管道",
+    "example": "netstat -ano | find \"8080\"\n:: 在 netstat 输出中查找端口 8080 相关的行\nfind /i \"error\" app.log\n:: 忽略大小写查找日志中的 error"
+  },
+  {
+    "abbr": "findstr",
+    "full": "-",
+    "zh": "高级字符串搜索",
+    "category": "Windows 命令",
+    "definition": "在文件或命令输出中使用正则表达式搜索字符串，是 find 的增强版，功能接近 Linux 的 grep。",
+    "points": [
+      "findstr /i \"abc\" 文件 忽略大小写搜索",
+      "findstr /r 启用正则表达式；findstr /c:\"多 词\" 把整串当作字面量精确匹配",
+      "findstr /s 递归搜索子目录；/m 只列出包含匹配内容的文件名",
+      "findstr 支持部分正则语法，元字符转义规则与 grep 不完全相同"
+    ],
+    "usage": "findstr [/i] [/r] [/s] [/m] [/c:字符串] \"模式\" 文件列表 —— 支持多文件与管道输入",
+    "example": "tasklist | findstr /i chrome\n:: 查找所有 chrome 相关进程\nfindstr /s /i \"TODO\" D:\\src\\*.cpp\n:: 递归搜索源码目录中所有含 TODO 的 cpp 文件"
+  },
+  {
+    "abbr": "sort",
+    "full": "-",
+    "zh": "文本排序",
+    "category": "Windows 命令",
+    "definition": "读取输入并对文本行按字母顺序排序后输出，可处理文件内容或管道数据。",
+    "points": [
+      "sort 文件.txt 按字母升序排序；/r 参数降序排序",
+      "sort /+n 从每行的第 n 列开始排序",
+      "sort 默认不区分大小写，排序规则与系统区域设置相关",
+      "中文按当前代码页排序，结果可能与预期顺序不同"
+    ],
+    "usage": "sort [/r] [/+n] [文件] —— 不带文件时从键盘或管道读取，Ctrl+Z 结束输入",
+    "example": "dir /b | sort\n:: 将文件列表按名称排序输出\nsort /r names.txt\n:: 对文件内容进行降序排序"
+  },
+  {
+    "abbr": "fc",
+    "full": "-",
+    "zh": "文件比较",
+    "category": "Windows 命令",
+    "definition": "比较两个文件的内容差异并显示不同之处，支持文本与二进制两种比较模式。",
+    "points": [
+      "fc 文件1 文件2 按文本模式逐行比较并显示差异段落",
+      "fc /b 以二进制模式逐字节比较，适合程序文件",
+      "fc /n 显示差异时带行号；/c 忽略大小写差异",
+      "fc 文件1 文件2 > diff.txt 可把差异结果保存到文件"
+    ],
+    "usage": "fc [/b] [/n] [/c] 文件1 文件2 —— 默认文本比较，/b 切换为二进制逐字节比较",
+    "example": "fc old.txt new.txt\n:: 比较两个文本文件并显示差异\nfc /b a.dll b.dll\n:: 二进制逐字节比较两个文件是否相同"
+  },
+  {
+    "abbr": "where",
+    "full": "-",
+    "zh": "查找程序位置",
+    "category": "Windows 命令",
+    "definition": "在 PATH 环境变量指定的目录及当前目录中搜索并显示匹配的可执行文件完整路径。",
+    "points": [
+      "where notepad 显示 PATH 中找到的 notepad.exe 完整路径",
+      "where /r C:\\Windows *.dll 递归搜索指定目录下的匹配文件",
+      "where /q 静默模式，找到时返回 0 退出码，适合批处理判断",
+      "where 命令 可查看某命令本身所在的目录"
+    ],
+    "usage": "where [/r 目录] [/q] 文件模式 —— 默认在 PATH 中查找，支持通配符",
+    "example": "where python\n:: 显示 python.exe 在 PATH 中的完整路径\nwhere /r C:\\tools *.exe\n:: 递归查找 C:\\tools 下所有 exe 文件"
+  },
+  {
+    "abbr": "start",
+    "full": "-",
+    "zh": "启动程序或命令",
+    "category": "Windows 命令",
+    "definition": "在单独的窗口中启动程序或命令，也可用默认关联程序打开文件或网址，且不会阻塞当前 CMD。",
+    "points": [
+      "start 文件名 用默认关联程序打开；start http://网址 启动默认浏览器",
+      "路径含空格时格式为 start \"\" \"C:\\Program Files\\...\"，首个引号内是窗口标题",
+      "start /min 最小化运行；/b 不创建新窗口",
+      "start /wait 等待启动的程序结束后才返回命令提示符"
+    ],
+    "usage": "start [\"标题\"] [/min] [/wait] 程序或文件 —— 常用 start 程序名 或 start 文件路径",
+    "example": "start notepad D:\\notes.txt\n:: 用记事本打开文件（CMD 不等待，立即返回）\nstart \"\" \"D:\\My App\\app.exe\"\n:: 启动路径含空格的程序，首个引号是窗口标题"
+  },
+  {
+    "abbr": "set",
+    "full": "-",
+    "zh": "设置环境变量",
+    "category": "Windows 命令",
+    "definition": "显示、设置或删除当前 CMD 会话中的环境变量，只对当前窗口及其启动的子进程生效。",
+    "points": [
+      "set 变量名=值 设置变量（等号两边不要加空格）；set 变量名= 删除变量",
+      "set 单独执行显示所有环境变量；set 前缀 显示以该前缀开头的变量",
+      "使用 %变量名% 引用变量值，变量名不区分大小写",
+      "set /a 支持算术运算（如 set /a n=1+2）；set /p 可交互读取用户输入"
+    ],
+    "usage": "set [变量名=值] —— 无参数列出全部变量，set 名= 删除变量，引用时用 %名%",
+    "example": "set APP_HOME=D:\\apps\\myapp\n:: 在当前 CMD 窗口设置变量 APP_HOME\necho %APP_HOME%\n:: 引用变量值输出 D:\\apps\\myapp"
+  },
+  {
+    "abbr": "setx",
+    "full": "-",
+    "zh": "永久设置环境变量",
+    "category": "Windows 命令",
+    "definition": "将环境变量永久写入用户或系统级注册表，之后新开的所有窗口都生效（当前窗口不生效）。",
+    "points": [
+      "setx 变量 值 写入用户级环境变量；加 /M 写入系统级（需管理员权限）",
+      "setx 修改的是注册表，当前 CMD 窗口不会立即生效，需重新打开窗口",
+      "setx PATH \"%PATH%;C:\\new\" 追加路径时展开的是当前 PATH 值，注意引用方式",
+      "setx 写入超过 1024 字符的值会被截断，追加系统 PATH 时建议先保存原值"
+    ],
+    "usage": "setx 变量名 \"值\" [/M] —— 无 /M 写入当前用户，加 /M 写入系统（需管理员身份）",
+    "example": "setx JAVA_HOME \"D:\\jdk-17\"\n:: 永久设置 JAVA_HOME（新开窗口生效）\nsetx PATH \"%PATH%;D:\\tools\" /M\n:: 管理员权限下把目录追加到系统 PATH"
+  },
+  {
+    "abbr": "reg",
+    "full": "-",
+    "zh": "注册表操作",
+    "category": "Windows 命令",
+    "definition": "在命令行中查询、添加、修改、删除 Windows 注册表项和值，支持导入导出备份，便于脚本化配置。",
+    "points": [
+      "reg query 键路径 查询注册表；reg add 键路径 /v 值名 /d 数据 /f 添加或修改",
+      "reg delete 键路径 /f 删除项（/f 表示不确认）；reg /? 查看全部子命令",
+      "reg export 键 文件.reg 导出备份；reg import 文件.reg 导入恢复",
+      "操作 HKCU 当前用户项无需管理员，操作 HKLM 系统项通常需要管理员权限"
+    ],
+    "usage": "reg [query|add|delete|export|import] 参数 —— 根键写法：HKLM、HKCU、HKCR、HKU、HKCC",
+    "example": "reg query HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run\n:: 查询开机自启动项列表\nreg add HKCU\\Software\\MyApp /v Version /t REG_SZ /d \"1.0\" /f\n:: 在 HKCU 下创建 MyApp 项的 Version 值"
+  },
+  {
+    "abbr": "sc",
+    "full": "-",
+    "zh": "服务控制",
+    "category": "Windows 命令",
+    "definition": "与服务控制管理器通信，用于创建、查询、启动、停止和配置 Windows 服务，功能比 net start 更完整。",
+    "points": [
+      "sc query 服务名 查看服务状态；sc query 不带参数列出所有服务",
+      "sc start 服务名 / sc stop 服务名 启动或停止服务（需管理员权限）",
+      "sc config 服务名 start= auto 修改启动类型（注意 start= 后要加空格）",
+      "sc create 服务名 binPath= \"程序路径\" 可创建自定义服务"
+    ],
+    "usage": "sc [query|start|stop|config|create|delete] 服务名 [选项] —— 管理操作需以管理员身份运行",
+    "example": "sc query spooler\n:: 查看打印服务 spooler 的状态\nsc stop spooler & sc config spooler start= disabled\n:: 停止打印服务并禁用其自动启动"
+  },
+  {
+    "abbr": "shutdown",
+    "full": "-",
+    "zh": "关机或重启",
+    "category": "Windows 命令",
+    "definition": "关机、重启、注销或休眠本地及远程计算机，支持设置定时关机与取消计划关机。",
+    "points": [
+      "shutdown /s /t 60 表示 60 秒后关机；/r 重启；/l 注销",
+      "shutdown /a 取消已计划的关机任务",
+      "shutdown /s /t 0 立即关机；/f 强制关闭正在运行的程序",
+      "shutdown /m \\\\电脑名 远程关机（需相应权限）；/r /o 重启到高级启动选项"
+    ],
+    "usage": "shutdown [/s|/r|/l|/a] [/t 秒] [/f] [/m \\\\计算机] —— 不带参数显示帮助",
+    "example": "shutdown /s /t 300\n:: 5 分钟后自动关机\nshutdown /a\n:: 取消已计划的定时关机任务（关机前执行）"
+  },
+  {
+    "abbr": "systeminfo",
+    "full": "-",
+    "zh": "系统详细信息",
+    "category": "Windows 命令",
+    "definition": "显示计算机的完整系统信息，包括操作系统版本、硬件配置、内存、网卡、BIOS 及已安装补丁情况。",
+    "points": [
+      "systeminfo 输出含 OS 版本、主机名、内存总量、BIOS 信息、网卡和补丁列表",
+      "systeminfo /s 远程电脑 查询远程系统信息（需权限）",
+      "systeminfo /fo csv 以 CSV 格式输出，便于导入表格",
+      "输出较长，可用 systeminfo | findstr /i \"OS 名称\" 过滤关键信息"
+    ],
+    "usage": "systeminfo [/s 计算机] [/fo 格式] —— 常用 systeminfo 直接查看本机完整信息",
+    "example": "systeminfo | findstr /i \"OS 名称 系统型号 总物理内存\"\n:: 只显示系统版本、机型与内存信息\nsysteminfo /fo csv > info.csv\n:: 导出 CSV 格式的系统信息"
+  },
+  {
+    "abbr": "driverquery",
+    "full": "-",
+    "zh": "驱动程序列表",
+    "category": "Windows 命令",
+    "definition": "显示系统中已安装的设备驱动程序列表，包括驱动名称、类型、状态及链接日期。",
+    "points": [
+      "driverquery 列出全部驱动程序；/v 显示驱动版本等详细信息",
+      "driverquery /fo csv 以 CSV 格式输出便于分析",
+      "driverquery /si 显示驱动签名信息，可检查未签名的驱动",
+      "driverquery 只用于查看，安装或删除驱动请用 pnputil"
+    ],
+    "usage": "driverquery [/v] [/fo 格式] [/si] —— 无参数显示驱动列表，/v 显示版本等详情",
+    "example": "driverquery /v /fo csv\n:: 以 CSV 格式导出驱动详细信息\ndriverquery | findstr /i display\n:: 筛选显示适配器相关驱动"
+  },
+  {
+    "abbr": "sfc",
+    "full": "-",
+    "zh": "系统文件检查",
+    "category": "Windows 命令",
+    "definition": "扫描并修复 Windows 系统文件的完整性，检测被篡改或损坏的受保护系统文件并尝试恢复。",
+    "points": [
+      "sfc /scannow 立即扫描所有受保护的系统文件并自动修复（需管理员权限）",
+      "sfc /verifyonly 只检查不修复，先确认系统文件是否完好",
+      "sfc /scanfile=文件名 单独扫描指定文件",
+      "修复失败时可先运行 DISM /Online /Cleanup-Image /RestoreHealth 再重试"
+    ],
+    "usage": "sfc [/scannow] [/verifyonly] [/scanfile=文件] —— 需以管理员身份运行命令提示符",
+    "example": "sfc /scannow\n:: 扫描全部系统文件并自动修复（管理员窗口运行，耗时较长）\nsfc /verifyonly\n:: 仅检查系统文件完整性，不做修复"
+  },
+  {
+    "abbr": "chkdsk",
+    "full": "-",
+    "zh": "磁盘检查",
+    "category": "Windows 命令",
+    "definition": "检查磁盘的文件系统错误和坏扇区并尝试修复，是磁盘体检与故障排查的常用命令。",
+    "points": [
+      "chkdsk C: 检查 C 盘；chkdsk /f 修复发现的文件系统错误",
+      "chkdsk /r 查找坏扇区并恢复可读信息（已包含 /f 的功能）",
+      "检查系统盘（如 C:）时提示\"计划下次重启时检查\"，选 Y 后重启时执行",
+      "chkdsk /scan 在线扫描（Win10 及以上），无需重启即可出结果"
+    ],
+    "usage": "chkdsk [盘符:] [/f] [/r] [/scan] —— /f 修复错误，/r 检查坏扇区，均需管理员权限",
+    "example": "chkdsk D: /f\n:: 检查并修复 D 盘的文件系统错误\nchkdsk C: /scan\n:: 在线扫描 C 盘，无需重启即可出结果"
+  },
+  {
+    "abbr": "diskpart",
+    "full": "-",
+    "zh": "磁盘分区工具",
+    "category": "Windows 命令",
+    "definition": "进入交互式磁盘分区环境，可创建、删除、格式化分区，管理磁盘、卷和虚拟磁盘。",
+    "points": [
+      "diskpart 进入交互模式；list disk 查看磁盘列表，select disk 0 选择目标磁盘",
+      "clean 清除整个磁盘的所有分区和数据（危险操作，不可恢复）",
+      "create partition primary 创建主分区；format fs=ntfs quick 快速格式化",
+      "exit 退出 diskpart；所有操作需管理员权限，操作前务必确认磁盘编号"
+    ],
+    "usage": "diskpart —— 交互式命令，常用子命令：list disk、select disk、create partition、format、exit",
+    "example": "diskpart\n:: 进入磁盘分区交互环境（需管理员身份）\nlist disk\n:: 列出所有磁盘，确认要操作的磁盘编号"
+  },
+  {
+    "abbr": "tree",
+    "full": "-",
+    "zh": "显示目录树",
+    "category": "Windows 命令",
+    "definition": "以树状图形显示指定路径下的目录结构，可包含文件，直观展示目录的层级关系。",
+    "points": [
+      "tree 显示当前目录的目录树；tree D:\\projects 指定起始目录",
+      "tree /f 同时显示目录中的文件；/a 用 ASCII 字符替代图形线符",
+      "输出较长时可用 tree /f | more 分页查看",
+      "tree /f > structure.txt 可把目录树保存到文本文件"
+    ],
+    "usage": "tree [路径] [/f] [/a] —— /f 显示文件，/a 使用 ASCII 线符输出",
+    "example": "tree D:\\myapp /f\n:: 显示 myapp 目录的完整目录树（含文件）\ntree /a C:\\docs\n:: 用 ASCII 字符显示 C:\\docs 的目录结构"
+  },
+  {
+    "abbr": "ver",
+    "full": "-",
+    "zh": "显示系统版本",
+    "category": "Windows 命令",
+    "definition": "显示当前 Windows 操作系统的版本号，是 CMD 中最简单的命令之一。",
+    "points": [
+      "ver 输出形如\"Microsoft Windows [版本 10.0.19045.xxxx]\"",
+      "批处理中可解析 ver 输出判断系统版本，或用 %errorlevel% 配合判断",
+      "Windows 11 的 ver 显示的仍是 10.0.x 内核版本号",
+      "需要更详细的版本信息用 systeminfo 或 winver"
+    ],
+    "usage": "ver —— 无参数，直接输出 Windows 版本号",
+    "example": "ver\n:: 显示 Windows 版本号，如 10.0.22631\n:: 查看具体版本分支建议用 systeminfo"
+  },
+  {
+    "abbr": "cls",
+    "full": "-",
+    "zh": "清空屏幕",
+    "category": "Windows 命令",
+    "definition": "清除命令提示符窗口中的所有显示内容，并把光标移到窗口左上角，相当于 Linux 的 clear。",
+    "points": [
+      "cls 清除屏幕上的历史输出，命令历史仍保留，上下键可翻看",
+      "批处理中常配合 echo 制作简洁的菜单界面",
+      "cls 无参数无开关",
+      "仅清除当前窗口显示，不影响已执行命令的结果文件"
+    ],
+    "usage": "cls —— 无参数，直接清空屏幕",
+    "example": "cls\n:: 清空窗口中的所有历史输出\n:: 批处理中常用于菜单刷新前的清屏"
+  },
+  {
+    "abbr": "echo",
+    "full": "-",
+    "zh": "输出文本",
+    "category": "Windows 命令",
+    "definition": "在命令提示符窗口显示文本信息，或控制批处理中命令回显的开关状态。",
+    "points": [
+      "echo 文本 显示文本；echo. 输出一个空行",
+      "echo on / echo off 控制是否回显命令本身，批处理首行常用 @echo off",
+      "echo %变量% 显示变量值；echo 文本 > 文件 可快速创建文本文件",
+      "echo 文本中含 & | < > 等特殊字符时需用引号包裹或转义"
+    ],
+    "usage": "echo [on|off|文本] —— echo 文本 显示信息，@echo off 关闭命令回显",
+    "example": "echo 系统检查完成\n:: 输出一行提示文本\necho %DATE% %TIME% > log.txt\n:: 把当前日期时间写入 log.txt"
+  },
+  {
+    "abbr": "exit",
+    "full": "-",
+    "zh": "退出命令提示符",
+    "category": "Windows 命令",
+    "definition": "退出当前命令提示符窗口或批处理脚本，并可返回指定的退出代码供调用方判断。",
+    "points": [
+      "exit 关闭当前 CMD 窗口；exit /b 只退出批处理脚本而不关闭窗口",
+      "exit 数字 设置退出代码，批处理中可用 %errorlevel% 读取",
+      "exit /b 1 常用于错误处理，返回非 0 表示失败",
+      "批处理结尾加 exit /b 可防止脚本结束后窗口意外关闭"
+    ],
+    "usage": "exit [/b] [退出码] —— /b 退出当前批处理，不带 /b 关闭整个 CMD 窗口",
+    "example": "exit /b 0\n:: 退出批处理脚本并返回成功代码 0\n:: 配合 if errorlevel 判断脚本执行结果"
+  },
+  {
+    "abbr": "pause",
+    "full": "-",
+    "zh": "暂停执行",
+    "category": "Windows 命令",
+    "definition": "暂停批处理或命令的执行，显示\"请按任意键继续...\"，等待用户按键后继续运行。",
+    "points": [
+      "pause 在批处理中常用于让窗口停留在结果画面，防止闪退",
+      "pause > nul 暂停但不显示提示文字",
+      "按 Ctrl+C 可中断批处理而不是继续执行",
+      "可先用 echo 输出自定义说明，再配合 pause 暂停"
+    ],
+    "usage": "pause —— 无参数，显示\"请按任意键继续...\"并等待按键",
+    "example": "echo 处理完成！\npause\n:: 显示提示后暂停，按任意键继续\n:: 批处理结尾常用，避免窗口一闪而过"
+  },
+  {
+    "abbr": "hostname",
+    "full": "-",
+    "zh": "显示计算机名",
+    "category": "Windows 命令",
+    "definition": "显示当前计算机的主机名（NetBIOS 名称），与系统设置中的计算机名一致。",
+    "points": [
+      "hostname 直接输出计算机名称，批处理中常用于记录机器身份",
+      "可用 for /f 把主机名存入变量，如 for /f %i in ('hostname') do set PC=%i",
+      "hostname 显示的名称即\"此电脑\"属性中的设备名称",
+      "查询远程计算机名可用 nbtstat -a IP 地址"
+    ],
+    "usage": "hostname —— 无参数，直接输出当前计算机名",
+    "example": "hostname\n:: 显示本机计算机名\nfor /f %i in ('hostname') do echo 本机: %i\n:: 在 CMD 交互中把主机名存入变量并输出"
+  },
+  {
+    "abbr": "getmac",
+    "full": "-",
+    "zh": "显示 MAC 地址",
+    "category": "Windows 命令",
+    "definition": "显示本机所有网络适配器的物理地址（MAC 地址）及对应的连接名称。",
+    "points": [
+      "getmac 显示各网卡的 MAC 地址与传输名称",
+      "getmac /v 显示详细连接名称；/fo csv 以 CSV 格式输出",
+      "getmac /s 远程电脑 查询远程主机 MAC 地址（需相应权限）",
+      "MAC 地址格式为 6 组十六进制数字，形如 AA-BB-CC-DD-EE-FF"
+    ],
+    "usage": "getmac [/v] [/fo 格式] [/s 计算机] —— 无参数显示本机各网卡 MAC 地址",
+    "example": "getmac\n:: 显示本机所有网卡的 MAC 地址\ngetmac /v /fo csv\n:: 以 CSV 格式输出含详细连接名称的 MAC 列表"
+  },
+  {
+    "abbr": "route",
+    "full": "-",
+    "zh": "路由表管理",
+    "category": "Windows 命令",
+    "definition": "查看和修改本机的 IP 路由表，可添加、删除静态路由或更改默认网关。",
+    "points": [
+      "route print 显示 IPv4/IPv6 路由表；route print -4 只看 IPv4 部分",
+      "route add 目标 mask 掩码 网关 添加静态路由，如 route add 10.0.0.0 mask 255.0.0.0 192.168.1.1",
+      "route delete 目标 删除指定路由；/p 参数使添加的路由永久生效（重启不丢失）",
+      "添加或删除路由需管理员权限；可配合 findstr 过滤查看"
+    ],
+    "usage": "route [print|add|delete|change] 参数 —— 常用 route print 查看，route add -p 添加永久路由",
+    "example": "route print\n:: 查看本机完整路由表\nroute add 10.20.0.0 mask 255.255.0.0 192.168.1.1 -p\n:: 添加永久静态路由，重启后仍然有效"
+  },
+  {
+    "abbr": "netsh",
+    "full": "-",
+    "zh": "网络配置工具",
+    "category": "Windows 命令",
+    "definition": "功能强大的网络命令行工具，可配置网络接口、WLAN、防火墙、代理及 TCP/IP 参数，支持交互模式与脚本化执行。",
+    "points": [
+      "netsh interface ip show config 查看网络接口的 IP 配置",
+      "netsh wlan show profiles 列出保存过的 WiFi；show profile 名称 key=clear 可查看明文密码",
+      "netsh interface portproxy add v4tov4 可配置端口转发规则",
+      "直接输入 netsh 回车进入交互模式，也可把命令写入脚本批量执行"
+    ],
+    "usage": "netsh 上下文 命令 —— 常见上下文：interface、wlan、firewall、advfirewall、winhttp",
+    "example": "netsh wlan show profiles\n:: 列出本机保存过的 WiFi 名称\nnetsh wlan show profile name=\"MyWiFi\" key=clear\n:: 查看指定 WiFi 的明文密码（key=clear）"
+  },
+  {
+    "abbr": "Get-Command",
+    "full": "-",
+    "zh": "获取命令",
+    "category": "Windows 命令",
+    "definition": "获取当前会话中所有可用命令（cmdlet、函数、别名、外部程序）及其相关信息的 cmdlet。",
+    "points": [
+      "Get-Command -Name *service* 可按名称通配符筛选，-CommandType 限定命令类型（Cmdlet/Function/Alias）",
+      "返回的 CommandInfo 对象可用管道传给 Get-Help 查看详细帮助",
+      "不带参数运行会列出会话中所有命令，与 bash 的 compgen -c 作用类似"
+    ],
+    "usage": "Get-Command [-Name] <名称或通配符> [-CommandType Cmdlet|Function|Alias|ExternalScript] [-Module <模块名>] [-All]；常用 -Name 指定名称，-All 显示同名命令的全部版本。",
+    "example": "Get-Command -Name Get-* | Select-Object Name, CommandType  # 查看所有 Get- 开头的命令\nGet-Command -CommandType Alias  # 列出当前会话全部别名"
+  },
+  {
+    "abbr": "Get-Help",
+    "full": "-",
+    "zh": "查看帮助",
+    "category": "Windows 命令",
+    "definition": "显示 PowerShell 命令、概念或脚本的详细帮助文档。",
+    "points": [
+      "Get-Help Get-Process -Examples 只显示示例，-Detailed 显示参数详细说明",
+      "支持通配符（如 Get-Help *service*），-Online 在浏览器中打开在线帮助",
+      "帮助来自模块自带文件，先运行 Update-Help 可下载最新版中文帮助"
+    ],
+    "usage": "Get-Help [[-Name] <命令名>] [-Full | -Detailed | -Examples | -Online] [-Parameter <参数名>]；-Full 显示完整帮助，包括每个参数的详细说明。",
+    "example": "Get-Help Get-Process -Examples  # 查看 Get-Process 的使用示例\nGet-Help Where-Object -Parameter Property  # 只查看 Property 参数的说明"
+  },
+  {
+    "abbr": "Get-Process",
+    "full": "-",
+    "zh": "获取进程",
+    "category": "Windows 命令",
+    "definition": "获取本地或远程计算机上正在运行的进程及其属性信息。",
+    "points": [
+      "Get-Process -Name explorer 按进程名获取，-Id 按 PID 获取，可同时指定多个名称",
+      "结果可管道传给 Stop-Process 直接结束，或用 Select-Object 提取 CPU、内存等属性",
+      "相当于 Linux 的 ps 与 pgrep 组合，无参数时列出全部进程"
+    ],
+    "usage": "Get-Process [[-Name] <进程名>] [[-Id] <PID>] [-IncludeUserName] [-FileVersionInfo]；无参数列出所有进程，-Name 支持通配符筛选。",
+    "example": "Get-Process -Name explorer  # 获取资源管理器进程信息\nGet-Process | Sort-Object CPU -Descending | Select-Object -First 5  # 查看 CPU 占用最高的 5 个进程"
+  },
+  {
+    "abbr": "Stop-Process",
+    "full": "-",
+    "zh": "停止进程",
+    "category": "Windows 命令",
+    "definition": "强制结束一个或多个正在运行的进程。",
+    "points": [
+      "Stop-Process -Name notepad -Force 按名称结束进程，-Force 可结束只读进程且不确认",
+      "可接收 Get-Process 管道输出，如 Get-Process notepad | Stop-Process",
+      "对应 Linux 的 kill；结束无权限的进程需要以管理员身份运行"
+    ],
+    "usage": "Stop-Process [-Id] <PID> | [-Name] <进程名> [-Force] [-WhatIf]；必须提供 -Id 或 -Name 之一，-WhatIf 只预览将结束的进程而不执行。",
+    "example": "Stop-Process -Name notepad -Force  # 强制结束所有记事本进程\nGet-Process -Id 1234 | Stop-Process  # 通过管道按 PID 结束进程"
+  },
+  {
+    "abbr": "Get-Service",
+    "full": "-",
+    "zh": "获取服务",
+    "category": "Windows 命令",
+    "definition": "获取本地或远程计算机上的 Windows 服务及其运行状态信息。",
+    "points": [
+      "Get-Service -Name spooler 按服务名获取，支持通配符如 Get-Service -Name *sql*",
+      "常配合 Where-Object 过滤，如 Get-Service | Where-Object Status -eq 'Running'",
+      "相当于 services.msc 图形界面和 sc query，-ComputerName 可查询远程计算机"
+    ],
+    "usage": "Get-Service [[-Name] <服务名>] [-Status Running|Stopped] [-ComputerName <主机名>]；无参数列出所有服务，-Include 可一并返回依赖服务。",
+    "example": "Get-Service -Name spooler  # 查看打印服务状态\nGet-Service | Where-Object Status -eq 'Running'  # 只列出正在运行的服务"
+  },
+  {
+    "abbr": "Start-Service",
+    "full": "-",
+    "zh": "启动服务",
+    "category": "Windows 命令",
+    "definition": "启动一个或多个已停止的 Windows 服务。",
+    "points": [
+      "Start-Service -Name wuauserv 按名称启动，服务已运行时输出警告但不报错",
+      "需要目标服务的管理权限，通常以管理员身份运行 PowerShell",
+      "可配合管道使用，如 Get-Service wuauserv | Start-Service -PassThru"
+    ],
+    "usage": "Start-Service [-Name] <服务名> [-PassThru] [-WhatIf]；-PassThru 返回启动后的服务对象，-WhatIf 预览操作不实际执行。",
+    "example": "Start-Service -Name wuauserv  # 启动 Windows 更新服务\nGet-Service -Name wuauserv | Start-Service -PassThru  # 启动服务并返回其状态"
+  },
+  {
+    "abbr": "Stop-Service",
+    "full": "-",
+    "zh": "停止服务",
+    "category": "Windows 命令",
+    "definition": "停止一个或多个正在运行的 Windows 服务。",
+    "points": [
+      "Stop-Service -Name spooler -Force 停止服务及其依赖服务",
+      "停止关键系统服务可能导致系统异常，操作前建议确认依赖关系",
+      "对应 Linux 的 systemctl stop，需要管理员权限"
+    ],
+    "usage": "Stop-Service [-Name] <服务名> [-Force] [-PassThru] [-WhatIf]；-Force 连同依赖服务一起停止，-PassThru 返回停止后的服务对象。",
+    "example": "Stop-Service -Name spooler -Force  # 停止打印服务并处理依赖\nStop-Service -Name wuauserv -WhatIf  # 预览停止操作而不实际执行"
+  },
+  {
+    "abbr": "Restart-Service",
+    "full": "-",
+    "zh": "重启服务",
+    "category": "Windows 命令",
+    "definition": "停止并重新启动一个或多个 Windows 服务。",
+    "points": [
+      "Restart-Service -Name spooler 常用于服务配置修改后使其生效",
+      "服务未运行时也会将其启动，-Force 强制停止依赖服务后重启",
+      "对应 Linux 的 systemctl restart，需要管理员权限"
+    ],
+    "usage": "Restart-Service [-Name] <服务名> [-Force] [-PassThru] [-WhatIf]；-Force 强制重启并处理依赖服务，常用于配置变更后生效。",
+    "example": "Restart-Service -Name spooler  # 重启打印服务使配置生效\nRestart-Service -Name wuauserv -Force  # 强制重启 Windows 更新服务"
+  },
+  {
+    "abbr": "Get-ChildItem",
+    "full": "-",
+    "zh": "获取子项",
+    "category": "Windows 命令",
+    "definition": "获取指定位置的文件和目录等子项列表，相当于 ls 或 dir。",
+    "points": [
+      "Get-ChildItem -Recurse 递归遍历子目录，-Filter *.log 按扩展名过滤且性能更好",
+      "-Force 显示隐藏和系统文件，-Directory / -File 只返回目录或文件",
+      "返回 FileInfo/DirectoryInfo 对象，可管道给 Copy-Item、Remove-Item 继续处理"
+    ],
+    "usage": "Get-ChildItem [[-Path] <路径>] [-Recurse] [-Filter <通配符>] [-Force] [-Directory | -File]；默认列出当前目录，-Name 只输出名称列表。",
+    "example": "Get-ChildItem D:\\logs -Filter *.log -Recurse  # 递归查找 D:\\logs 下所有 .log 文件\nGet-ChildItem -Force  # 列出当前目录包括隐藏文件"
+  },
+  {
+    "abbr": "Copy-Item",
+    "full": "-",
+    "zh": "复制项",
+    "category": "Windows 命令",
+    "definition": "将文件或目录从一处复制到另一处，相当于 cp。",
+    "points": [
+      "Copy-Item a.txt D:\\backup\\ 复制单个文件，复制目录需加 -Recurse",
+      "-Force 覆盖已存在的目标文件，-WhatIf 预览而不实际复制",
+      "支持 -FromSession/-ToSession 跨 PowerShell 远程会话复制文件"
+    ],
+    "usage": "Copy-Item [-Path] <源路径> [-Destination] <目标路径> [-Recurse] [-Force] [-WhatIf]；复制目录时需加 -Recurse 才会包含子目录内容。",
+    "example": "Copy-Item D:\\data\\a.txt D:\\backup\\a.txt -Force  # 复制文件并覆盖已有文件\nCopy-Item D:\\data -Destination D:\\backup -Recurse  # 递归复制整个目录"
+  },
+  {
+    "abbr": "Move-Item",
+    "full": "-",
+    "zh": "移动项",
+    "category": "Windows 命令",
+    "definition": "将文件或目录移动到新位置并可用于重命名，相当于 mv。",
+    "points": [
+      "Move-Item a.txt D:\\backup\\ 移动文件，跨盘符移动时实为复制加删除",
+      "目标写成新文件名即可重命名，如 Move-Item a.txt b.txt",
+      "-Force 覆盖目标已有文件，移动操作不可撤销需谨慎"
+    ],
+    "usage": "Move-Item [-Path] <源路径> [-Destination] <目标路径> [-Force]；目标为不存在的文件名时即重命名，移动目录无需 -Recurse。",
+    "example": "Move-Item D:\\tmp\\a.txt D:\\backup\\  # 移动文件到 backup 目录\nMove-Item D:\\tmp\\a.txt D:\\tmp\\b.txt  # 将文件重命名为 b.txt"
+  },
+  {
+    "abbr": "Remove-Item",
+    "full": "-",
+    "zh": "删除项",
+    "category": "Windows 命令",
+    "definition": "删除文件、目录、注册表项等对象，相当于 rm。",
+    "points": [
+      "Remove-Item a.txt -Force 强制删除，-Force 可删只读文件且不再确认",
+      "删除目录需加 -Recurse -Force 才递归删除全部内容且不提示，务必谨慎",
+      "删除不进回收站，操作前建议先加 -WhatIf 预览要删除的对象"
+    ],
+    "usage": "Remove-Item [-Path] <路径> [-Recurse] [-Force] [-WhatIf]；删除非空目录必须加 -Recurse，-WhatIf 可预览删除结果。",
+    "example": "Remove-Item D:\\tmp\\old.log -WhatIf  # 预览将要删除的文件\nRemove-Item D:\\tmp\\cache -Recurse -Force  # 递归强制删除 cache 目录"
+  },
+  {
+    "abbr": "New-Item",
+    "full": "-",
+    "zh": "新建项",
+    "category": "Windows 命令",
+    "definition": "创建新的文件、目录、注册表项等对象。",
+    "points": [
+      "New-Item -ItemType Directory -Path D:\\newdir 创建目录，-ItemType File 创建空文件",
+      "父目录不存在时会自动创建，相当于 mkdir -p",
+      "等价于 touch 与 mkdir 的组合，-Force 可覆盖同路径已有项"
+    ],
+    "usage": "New-Item [-Path] <路径> [-ItemType File|Directory|Registry] [-Value <内容>] [-Force]；-ItemType 指定对象类型，文件初始内容用 -Value 写入。",
+    "example": "New-Item -ItemType Directory -Path D:\\backup\\2026  # 创建目录\nNew-Item -ItemType File -Path D:\\tmp\\a.txt -Value 'hello'  # 创建文件并写入内容"
+  },
+  {
+    "abbr": "Get-Content",
+    "full": "-",
+    "zh": "获取内容",
+    "category": "Windows 命令",
+    "definition": "读取文件内容并逐行输出，相当于 cat 或 tail。",
+    "points": [
+      "Get-Content -Tail 50 只读文件末尾 50 行，相当于 tail -n 50",
+      "-Wait 可持续跟踪日志文件的新增内容，类似 tail -f",
+      "每行输出为一条字符串，可管道给 Where-Object、Select-String 过滤"
+    ],
+    "usage": "Get-Content [-Path] <文件路径> [-Tail <行数>] [-Encoding <编码>] [-Wait]；-TotalCount 读开头 N 行，-Raw 将整个文件读为单个字符串。",
+    "example": "Get-Content D:\\logs\\app.log -Tail 50  # 查看日志文件最后 50 行\nGet-Content D:\\logs\\app.log -Wait  # 持续跟踪日志新增内容"
+  },
+  {
+    "abbr": "Set-Content",
+    "full": "-",
+    "zh": "设置内容",
+    "category": "Windows 命令",
+    "definition": "将文本写入文件并覆盖原内容，相当于重定向 >。",
+    "points": [
+      "Set-Content -Path a.txt -Value 'text' 覆盖写入，-Append 改为追加（相当于 >>）",
+      "-Encoding UTF8 指定编码避免中文乱码，Windows PowerShell 5.1 需注意默认编码",
+      "与 Out-File 类似，但 Set-Content 会先将对象转换为字符串再写入"
+    ],
+    "usage": "Set-Content [-Path] <文件路径> [-Value] <内容> [-Encoding <编码>] [-Append] [-Force]；-Value 可为字符串数组，数组每个元素写一行。",
+    "example": "Set-Content -Path D:\\tmp\\a.txt -Value 'hello world'  # 覆盖写入文本\nSet-Content -Path D:\\tmp\\log.txt -Value (Get-Date) -Append  # 追加当前时间到日志文件"
+  },
+  {
+    "abbr": "Select-Object",
+    "full": "-",
+    "zh": "选择对象",
+    "category": "Windows 命令",
+    "definition": "从对象集合中选取指定属性或前 N 个对象，相当于投影与取前几行。",
+    "points": [
+      "Select-Object Name, CPU -First 5 只取属性列且截取前 5 个对象",
+      "-Last 取末尾 N 个，-Unique 去重，-Skip 跳过开头 N 个",
+      "可用计算属性，如 Select-Object @{Name='MB';Expression={$_.WS/1MB}}"
+    ],
+    "usage": "Select-Object [[-Property] <属性名>] [-First <数量>] [-Last <数量>] [-Unique] [-Skip <数量>]；不加 -Property 时返回对象本身，常用于截断管道结果。",
+    "example": "Get-Process | Select-Object -First 3 Name, CPU  # 取前 3 个进程的名称和 CPU\nGet-Service | Select-Object Name, Status, StartType  # 只查看服务的三个关键属性"
+  },
+  {
+    "abbr": "Where-Object",
+    "full": "-",
+    "zh": "过滤对象",
+    "category": "Windows 命令",
+    "definition": "根据条件筛选管道中符合条件的对象，相当于 grep 或 awk 的过滤功能。",
+    "points": [
+      "Where-Object Status -eq 'Running' 为简写语法，完整形式是 {$_.Status -eq 'Running'}",
+      "支持比较运算符 -eq -ne -gt -lt -like -match，以及 -and -or -not 逻辑组合",
+      "位于管道中间，前面是数据源、后面是处理或输出命令"
+    ],
+    "usage": "Where-Object {<条件表达式>} 或 Where-Object <属性> -eq <值>；条件内 $_ 代表当前对象，如 {$_.Length -gt 1MB}。",
+    "example": "Get-Process | Where-Object {$_.CPU -gt 10}  # 过滤出 CPU 超过 10 的进程\nGet-Service | Where-Object {$_.Status -eq 'Running' -and $_.Name -like 'W*'}  # 运行中且以 W 开头的服务"
+  },
+  {
+    "abbr": "Sort-Object",
+    "full": "-",
+    "zh": "排序对象",
+    "category": "Windows 命令",
+    "definition": "按一个或多个属性对管道中的对象进行排序。",
+    "points": [
+      "Sort-Object CPU -Descending 按 CPU 降序排列，默认升序",
+      "可指定多个属性排序，如 Sort-Object Status, Name 先按状态再按名称",
+      "-Unique 排序同时去重；先排序再 Select-Object -First 即可取 Top N"
+    ],
+    "usage": "Sort-Object [[-Property] <属性>] [-Descending] [-Unique] [-CaseSensitive]；-Property 可指定多个，-Descending 降序，-CaseSensitive 区分大小写。",
+    "example": "Get-Process | Sort-Object WorkingSet64 -Descending | Select-Object -First 5  # 按内存占用排序取前 5\nGet-ChildItem | Sort-Object Length -Descending  # 按文件大小降序排列"
+  },
+  {
+    "abbr": "Measure-Object",
+    "full": "-",
+    "zh": "统计对象",
+    "category": "Windows 命令",
+    "definition": "计算管道中对象的数量以及指定属性的总和、平均值、最大值和最小值。",
+    "points": [
+      "Measure-Object Length -Sum -Average -Minimum -Maximum 统计文件大小总和与均值",
+      "不加 -Property 时只统计对象数量，相当于 wc -l",
+      "返回 MeasureInfo 对象，适合脚本中做数值汇总"
+    ],
+    "usage": "Measure-Object [[-Property] <属性>] [-Sum] [-Average] [-Minimum] [-Maximum] [-Line] [-Word]；统计哪个属性就传哪个，可同时选择多个统计项。",
+    "example": "Get-ChildItem D:\\data | Measure-Object Length -Sum  # 计算目录内文件总大小\nGet-Content D:\\logs\\app.log | Measure-Object -Line  # 统计日志文件行数"
+  },
+  {
+    "abbr": "Test-Path",
+    "full": "-",
+    "zh": "测试路径",
+    "category": "Windows 命令",
+    "definition": "判断指定路径是否存在，存在返回 True，否则返回 False。",
+    "points": [
+      "Test-Path D:\\a.txt 判断文件是否存在，常用于脚本前置检查",
+      "-PathType Leaf 限定为文件，-PathType Container 限定为目录",
+      "支持通配符；-IsValid 只校验格式，-NewerThan/-OlderThan 按时间比较"
+    ],
+    "usage": "Test-Path [-Path] <路径> [-PathType Leaf|Container|Any] [-IsValid] [-NewerThan <时间>]；返回布尔值，常用于 if (Test-Path $p) 条件判断。",
+    "example": "if (Test-Path D:\\tmp\\a.txt) { Get-Content D:\\tmp\\a.txt }  # 文件存在则读取\nTest-Path D:\\backup -PathType Container  # 判断该路径是否为目录"
+  },
+  {
+    "abbr": "Out-File",
+    "full": "-",
+    "zh": "输出到文件",
+    "category": "Windows 命令",
+    "definition": "将命令输出以文本形式写入文件，相当于重定向 >。",
+    "points": [
+      "Get-Process | Out-File proc.txt 保存输出，-Append 追加写入（相当于 >>）",
+      "-Encoding UTF8 指定编码；PowerShell 7 默认 utf8NoBOM，5.1 需显式指定",
+      "与 > 重定向等价但可控制编码，对象会按 PowerShell 格式化为文本"
+    ],
+    "usage": "Out-File [-FilePath] <文件路径> [-Encoding <编码>] [-Append] [-NoClobber] [-Force]；-NoClobber 不覆盖已有文件，-Width 控制每行宽度。",
+    "example": "Get-Process | Out-File D:\\tmp\\proc.txt  # 将进程列表写入文件\nGet-Service | Out-File D:\\tmp\\svc.txt -Append -Encoding UTF8  # 追加并以 UTF-8 编码保存"
+  },
+  {
+    "abbr": "Export-Csv",
+    "full": "-",
+    "zh": "导出 CSV",
+    "category": "Windows 命令",
+    "definition": "将对象列表导出为逗号分隔的 CSV 文件。",
+    "points": [
+      "Get-Process | Export-Csv proc.csv -NoTypeInformation 导出，去掉首行类型标记",
+      "默认按系统列表分隔符（中文系统为逗号）分隔，-Delimiter 可自定义",
+      "中文用 Excel 打开建议 -Encoding UTF8（PowerShell 5.1 需带 BOM）"
+    ],
+    "usage": "Export-Csv [-Path] <文件路径> [-NoTypeInformation] [-Encoding <编码>] [-Delimiter <字符>]；从管道接收对象，每个对象输出一行。",
+    "example": "Get-Process | Export-Csv D:\\tmp\\proc.csv -NoTypeInformation  # 导出进程信息到 CSV\nGet-Service | Export-Csv D:\\tmp\\svc.csv -Encoding UTF8  # 以 UTF-8 编码导出服务列表"
+  },
+  {
+    "abbr": "Import-Csv",
+    "full": "-",
+    "zh": "导入 CSV",
+    "category": "Windows 命令",
+    "definition": "从 CSV 文件导入数据，每一行转换为一个 PowerShell 对象。",
+    "points": [
+      "Import-Csv users.csv 中表头行自动成为对象的属性名",
+      "导入后可管道给 Where-Object、ForEach-Object 处理，或 ConvertTo-Json 输出",
+      "与 Export-Csv 配对使用，-Delimiter 需与导出时保持一致"
+    ],
+    "usage": "Import-Csv [-Path] <CSV 文件路径> [-Delimiter <字符>] [-Encoding <编码>]；表头作为属性名，之后可用 Select-Object 选取列。",
+    "example": "$users = Import-Csv D:\\tmp\\users.csv  # 导入用户列表到变量\nImport-Csv D:\\tmp\\svc.csv | Where-Object Status -eq 'Running'  # 筛选 CSV 中的运行中服务"
+  },
+  {
+    "abbr": "ConvertTo-Json",
+    "full": "-",
+    "zh": "转换为 JSON",
+    "category": "Windows 命令",
+    "definition": "将 PowerShell 对象转换为 JSON 格式的字符串。",
+    "points": [
+      "ConvertTo-Json -Depth 3 指定嵌套深度，默认深度 2 会截断深层对象",
+      "常与 ConvertFrom-Json 配对，用于与 API 接口交换数据",
+      "-Compress 输出无空格的压缩 JSON，节省传输和存储空间"
+    ],
+    "usage": "ConvertTo-Json [-InputObject] <对象> [-Depth <层数>] [-Compress]；返回 JSON 字符串，可管道给 Set-Content 保存或配合 Invoke-RestMethod 发送。",
+    "example": "Get-Process -Name explorer | ConvertTo-Json  # 将进程对象转为 JSON 字符串\n$json = Get-Service | ConvertTo-Json -Depth 3 -Compress  # 转压缩 JSON 存入变量"
+  },
+  {
+    "abbr": "Invoke-WebRequest",
+    "full": "-",
+    "zh": "发起 Web 请求",
+    "category": "Windows 命令",
+    "definition": "向指定 URL 发送 HTTP/HTTPS 请求并返回响应内容，相当于 curl。",
+    "points": [
+      "Invoke-WebRequest -Uri https://... -Method Get 默认 GET，-Method Post 可提交数据",
+      "返回对象包含 .Content（正文）、.StatusCode（状态码）、.Headers（响应头）",
+      "下载文件可用 -OutFile；调用 JSON API 建议用 Invoke-RestMethod 自动解析"
+    ],
+    "usage": "Invoke-WebRequest [-Uri] <URL> [-Method Get|Post|Put|Delete] [-Headers <哈希表>] [-Body <数据>] [-OutFile <文件>]；PowerShell 7 中别名 iwr，注意区别于 curl.exe。",
+    "example": "$r = Invoke-WebRequest -Uri 'https://api.example.com/v1/status'  # 发起 GET 请求\nInvoke-WebRequest -Uri 'http://127.0.0.1:8080' -Method Post -Body '{\"key\":\"value\"}'  # 发送 POST JSON 请求"
+  },
+  {
+    "abbr": "Get-NetIPAddress",
+    "full": "-",
+    "zh": "获取 IP 地址",
+    "category": "Windows 命令",
+    "definition": "获取网络接口的 IPv4/IPv6 地址配置信息。",
+    "points": [
+      "Get-NetIPAddress -AddressFamily IPv4 只查看 IPv4 地址",
+      "常用 (Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -ne '127.0.0.1'}).IPAddress 提取本机 IP",
+      "属于 NetTCPIP 模块，比 ipconfig 输出更结构化，可直接管道筛选"
+    ],
+    "usage": "Get-NetIPAddress [[-IPAddress] <IP>] [-AddressFamily IPv4|IPv6] [-InterfaceAlias <网卡名>]；无参数列出所有接口地址，-InterfaceAlias 按网卡筛选。",
+    "example": "Get-NetIPAddress -AddressFamily IPv4  # 查看所有 IPv4 地址\nGet-NetIPAddress -InterfaceAlias '以太网'  # 查看指定网卡的 IP 配置"
+  },
+  {
+    "abbr": "Get-NetAdapter",
+    "full": "-",
+    "zh": "获取网络适配器",
+    "category": "Windows 命令",
+    "definition": "获取计算机上物理和虚拟网络适配器的信息。",
+    "points": [
+      "Get-NetAdapter -Name '以太网' 按名称获取，-Physical 只显示物理网卡",
+      "Status 属性表示网卡状态（Up/Down/Disabled），-IncludeHidden 含隐藏网卡",
+      "可管道给 Get-NetIPAddress 关联查看地址，如 Get-NetAdapter | Get-NetIPAddress"
+    ],
+    "usage": "Get-NetAdapter [[-Name] <网卡名>] [-Physical] [-IncludeHidden]；无参数列出全部适配器，显示名称、状态、MAC 地址与速率。",
+    "example": "Get-NetAdapter -Physical  # 只列出物理网卡\nGet-NetAdapter -Name '以太网' | Select-Object Name, Status, MacAddress, LinkSpeed  # 查看网卡状态和速率"
+  },
+  {
+    "abbr": "Test-NetConnection",
+    "full": "-",
+    "zh": "测试网络连接",
+    "category": "Windows 命令",
+    "definition": "测试与远程主机的连通性、TCP 端口、路由等信息，相当于 ping/telnet/nc。",
+    "points": [
+      "Test-NetConnection -ComputerName example.com -Port 443 测试 TCP 端口连通性",
+      "-InformationLevel Quiet 只返回 True/False 便于脚本判断，Detailed 输出完整信息",
+      "返回对象含 TcpTestSucceeded、PingSucceeded、RemoteAddress 等属性"
+    ],
+    "usage": "Test-NetConnection [-ComputerName] <主机名> [-Port <端口>] [-InformationLevel Quiet|Detailed] [-TraceRoute]；-TraceRoute 显示路由路径，-Quiet 供脚本直接判断。",
+    "example": "Test-NetConnection -ComputerName www.baidu.com -Port 443  # 测试 443 端口连通性\nif (Test-NetConnection -ComputerName db-server -Port 3306 -Quiet) { '端口可达' }  # 脚本中判断端口是否开放"
+  },
+  {
+    "abbr": "Set-ExecutionPolicy",
+    "full": "-",
+    "zh": "设置执行策略",
+    "category": "Windows 命令",
+    "definition": "设置 PowerShell 脚本的执行策略，控制脚本是否允许运行。",
+    "points": [
+      "Set-ExecutionPolicy RemoteSigned 允许本地脚本运行、远程脚本需签名，最常用",
+      "策略级别依次为 Restricted/AllSigned/RemoteSigned/Unrestricted/Bypass",
+      "-Scope 指定作用域：Process 仅本次会话、CurrentUser 当前用户（免管理员）、LocalMachine 全机（需管理员）"
+    ],
+    "usage": "Set-ExecutionPolicy [-ExecutionPolicy] <策略名> [-Scope Process|CurrentUser|LocalMachine] [-Force]；修改 CurrentUser 作用域无需管理员权限。",
+    "example": "Set-ExecutionPolicy RemoteSigned -Scope CurrentUser  # 允许运行本地脚本\nSet-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process  # 仅本次会话临时放行"
+  },
+  {
+    "abbr": "Get-ExecutionPolicy",
+    "full": "-",
+    "zh": "获取执行策略",
+    "category": "Windows 命令",
+    "definition": "获取当前 PowerShell 会话的执行策略设置。",
+    "points": [
+      "Get-ExecutionPolicy -List 按作用域列出全部策略（MachinePolicy/UserPolicy/Process/CurrentUser/LocalMachine）",
+      "运行脚本报错“禁止运行脚本”时，先执行此命令检查策略",
+      "与 Set-ExecutionPolicy 配合管理脚本执行的安全性"
+    ],
+    "usage": "Get-ExecutionPolicy [-Scope Process|CurrentUser|LocalMachine|UserPolicy|MachinePolicy] [-List]；无参数返回当前生效策略，-List 显示所有作用域。",
+    "example": "Get-ExecutionPolicy  # 查看当前生效的执行策略\nGet-ExecutionPolicy -List  # 按作用域查看全部策略设置"
+  },
+  {
+    "abbr": "Write-Host",
+    "full": "-",
+    "zh": "输出到控制台",
+    "category": "Windows 命令",
+    "definition": "将文本直接写入主机控制台显示，用于输出提示信息。",
+    "points": [
+      "Write-Host 'text' -ForegroundColor Green 设置前景色，-NoNewline 不换行",
+      "与 Write-Output 不同：Write-Host 内容不进入管道，无法重定向",
+      "PowerShell 5 以上等价于 Write-Information，新脚本建议使用后者"
+    ],
+    "usage": "Write-Host [[-Object] <内容>] [-ForegroundColor <颜色>] [-BackgroundColor <颜色>] [-NoNewline]；仅用于向用户显示信息，不参与管道。",
+    "example": "Write-Host '部署完成' -ForegroundColor Green  # 绿色输出完成提示\nWrite-Host '进度:' -NoNewline; Write-Host ' 100%'  # 两段内容不换行连续输出"
+  },
+  {
+    "abbr": "Read-Host",
+    "full": "-",
+    "zh": "读取输入",
+    "category": "Windows 命令",
+    "definition": "从控制台读取用户输入的一行文本。",
+    "points": [
+      "$name = Read-Host '请输入姓名' 提示语写在参数中，输入内容存入变量",
+      "-AsSecureString 输入密码时掩码显示并返回 SecureString 对象",
+      "默认返回字符串，判断空输入可用 [string]::IsNullOrWhiteSpace($name)"
+    ],
+    "usage": "Read-Host [[-Prompt] <提示文本>] [-AsSecureString]；返回用户输入的字符串，常用于脚本的交互式询问。",
+    "example": "$name = Read-Host '请输入用户名'  # 读取输入并存入变量\n$pwd = Read-Host '请输入密码' -AsSecureString  # 掩码方式读取密码"
+  },
+  {
+    "abbr": "Get-Date",
+    "full": "-",
+    "zh": "获取日期时间",
+    "category": "Windows 命令",
+    "definition": "获取当前系统日期和时间，或按指定格式输出日期字符串。",
+    "points": [
+      "Get-Date -Format 'yyyy-MM-dd HH:mm:ss' 自定义格式，-UFormat 用 Unix 风格格式符",
+      "可做日期运算，如 (Get-Date).AddDays(-7) 获取一周前的日期",
+      "常用于生成文件名时间戳，如 $ts = Get-Date -Format 'yyyyMMdd'"
+    ],
+    "usage": "Get-Date [[-Date] <时间>] [-Format <格式字符串>] [-UFormat <格式>]；-Format 用 .NET 格式符（yyyy 年、MM 月、dd 日），-Date 解析指定时间。",
+    "example": "$ts = Get-Date -Format 'yyyyMMdd_HHmmss'  # 生成文件时间戳\n(Get-Date).AddDays(-7)  # 计算一周前的日期"
+  },
+  {
+    "abbr": "Start-Sleep",
+    "full": "-",
+    "zh": "休眠等待",
+    "category": "Windows 命令",
+    "definition": "让脚本暂停执行指定的秒数或毫秒数。",
+    "points": [
+      "Start-Sleep -Seconds 5 暂停 5 秒，-Milliseconds 可精确到毫秒",
+      "常用于等待服务启动或循环轮询的重试间隔",
+      "相当于 Linux 的 sleep，注意 -Seconds 参数名不可省略"
+    ],
+    "usage": "Start-Sleep [-Seconds] <秒数> 或 [-Milliseconds] <毫秒数>；两者选一，常用于脚本延时与重试逻辑。",
+    "example": "Start-Sleep -Seconds 3  # 暂停脚本 3 秒再继续执行\nStart-Sleep -Milliseconds 500  # 暂停 500 毫秒"
+  },
+  {
+    "abbr": "Clear-Host",
+    "full": "-",
+    "zh": "清空控制台",
+    "category": "Windows 命令",
+    "definition": "清除 PowerShell 控制台当前显示的内容，等价于 Linux 的 clear。",
+    "points": [
+      "Clear-Host 无参数直接清屏，兼容别名 cls（来自 cmd）",
+      "只清除显示内容，不影响变量和会话状态",
+      "常放在脚本开头，让输出从干净屏幕开始"
+    ],
+    "usage": "Clear-Host；无参数，清空当前控制台屏幕，别名 cls。",
+    "example": "Clear-Host  # 清空屏幕显示\nClear-Host; Get-Process  # 清屏后运行命令查看进程列表"
+  },
+  {
+    "abbr": "Get-Alias",
+    "full": "-",
+    "zh": "获取别名",
+    "category": "Windows 命令",
+    "definition": "查看 PowerShell 命令别名与目标命令的对应关系。",
+    "points": [
+      "Get-Alias -Name ls 查看指定别名的目标命令，-Definition 按命令反查别名",
+      "常用内置别名：ls=Get-ChildItem、cat=Get-Content、cd=Set-Location",
+      "可用 Set-Alias 自定义别名，但自定义别名不能覆盖内置命令"
+    ],
+    "usage": "Get-Alias [[-Name] <别名>] [-Definition <命令名>]；无参数列出全部别名，-Definition Get-Process 可查所有指向该命令的别名。",
+    "example": "Get-Alias -Name ls  # 查看 ls 别名对应哪个命令\nGet-Alias -Definition Get-Process  # 反查 Get-Process 有哪些别名"
+  },
+  {
+    "abbr": "Format-Table",
+    "full": "-",
+    "zh": "表格格式化",
+    "category": "Windows 命令",
+    "definition": "将命令输出格式化为表格形式显示在控制台。",
+    "points": [
+      "Get-Process | Format-Table Name, CPU -AutoSize 指定列并自动调整宽度",
+      "格式命令应放在管道末尾，其后不能再接对象处理命令（会破坏对象）",
+      "-Wrap 自动换行显示长内容，常配合 Select-Object 先选列再格式化"
+    ],
+    "usage": "Format-Table [[-Property] <属性>] [-AutoSize] [-Wrap] [-GroupBy <属性>]；-AutoSize 按内容调整列宽，-GroupBy 按属性分组显示。",
+    "example": "Get-Service | Format-Table Name, Status -AutoSize  # 以表格显示服务名称和状态\nGet-Process | Select-Object Name, CPU | Format-Table -AutoSize  # 先选列再表格化输出"
+  },
+  {
+    "abbr": "ForEach-Object",
+    "full": "-",
+    "zh": "遍历对象",
+    "category": "Windows 命令",
+    "definition": "对管道中的每个对象依次执行脚本块，实现循环处理。",
+    "points": [
+      "Get-Process | ForEach-Object { $_.ProcessName }，$_ 代表当前对象",
+      "别名 % 可简写；PowerShell 7 以上支持 -Parallel 并行处理",
+      "注意区分：foreach ($x in $arr) 是语句，ForEach-Object 是用于管道的 cmdlet"
+    ],
+    "usage": "ForEach-Object [-Process] {<脚本块>}；脚本块内 $_ 表示当前管道对象，可用 -Begin/-End 在循环前后执行代码。",
+    "example": "Get-Service | ForEach-Object { $_.Name + ':' + $_.Status }  # 拼接服务名和状态\n1..5 | ForEach-Object { $_ * $_ }  # 输出 1 到 5 的平方"
+  },
+  {
+    "abbr": "Get-Variable",
+    "full": "-",
+    "zh": "获取变量",
+    "category": "Windows 命令",
+    "definition": "获取当前会话中的变量及其值。",
+    "points": [
+      "Get-Variable -Name name 按名称获取，-ValueOnly 只输出变量值",
+      "无参数时列出所有变量（包括 $PSDefaultParameterValues 等内置变量）",
+      "返回的变量对象通过 .Value 属性访问值，-Scope 可指定作用域"
+    ],
+    "usage": "Get-Variable [[-Name] <变量名>] [-ValueOnly] [-Scope Global|Local|Script]；-Include/-Exclude 配合通配符筛选，-ValueOnly 直接返回变量值。",
+    "example": "Get-Variable -Name HOME  # 查看 HOME 变量的值\nGet-Variable -Name P* -ValueOnly  # 列出所有 P 开头变量的值"
+  },
+  {
+    "abbr": "Set-Variable",
+    "full": "-",
+    "zh": "设置变量",
+    "category": "Windows 命令",
+    "definition": "创建或修改变量的值及其属性。",
+    "points": [
+      "Set-Variable -Name count -Value 10 设置值，等价于 $count = 10",
+      "-Scope Global 设置全局变量，-Option ReadOnly/Constant 限制后续修改",
+      "-Force 可覆盖 ReadOnly 变量；脚本中常用于定义配置项"
+    ],
+    "usage": "Set-Variable [-Name] <变量名> [-Value] <值> [-Scope Global|Local|Script] [-Option <选项>] [-Force]；日常赋值直接用 $var = value 更简洁。",
+    "example": "Set-Variable -Name timeout -Value 30 -Option ReadOnly  # 定义只读变量\nSet-Variable -Name dataPath -Value 'D:\\data' -Scope Global  # 定义全局变量"
+  },
+  {
+    "abbr": "Import-Module",
+    "full": "-",
+    "zh": "导入模块",
+    "category": "Windows 命令",
+    "definition": "将 PowerShell 模块中的 cmdlet 和函数加载到当前会话中。",
+    "points": [
+      "Import-Module ActiveDirectory 按名称导入已安装模块，-RequiredVersion 指定版本",
+      "-Force 强制重新加载模块使修改生效，开发调试时常用",
+      "路径可省略 .psd1/.psm1 扩展名，导入后用 Get-Command -Module 验证"
+    ],
+    "usage": "Import-Module [-Name] <模块名或路径> [-Force] [-RequiredVersion <版本>] [-Verbose]；导入后模块内所有命令即可直接使用。",
+    "example": "Import-Module ActiveDirectory  # 导入 AD 域管理模块\nImport-Module D:\\scripts\\myutils.psm1 -Force  # 强制重新加载本地模块"
+  },
+  {
+    "abbr": "Install-Module",
+    "full": "-",
+    "zh": "安装模块",
+    "category": "Windows 命令",
+    "definition": "从 PowerShell 库（PSGallery）等源下载并安装模块。",
+    "points": [
+      "Install-Module -Name PSScriptAnalyzer -Scope CurrentUser 按用户安装",
+      "首次使用需先运行 Set-PSRepository -Name PSGallery -InstallationPolicy Trusted 信任源",
+      "安装后需 Import-Module 或重开会话才能使用；-Force 覆盖已装版本"
+    ],
+    "usage": "Install-Module [-Name] <模块名> [-Scope CurrentUser|AllUsers] [-Force] [-RequiredVersion <版本>]；从 PSGallery 下载，管理员会话可安装到 AllUsers。",
+    "example": "Install-Module -Name PSScriptAnalyzer -Scope CurrentUser  # 安装代码分析模块\nInstall-Module -Name Az -Force  # 强制安装（覆盖）Azure 管理模块"
+  },
+  {
+    "abbr": "Split-Path",
+    "full": "-",
+    "zh": "拆分路径",
+    "category": "Windows 命令",
+    "definition": "从完整路径中提取父目录、文件名或扩展名等组成部分。",
+    "points": [
+      "Split-Path D:\\a\\b.txt -Parent 提取父目录（D:\\a），-Leaf 提取文件名（b.txt）",
+      "默认行为相当于 Linux 的 dirname",
+      "常配合 Get-ChildItem 处理文件，如获取每个文件的所在目录"
+    ],
+    "usage": "Split-Path [-Path] <路径> [-Parent | -Leaf | -Qualifier | -Extension | -LeafBase]；默认返回父目录，-LeafBase 返回无扩展名的文件名（PowerShell 6+）。",
+    "example": "Split-Path D:\\a\\b.txt -Parent  # 返回父目录 D:\\a\nSplit-Path D:\\a\\b.txt -Leaf  # 返回文件名 b.txt"
+  },
+  {
+    "abbr": "Join-Path",
+    "full": "-",
+    "zh": "合并路径",
+    "category": "Windows 命令",
+    "definition": "将路径各部分拼接为完整路径，并自动处理分隔符。",
+    "points": [
+      "Join-Path D:\\data 'logs' 拼接为 D:\\data\\logs，分隔符按平台自动匹配",
+      "比字符串直接加 '\\' 拼接更可靠，避免漏写或重复分隔符",
+      "可多次调用逐级拼接，常用于脚本中动态构造路径"
+    ],
+    "usage": "Join-Path [-Path] <父路径> [-ChildPath] <子路径>；返回拼接后的完整路径字符串，子路径可含通配符。",
+    "example": "$dir = Join-Path D:\\data 'backup'  # 拼接为 D:\\data\\backup\nJoin-Path (Join-Path D:\\a 'b') 'c.txt'  # 多级拼接为 D:\\a\\b\\c.txt"
   }
 ]
