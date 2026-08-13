@@ -11,7 +11,29 @@ export async function initUserTerms() {
 }
 
 function allTerms() {
-  return [...builtinTerms, ...userTerms.value];
+  // 去重规则：
+  // - 内置词库全部保留（同缩写不同分类的一词多义词条互不冲突，如 ping 的 Linux/U-Boot/Windows 三条）
+  // - 用户词库缓存：与内置「同缩写同分类」的词条跳过（内置优先），避免如 ipconfig 重复显示
+  const seen = new Set();
+  const out = [];
+  for (const t of builtinTerms) {
+    const k = (t.abbr || "").trim().toLowerCase() + "\u0000" + (t.category || "");
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(t);
+    }
+  }
+  for (const t of userTerms.value) {
+    const a = (t.abbr || "").trim().toLowerCase();
+    const c = t.category || "";
+    if (builtinTerms.some((b) => (b.abbr || "").trim().toLowerCase() === a && (b.category || "") === c)) continue;
+    const k = a + "\u0000" + c;
+    if (!seen.has(k)) {
+      seen.add(k);
+      out.push(t);
+    }
+  }
+  return out;
 }
 
 // AI 回答解析成功后写入个人词库，与内置词库按缩写去重
