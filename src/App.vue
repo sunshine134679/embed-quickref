@@ -128,8 +128,16 @@ let hideTimer = null;
 const tabs = ref([]);
 const activeTab = ref(null);
 let stateStore = null;
+// 持久化串行链：快速连续操作（开标签/切固定/关标签）时保证 set/save 顺序执行，
+// 避免并发 save 导致最终落盘状态错乱
+let saveChain = Promise.resolve();
 
-async function persistState() {
+function persistState() {
+  saveChain = saveChain.then(() => doPersist()).catch(() => {});
+  return saveChain;
+}
+
+async function doPersist() {
   if (!stateStore) return;
   try {
     await stateStore.set("tabs", tabs.value);
