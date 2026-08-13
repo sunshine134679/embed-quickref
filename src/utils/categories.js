@@ -16,6 +16,7 @@ export const CATEGORY_COLORS = {
   "Git 操作": { fg: "#cf5d2e", bg: "rgba(207, 93, 46, 0.12)" },
   "VSCode 配置": { fg: "#0284c7", bg: "rgba(2, 132, 199, 0.12)" },
   "U-Boot 命令": { fg: "#4c5fd7", bg: "rgba(76, 95, 215, 0.12)" },
+  "Windows 命令": { fg: "#0e7490", bg: "rgba(14, 116, 144, 0.12)" },
   其他: { fg: "#6b7280", bg: "rgba(107, 114, 128, 0.12)" },
 };
 
