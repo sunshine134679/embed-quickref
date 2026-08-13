@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, nextTick } from "vue";
 import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
-import { register, unregisterAll } from "@tauri-apps/plugin-global-shortcut";
+import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { TrayIcon } from "@tauri-apps/api/tray";
 import { Menu } from "@tauri-apps/api/menu";
 import { defaultWindowIcon } from "@tauri-apps/api/app";
@@ -753,11 +753,18 @@ async function toggleWindow() {
   }
 }
 
-async function applyShortcut(shortcut) {
-  await unregisterAll();
-  await register(shortcut, (event) => {
-    if (event.state === "Pressed") toggleWindow();
-  });
+async function applyShortcut(shortcut, prevShortcut = null) {
+  // 先注册新热键，成功后再注销旧的：注册失败时旧热键继续可用，避免热键静默丢失
+  try {
+    await register(shortcut, (event) => {
+      if (event.state === "Pressed") toggleWindow();
+    });
+    if (prevShortcut && prevShortcut !== shortcut) {
+      await unregister(prevShortcut).catch(() => {});
+    }
+  } catch (e) {
+    console.error("热键注册失败", e);
+  }
 }
 
 // 界面模式切换：立即生效并持久化（floating 即时缩为圆点，其它模式即时展开）
@@ -783,11 +790,7 @@ async function onSaveSettings(next) {
   const prev = settings.value.shortcut;
   await saveSettings(next);
   if (next.shortcut !== prev) {
-    try {
-      await applyShortcut(next.shortcut);
-    } catch (e) {
-      console.error("热键注册失败", e);
-    }
+    await applyShortcut(next.shortcut, prev);
   }
   view.value = "search";
   focusInput();
