@@ -401,6 +401,8 @@ async function streamAi(isFirstAnswer) {
 async function runAi(q) {
   const text = q.trim();
   if (!text) return;
+  // 防重：请求进行中忽略再次触发（连按 Tab/Enter），避免并发请求重置会话
+  if (aiStatus.value === "loading" || aiStatus.value === "streaming") return;
   if (!settings.value.apiKey) {
     view.value = "settings";
     return;
