@@ -18,15 +18,44 @@ const SYSTEM_PROMPT = `你是嵌入式 Linux 领域的资深专家，专门解�
 // 以系统提示词开始一段新的 AI 会话
 export function createSession(query) {
   return [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: promptFor(query) },
     { role: "user", content: query },
   ];
 }
 
-// 历史记录只存用户/助手消息，续聊时把系统提示词补回去
+// 历史记录只存用户/助手消息，续聊时把系统提示词补回去（按原查询重新判定模式）
 export function restoreSession(messages) {
-  return [{ role: "system", content: SYSTEM_PROMPT }, ...messages];
+  const firstUser = messages.find((m) => m.role === "user");
+  const prompt = firstUser ? promptFor(firstUser.content) : SYSTEM_PROMPT;
+  return [{ role: "system", content: prompt }, ...messages];
 }
+
+// 判定查询是否为"完整命令"（如 ls -l /home、git commit -m "msg"）：
+// 纯 ASCII、小写命令名开头、后跟空格和参数/选项；排除术语缩写（大写开头/无空格）与中文疑问句
+function looksLikeCommand(q) {
+  const s = (q || "").trim();
+  if (!s) return false;
+  if (/[\u4e00-\u9fa5]/.test(s)) return false; // 含中文：术语/疑问/比较场景，不走拆解
+  if (!/\s/.test(s)) return false; // 单个 token：是术语缩写（ls、git）而非完整命令
+  return /^[a-z][a-z0-9_.-]*\s+\S+/.test(s); // 小写命令名 + 空格 + 参数/选项
+}
+
+function promptFor(query) {
+  return looksLikeCommand(query) ? COMMAND_BREAKDOWN_PROMPT : SYSTEM_PROMPT;
+}
+
+// 完整命令的拆解解析提示词：逐部分解释命令名/选项/参数，而非笼统介绍
+const COMMAND_BREAKDOWN_PROMPT = `你是嵌入式 Linux 领域的资深专家。用户输入了一条完整命令（含命令名、选项或参数，如 "ls -l /home"、"git commit -m 'msg'"、"arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -c main.c"）。请对该命令做逐部分拆解解析，严格按以下纯文本格式回答，不要使用 Markdown 标记，不要输出任何多余内容：
+命令: <原样复述用户输入的命令>
+作用: <一句话说明这条命令整体在做什么>
+拆解:
+- <命令名>: 命令本身，<其职能一句话>
+- <选项/参数1>: <作用说明，注意区分短选项 -x 与长选项 --xxx、参数路径/文件名/数值的含义>
+- <选项/参数2>: ...
+执行效果: <描述执行后会发生什么、输出什么、影响什么>
+常见变体: <1-2 条相关提示，如缺省选项时的行为、更常用写法或易错点>
+若用户输入的不是完整命令而是术语或问题，则按常规术语格式回答。
+用户后续追问时直接用简洁纯文本回答。`;
 
 // 单次 AI 请求整体超时（SSE 流式长回答可能较慢，120s 足够）
 const REQUEST_TIMEOUT_MS = 120_000;
