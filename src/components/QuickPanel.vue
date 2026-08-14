@@ -361,12 +361,8 @@ onMounted(async () => {
   flex-direction: column;
 }
 
-/* 结果内容垂直居中：消除固定窗口高度下的底部大片空白 */
-.q-term-list,
-.q-trans {
-  margin: auto 0;
-}
-
+/* 结果紧贴搜索框下方（顶部对齐），不做垂直居中——居中会让结果悬浮在窗口中部、
+   与搜索框之间空出一大段，观感像"中间另开辟一段" */
 .q-term-list {
   width: 100%;
 }
