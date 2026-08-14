@@ -13,10 +13,12 @@ import AiAnswer from "./components/AiAnswer.vue";
 import AiHistory from "./components/AiHistory.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import FloatingDot from "./components/FloatingDot.vue";
+import TranslatePanel from "./components/TranslatePanel.vue";
 import { initSettings, useSettings } from "./composables/useSettings";
 import { fmtWhen } from "./utils/format";
 import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
+import { translateQuery, isSingleWord } from "./composables/useTranslate";
 import { load } from "@tauri-apps/plugin-store";
 
 const win = getCurrentWindow();
@@ -25,10 +27,18 @@ const { settings, saveSettings } = useSettings();
 const view = ref("search"); // search | detail | ai | history | settings
 // 记录进入 AI 页面前的视图，Esc 从 AI 页逐级返回（ai -> detail/history -> search）
 const aiFromView = ref("search");
+// 搜索分区：terms(术语/缩写) | translate(英语翻译)，与专业名词查询分离
+const panel = ref("terms");
 const query = ref("");
 const results = ref([]);
 const selectedIndex = ref(0);
 const currentTerm = ref(null);
+// 翻译分区状态：status idle | loading | done | error
+const translateStatus = ref("idle");
+const translateResult = ref(null);
+const translateError = ref("");
+let translateTimer = null;
+let translateSeq = 0;
 const aiQuery = ref("");
 const aiMessages = ref([]); // 含 system 的完整多轮会话
 const aiStatus = ref("idle"); // idle | loading | streaming | done | error
@@ -144,6 +154,7 @@ async function doPersist() {
     await stateStore.set("activeTab", activeTab.value);
     await stateStore.set("pinned", pinned.value);
     await stateStore.set("mode", mode.value);
+    await stateStore.set("panel", panel.value);
     await stateStore.set("dotPosition", dotPosition.value);
     await stateStore.save();
   } catch (e) {
@@ -161,6 +172,8 @@ async function restoreState() {
   }
   const savedMode = await stateStore.get("mode");
   if (["floating", "popup", "pinned"].includes(savedMode)) mode.value = savedMode;
+  const savedPanel = await stateStore.get("panel");
+  if (["terms", "translate"].includes(savedPanel)) panel.value = savedPanel;
   const savedPos = await stateStore.get("dotPosition");
   if (savedPos && typeof savedPos.x === "number" && typeof savedPos.y === "number") {
     dotPosition.value = { x: savedPos.x, y: savedPos.y };
@@ -174,10 +187,71 @@ async function restoreState() {
 }
 
 watch(query, (q) => {
+  if (panel.value === "translate") {
+    if (view.value !== "search") view.value = "search";
+    scheduleTranslate(q);
+    return;
+  }
   results.value = search(q);
   selectedIndex.value = 0;
   if (view.value !== "search") view.value = "search";
 });
+
+// ---------- 英语翻译分区：与专业名词查询分离 ----------
+
+// 防抖触发翻译：本地单词命中零网络，短防抖；句子等长输入稍长防抖
+function scheduleTranslate(q) {
+  clearTimeout(translateTimer);
+  const text = (q || "").trim();
+  translateStatus.value = "idle";
+  translateResult.value = null;
+  translateError.value = "";
+  if (!text) return;
+  translateStatus.value = "loading";
+  translateTimer = setTimeout(() => runTranslate(text), isSingleWord(text) ? 150 : 350);
+}
+
+// 立即翻译（Enter/Tab 触发）：先取消未执行的防抖，再执行
+function runTranslateNow() {
+  clearTimeout(translateTimer);
+  const text = (query.value || "").trim();
+  if (!text) return;
+  runTranslate(text);
+}
+
+// 序号守卫：只采纳最后一次触发的翻译结果（快速改输入时丢弃过期响应）
+async function runTranslate(text) {
+  const seq = ++translateSeq;
+  translateStatus.value = "loading";
+  translateError.value = "";
+  try {
+    const result = await translateQuery(text, settings.value);
+    if (seq !== translateSeq) return;
+    translateResult.value = result;
+    translateStatus.value = "done";
+  } catch (e) {
+    if (seq !== translateSeq) return;
+    translateError.value = String(e?.message || e);
+    translateStatus.value = "error";
+  }
+}
+
+// 切换搜索分区：切换即清空输入并回到搜索视图
+function switchPanel(p) {
+  if (panel.value === p) return;
+  panel.value = p;
+  translateSeq++; // 作废进行中的翻译
+  clearTimeout(translateTimer);
+  query.value = "";
+  results.value = [];
+  selectedIndex.value = 0;
+  translateStatus.value = "idle";
+  translateResult.value = null;
+  translateError.value = "";
+  persistState();
+  if (view.value !== "search") view.value = "search";
+  focusInput();
+}
 
 // ---------- 悬浮圆点模式：形态切换与位置管理 ----------
 
@@ -684,6 +758,14 @@ function onKeydown(e) {
     return;
   }
   if (view.value !== "search") return;
+  // 翻译分区：无结果列表，Enter/Tab 均立即翻译
+  if (panel.value === "translate") {
+    if (e.key === "Enter" || e.key === "Tab") {
+      e.preventDefault();
+      runTranslateNow();
+    }
+    return;
+  }
   if (e.key === "ArrowDown") {
     e.preventDefault();
     if (results.value.length)
@@ -971,7 +1053,32 @@ onUnmounted(() => {
           <circle cx="9" cy="18" r="1.4" /><circle cx="15" cy="18" r="1.4" />
         </svg>
       </div>
-      <SearchBox ref="searchBox" v-model="query" @focus="onSearchFocus" />
+      <div class="panel-switch" role="tablist" aria-label="搜索分区">
+        <button
+          role="tab"
+          :aria-selected="panel === 'terms'"
+          :class="{ on: panel === 'terms' }"
+          title="查询专业名词 / 缩写 / 命令"
+          @click="switchPanel('terms')"
+        >
+          术语
+        </button>
+        <button
+          role="tab"
+          :aria-selected="panel === 'translate'"
+          :class="{ on: panel === 'translate' }"
+          title="翻译英语单词或句子"
+          @click="switchPanel('translate')"
+        >
+          翻译
+        </button>
+      </div>
+      <SearchBox
+        ref="searchBox"
+        v-model="query"
+        :placeholder="panel === 'translate' ? '输入英语单词或句子…' : '查询缩写 / 协议 / 术语…'"
+        @focus="onSearchFocus"
+      />
       <button
         class="icon-btn"
         :class="{ active: pinned }"
@@ -1052,49 +1159,57 @@ onUnmounted(() => {
     </nav>
     <main class="content">
       <template v-if="view === 'search'">
-        <ResultList
-          v-if="results.length"
-          :results="results"
-          :selected-index="selectedIndex"
-          :query="query"
-          @hover="selectedIndex = $event"
-          @open="openTab"
-        />
-        <div v-else-if="query.trim()" class="empty empty-ai">
-          <p class="empty-title">本地词库未命中</p>
-          <p class="empty-hint">
-            “{{ query.trim() }}” 不在词库里，可以让 AI 来解释
-          </p>
-          <p class="empty-tip">按 <kbd>Tab</kbd> 键可直接询问 AI，无需点击按钮</p>
-          <template v-if="emptyAiSession">
-            <button class="ask-ai-btn" @click="openAiSession(emptyAiSession)">
+        <template v-if="panel === 'terms'">
+          <ResultList
+            v-if="results.length"
+            :results="results"
+            :selected-index="selectedIndex"
+            :query="query"
+            @hover="selectedIndex = $event"
+            @open="openTab"
+          />
+          <div v-else-if="query.trim()" class="empty empty-ai">
+            <p class="empty-title">本地词库未命中</p>
+            <p class="empty-hint">
+              “{{ query.trim() }}” 不在词库里，可以让 AI 来解释
+            </p>
+            <p class="empty-tip">按 <kbd>Tab</kbd> 键可直接询问 AI，无需点击按钮</p>
+            <template v-if="emptyAiSession">
+              <button class="ask-ai-btn" @click="openAiSession(emptyAiSession)">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.6"
+                >
+                  <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                </svg>
+                查看上次 AI 解释 · {{ fmtWhen(emptyAiSession.time) }}
+              </button>
+              <button class="ask-ai-btn ghost" @click="askAiFromEmpty">重新问 AI</button>
+            </template>
+            <button v-else class="ask-ai-btn" @click="askAiFromEmpty">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="1.6"
+                stroke-width="1.7"
               >
-                <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                <circle cx="12" cy="12" r="9" />
+                <path d="M12 8v8M8 12h8" />
               </svg>
-              查看上次 AI 解释 · {{ fmtWhen(emptyAiSession.time) }}
+              问 AI：{{ query.trim().slice(0, 18) }}{{ query.trim().length > 18 ? "…" : "" }}
             </button>
-            <button class="ask-ai-btn ghost" @click="askAiFromEmpty">重新问 AI</button>
-          </template>
-          <button v-else class="ask-ai-btn" @click="askAiFromEmpty">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.7"
-            >
-              <circle cx="12" cy="12" r="9" />
-              <path d="M12 8v8M8 12h8" />
-            </svg>
-            问 AI：{{ query.trim().slice(0, 18) }}{{ query.trim().length > 18 ? "…" : "" }}
-          </button>
-
-        </div>
-        <div v-else class="empty muted">输入缩写或关键词，如 I2C、MQTT、DTS</div>
+          </div>
+          <div v-else class="empty muted">输入缩写或关键词，如 I2C、MQTT、DTS</div>
+        </template>
+        <TranslatePanel
+          v-else
+          :query="query"
+          :status="translateStatus"
+          :result="translateResult"
+          :error="translateError"
+        />
       </template>
       <div v-else-if="view === 'detail'" class="detail-wrap">
         <button
@@ -1155,9 +1270,14 @@ onUnmounted(() => {
     </div>
 
     <footer class="statusbar" title="按住拖动窗口" @mousedown.self="startDrag">
-      <span><kbd>↑↓</kbd> 选择</span>
-      <span><kbd>Enter</kbd> 打开标签</span>
-      <span><kbd>Tab</kbd> 问 AI</span>
+      <template v-if="panel === 'terms'">
+        <span><kbd>↑↓</kbd> 选择</span>
+        <span><kbd>Enter</kbd> 打开标签</span>
+        <span><kbd>Tab</kbd> 问 AI</span>
+      </template>
+      <template v-else>
+        <span><kbd>Enter</kbd> / <kbd>Tab</kbd> 翻译</span>
+      </template>
       <span><kbd>Ctrl+H</kbd> AI 历史</span>
       <span><kbd>Esc</kbd> 返回 / 收起</span>
     </footer>
@@ -1286,6 +1406,40 @@ body {
 .grip svg {
   width: 14px;
   height: 14px;
+}
+
+/* 术语/翻译分区切换：浅灰分段控件，选中态白色浮起 + accent 文字 */
+.panel-switch {
+  flex: none;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: rgba(226, 232, 240, 0.55);
+}
+
+.panel-switch button {
+  height: 28px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-4);
+  font-size: 12.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.panel-switch button:hover {
+  color: var(--text-2);
+}
+
+.panel-switch button.on {
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(30, 41, 59, 0.1);
 }
 
 .icon-btn {

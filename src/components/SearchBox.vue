@@ -1,7 +1,10 @@
 <script setup>
 import { ref } from "vue";
 
-defineProps({ modelValue: { type: String, default: "" } });
+defineProps({
+  modelValue: { type: String, default: "" },
+  placeholder: { type: String, default: "查询缩写 / 协议 / 术语…" },
+});
 const emit = defineEmits(["update:modelValue", "focus"]);
 
 const input = ref(null);
@@ -20,7 +23,7 @@ defineExpose({ focus });
     class="search-input"
     type="text"
     :value="modelValue"
-    placeholder="查询缩写 / 协议 / 术语…"
+    :placeholder="placeholder"
     spellcheck="false"
     autocomplete="off"
     autofocus
