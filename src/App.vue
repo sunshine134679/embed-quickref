@@ -278,6 +278,9 @@ async function enterCompact(animate = true) {
     win.setIgnoreCursorEvents(true).catch(() => {});
     // 先关闭 acrylic 毛玻璃再启动动画：避免动画期间残留"大边框"与效果切换闪烁
     await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
+    // clearEffects 可能恢复原生标题栏样式位且不触发 Resized/Moved 事件——主动再清一次，
+    // 否则动画全程（220ms 大透明窗）会露出 1px 边框线方框
+    invoke("strip_window_styles").catch(() => {});
     form.value = "compact"; // 触发主界面淡出
     shrinkCancel = false;
     shrinkTask = animateShrink(); // 并行开始平滑缩窗（不等待）
@@ -286,6 +289,7 @@ async function enterCompact(animate = true) {
   shrinkCancel = false;
   // 圆点态：关闭毛玻璃背景，保持纯透明（圆点由 CSS 绘制）
   await win.clearEffects().catch(() => {});
+  invoke("strip_window_styles").catch(() => {});
   await shrinkToDot();
   form.value = "compact";
   dotReady.value = true;
@@ -301,6 +305,8 @@ async function enterExpanded(initialView = "search") {
   win.setIgnoreCursorEvents(false).catch(() => {}); // 恢复鼠标事件（动画期间已穿透）
   // 展开态：恢复 acrylic 毛玻璃背景
   await win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e));
+  // setEffects 后同样可能恢复样式位——主动清一次（展开态被卡片背景盖住不可见，但保持干净）
+  invoke("strip_window_styles").catch(() => {});
   // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
   if (form.value === "compact") {
     try {
