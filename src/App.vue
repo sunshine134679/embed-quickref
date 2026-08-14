@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted, nextTick, defineAsyncComponent } from "vue";
 import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
@@ -11,16 +11,17 @@ import { invoke } from "@tauri-apps/api/core";
 import SearchBox from "./components/SearchBox.vue";
 import ResultList from "./components/ResultList.vue";
 import TermCard from "./components/TermCard.vue";
-import AiAnswer from "./components/AiAnswer.vue";
-import HistoryPanel from "./components/HistoryPanel.vue";
-import SettingsPanel from "./components/SettingsPanel.vue";
 import FloatingDot from "./components/FloatingDot.vue";
-import TranslatePanel from "./components/TranslatePanel.vue";
 import QuickPanel from "./components/QuickPanel.vue";
+// 非首屏组件异步加载：首屏只打包搜索/详情/FloatingDot，其余视图按需拉取
+const AiAnswer = defineAsyncComponent(() => import("./components/AiAnswer.vue"));
+const HistoryPanel = defineAsyncComponent(() => import("./components/HistoryPanel.vue"));
+const SettingsPanel = defineAsyncComponent(() => import("./components/SettingsPanel.vue"));
+const TranslatePanel = defineAsyncComponent(() => import("./components/TranslatePanel.vue"));
 import { initSettings, useSettings } from "./composables/useSettings";
 import { fmtWhen } from "./utils/format";
 import { categoryColor } from "./utils/categories";
-import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints, loadTermHistory, addTermHistory, clearTermHistory } from "./composables/useSearch";
+import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints, loadTermHistory, addTermHistory, clearTermHistory, ensureTerms } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
 import { translateQuery, loadHistory, addHistory, clearHistory } from "./composables/useTranslate";
 import { load } from "@tauri-apps/plugin-store";
@@ -215,6 +216,14 @@ watch(query, (q) => {
   results.value = search(q);
   selectedIndex.value = 0;
   if (view.value !== "search") view.value = "search";
+});
+
+// 词库懒加载完成后若搜索框已有内容则重新搜索（避免加载完成前输入得到空结果）
+ensureTerms().then(() => {
+  if (query.value.trim() && panel.value === "terms") {
+    results.value = search(query.value);
+    selectedIndex.value = 0;
+  }
 });
 
 // ---------- 英语翻译分区：与专业名词查询分离 ----------
@@ -1046,24 +1055,33 @@ async function setupTray() {
 onMounted(async () => {
   // 快捷查找窗口：不初始化主界面逻辑
   if (isQuick) return;
-  await initSettings();
-  await initUserTerms();
-  try {
-    await restoreState();
-  } catch (e) {
-    console.error("状态恢复失败", e);
-  }
+  // 并行初始化：settings / 用户词库 / 状态恢复 / 内置词库预加载互不依赖，
+  // 一次 IPC 往返并行减少启动等待（词库拆独立 chunk 后台拉取，不阻塞首屏）
+  await Promise.allSettled([
+    initSettings(),
+    initUserTerms(),
+    restoreState(),
+    ensureTerms(),
+  ]);
   // 启动形态：visible:false 配置下先完成初始化再展示，避免启动闪现完整窗口
   try {
     if (mode.value === "floating") {
-      // 悬浮模式：启动即为圆点态并恢复记忆位置
-      await enterCompact(false);
-      if (dotPosition.value) await applyDotPosition(dotPosition.value);
+      // 悬浮模式：启动即为圆点态并恢复记忆位置（clearEffects/缩窗/定位并行）
+      await Promise.all([
+        win.clearEffects().catch(() => {}),
+        win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE)),
+        win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE)),
+        dotPosition.value
+          ? win.setPosition(new PhysicalPosition(Math.max(0, dotPosition.value.x), Math.max(0, dotPosition.value.y)))
+          : Promise.resolve(),
+      ]);
+      invoke("strip_window_styles").catch(() => {});
+      form.value = "compact";
+      dotReady.value = true;
       await win.show();
     } else if (mode.value === "pinned") {
       // 固定模式：置顶 + 任务栏图标，直接展示主界面
-      await win.setAlwaysOnTop(true);
-      await win.setSkipTaskbar(false);
+      await Promise.all([win.setAlwaysOnTop(true), win.setSkipTaskbar(false)]);
       await win.show();
       await win.setFocus();
       focusInput();

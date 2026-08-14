@@ -3,7 +3,7 @@ import { ref, watch, onMounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emitTo } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
-import { search, initUserTerms } from "../composables/useSearch";
+import { search, initUserTerms, ensureTerms } from "../composables/useSearch";
 import { initSettings, useSettings } from "../composables/useSettings";
 import { translateQuery, isSingleWord, speakEnglish } from "../composables/useTranslate";
 import { categoryColor } from "../utils/categories";
@@ -55,6 +55,7 @@ async function doSearch() {
   termResults.value = [];
   transResult.value = null;
   if (panel.value === "terms") {
+    await ensureTerms().catch(() => {});
     termResults.value = search(text).slice(0, 5);
     searching.value = false;
     return;
@@ -138,7 +139,8 @@ function closeSelf() {
 
 onMounted(async () => {
   await initSettings().catch(() => {});
-  await initUserTerms().catch(() => {});
+  // 词库与用户词库并行加载（词库独立 chunk，后台拉取）
+  await Promise.all([ensureTerms(), initUserTerms()]).catch(() => {});
   setTimeout(() => document.querySelector(".quick-input")?.focus(), 80);
 });
 </script>

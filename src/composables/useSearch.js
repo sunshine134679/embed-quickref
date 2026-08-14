@@ -1,16 +1,38 @@
 import { ref } from "vue";
 import { load } from "@tauri-apps/plugin-store";
-import builtinTerms from "../data/terms.json";
+
+// 词库懒加载：terms.json 约 600KB，拆成独立 chunk 后台预加载，首屏不阻塞
+let builtinTerms = null;
+let termsPromise = null;
+export function ensureTerms() {
+  if (builtinTerms) return Promise.resolve(builtinTerms);
+  if (!termsPromise) {
+    termsPromise = import("../data/terms.json").then((m) => {
+      builtinTerms = m.default;
+      return builtinTerms;
+    });
+  }
+  return termsPromise;
+}
 
 const userTerms = ref([]);
 let store = null;
+// allTerms 缓存：userTerms 变化时失效，避免每次搜索重建去重 Set
+let cachedAll = null;
 
 export async function initUserTerms() {
   store = await load("user-terms.json", { autoSave: false });
   userTerms.value = (await store.get("terms")) || [];
+  cachedAll = null;
+}
+
+function invalidateCache() {
+  cachedAll = null;
 }
 
 function allTerms() {
+  if (cachedAll) return cachedAll;
+  if (!builtinTerms) return [];
   // 去重规则：
   // - 内置词库全部保留（同缩写不同分类的一词多义词条互不冲突，如 ping 的 Linux/U-Boot/Windows 三条）
   // - 用户词库缓存：与内置「同缩写同分类」的词条跳过（内置优先），避免如 ipconfig 重复显示
@@ -33,6 +55,7 @@ function allTerms() {
       out.push(t);
     }
   }
+  cachedAll = out;
   return out;
 }
 
@@ -41,9 +64,11 @@ function allTerms() {
 export async function addUserTerm(term) {
   const key = (term.abbr || "").trim().toLowerCase();
   if (!key) return "invalid";
+  await ensureTerms(); // 词库未加载时先加载，避免内置判定误判
   if (builtinTerms.some((t) => (t.abbr || "").trim().toLowerCase() === key)) return "builtin";
   if (userTerms.value.some((t) => (t.abbr || "").trim().toLowerCase() === key)) return "user-exists";
   userTerms.value = [...userTerms.value, { ...term, source: "ai" }];
+  invalidateCache();
   await store.set("terms", userTerms.value);
   await store.save();
   return "added";
@@ -59,6 +84,7 @@ export async function updateUserTerm(term) {
     i >= 0
       ? [...userTerms.value.slice(0, i), next, ...userTerms.value.slice(i + 1)]
       : [...userTerms.value, next];
+  invalidateCache();
   await store.set("terms", userTerms.value);
   await store.save();
   return true;
@@ -79,6 +105,7 @@ export async function appendUserTermPoints(abbr, extra, fallback) {
     i >= 0
       ? [...userTerms.value.slice(0, i), next, ...userTerms.value.slice(i + 1)]
       : [...userTerms.value, next];
+  invalidateCache();
   await store.set("terms", userTerms.value);
   await store.save();
   return true;
