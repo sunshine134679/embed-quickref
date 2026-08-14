@@ -287,9 +287,6 @@ async function enterCompact(animate = true) {
     win.setIgnoreCursorEvents(true).catch(() => {});
     // 先关闭 acrylic 毛玻璃再启动动画：避免动画期间残留"大边框"与效果切换闪烁
     await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
-    // clearEffects 可能恢复原生标题栏样式位且不触发 Resized/Moved 事件——主动再清一次，
-    // 否则动画全程（220ms 大透明窗）会露出 1px 边框线方框；必须 await 保证在动画前完成
-    await invoke("strip_window_styles").catch(() => {});
     form.value = "compact"; // 触发主界面淡出
     shrinkCancel = false;
     shrinkTask = animateShrink(); // 并行开始平滑缩窗（不等待）
@@ -298,7 +295,6 @@ async function enterCompact(animate = true) {
   shrinkCancel = false;
   // 圆点态：关闭毛玻璃背景，保持纯透明（圆点由 CSS 绘制）
   await win.clearEffects().catch(() => {});
-  await invoke("strip_window_styles").catch(() => {});
   await shrinkToDot();
   form.value = "compact";
   dotReady.value = true;
@@ -314,8 +310,6 @@ async function enterExpanded(initialView = "search") {
   win.setIgnoreCursorEvents(false).catch(() => {}); // 恢复鼠标事件（动画期间已穿透）
   // 展开态：恢复 acrylic 毛玻璃背景
   await win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e));
-  // setEffects 后同样可能恢复样式位——主动清一次（展开态被卡片背景盖住不可见，但保持干净）
-  await invoke("strip_window_styles").catch(() => {});
   // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
   if (form.value === "compact") {
     try {
@@ -1066,9 +1060,7 @@ onMounted(async () => {
   // 启动形态：visible:false 配置下先完成初始化再展示，避免启动闪现完整窗口
   try {
     if (mode.value === "floating") {
-      // 悬浮模式：启动即为圆点态并恢复记忆位置。
-      // 注意：必须走 enterCompact(false) 保持 clearEffects→strip→缩窗 的顺序，
-      // 并行化会破坏样式位清理时机（DWM 异步重绘在 strip 后恢复样式位且无事件兜底）
+      // 悬浮模式：启动即为圆点态并恢复记忆位置（走 enterCompact 统一缩窗路径）
       await enterCompact(false);
       if (dotPosition.value) await applyDotPosition(dotPosition.value);
       await win.show();
