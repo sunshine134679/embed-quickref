@@ -105,9 +105,11 @@ function speakableText() {
   <div class="translate-panel">
     <!-- 空态：居中提示 + 最近翻译历史 -->
     <div v-if="!query.trim()" class="empty-state">
-      <p class="empty-title">英语翻译</p>
-      <p class="empty-hint">输入英文单词或句子自动翻译，如 interrupt、float</p>
-      <p class="empty-hint dim">或输入中文句子，翻译成英文</p>
+      <div class="empty-main">
+        <p class="empty-title">英语翻译</p>
+        <p class="empty-hint">输入英文单词或句子自动翻译，如 interrupt、float</p>
+        <p class="empty-hint dim">或输入中文句子，翻译成英文</p>
+      </div>
 
       <!-- 最近翻译历史 -->
       <div v-if="history.length" class="history">
@@ -298,8 +300,15 @@ function speakableText() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 32px 20px;
+  padding: 24px 20px;
   text-align: center;
+}
+
+/* 提示文字块：水平居中，占满空态上半部使其视觉居中 */
+.empty-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .empty-title {
@@ -648,7 +657,6 @@ function speakableText() {
   padding: 11px 13px;
   background: #f0f7f4;
   border: 1px solid #d5e8de;
-  border-left: 3px solid #6b9e78;
   border-radius: 8px;
 }
 
@@ -688,7 +696,7 @@ function speakableText() {
 
 .ai-translated .translated-text {
   color: var(--text-1);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .pron-value {
@@ -736,19 +744,19 @@ function speakableText() {
 .dir-chip {
   padding: 2px 10px;
   border-radius: 10px;
-  background: rgba(82, 112, 143, 0.12);
-  color: #52708f;
+  background: rgba(82, 112, 143, 0.14);
+  color: #45627f;
   font-size: 11px;
   font-weight: 700;
 }
 
 .dir-dot {
-  color: #c2ccd8;
+  color: #b6c2cf;
   font-size: 6px;
 }
 
 .dir-hint {
-  color: var(--text-6);
+  color: var(--text-4);
   font-size: 12px;
 }
 
@@ -756,20 +764,20 @@ function speakableText() {
 .block-label {
   display: inline-block;
   margin-bottom: 6px;
-  color: var(--text-5);
+  color: var(--text-4);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.4px;
 }
 
 .dst-label {
-  color: rgba(var(--accent-rgb), 0.85);
+  color: #45627f;
 }
 
 .sentence-src {
   padding: 12px 14px;
-  background: #f1f5f9;
-  border: 1px solid #e2e8f0;
+  background: #f4f6f9;
+  border: 1px solid #e6ebf1;
   border-radius: 9px;
 }
 
@@ -783,8 +791,8 @@ function speakableText() {
 .sentence-dst {
   margin-top: 10px;
   padding: 12px 14px;
-  background: rgba(var(--accent-rgb), 0.1);
-  border: 1px solid rgba(143, 168, 196, 0.5);
+  background: rgba(var(--accent-rgb), 0.12);
+  border: 1px solid rgba(143, 168, 196, 0.35);
   border-radius: 9px;
 }
 
@@ -835,7 +843,7 @@ function speakableText() {
 
 .hint {
   margin-top: 16px;
-  color: var(--text-6);
+  color: var(--text-5);
   font-size: 12px;
 }
 

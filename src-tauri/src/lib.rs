@@ -21,7 +21,7 @@ pub fn run() {
 
 // 快捷查找窗口：显示在悬浮圆点旁（默认右侧，越界翻到左侧/上移），物理像素定位
 const QUICK_W: f64 = 440.0;
-const QUICK_H: f64 = 320.0;
+const QUICK_H: f64 = 300.0;
 const DOT_W: f64 = 64.0;
 const GAP: f64 = 10.0;
 
