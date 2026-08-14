@@ -28,6 +28,25 @@
         "windowEffects": {
           "effects": ["acrylic"]
         }
+      },
+      {
+        "label": "quick",
+        "title": "EmbedQuickRef 快捷查找",
+        "width": 440,
+        "height": 320,
+        "minWidth": 440,
+        "minHeight": 320,
+        "maxWidth": 440,
+        "maxHeight": 320,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "visible": false,
+        "windowEffects": {
+          "effects": ["acrylic"]
+        }
       }
     ],
     "security": {
