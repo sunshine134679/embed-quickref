@@ -820,6 +820,8 @@ async function focusInput() {
 // ---------- 快捷查找窗口（quick）：圆点 hover 弹出 / 详情跳转回主窗口 ----------
 
 let quickHideTimer = null;
+// 快捷窗输入状态：聚焦输入期间不自动隐藏（鼠标移出窗口也不收）
+let quickTyping = false;
 // 鼠标悬停在悬浮圆点上：显示快捷查找窗口（定位到圆点旁，位置计算在 Rust 侧）
 async function showQuickOnHover() {
   clearTimeout(quickHideTimer);
@@ -832,9 +834,10 @@ async function showQuickOnHover() {
   }
 }
 
-// 鼠标离开圆点：延迟隐藏，留出移动到快捷窗口的时间（快捷窗口内 hover 会取消）
+// 鼠标离开圆点：延迟隐藏，留出移动到快捷窗口的时间（快捷窗口内 hover/输入会取消）
 function hideQuickOnLeave() {
   clearTimeout(quickHideTimer);
+  if (quickTyping) return; // 正在输入：不自动隐藏
   quickHideTimer = setTimeout(() => {
     invoke("hide_quick").catch(() => {});
   }, 500);
@@ -848,9 +851,16 @@ function onQuickHoverIn() {
 // 快捷窗口内鼠标离开：重新开始隐藏计时（可能正在移回圆点，圆点 hover 会再取消）
 function onQuickHoverOut() {
   clearTimeout(quickHideTimer);
+  if (quickTyping) return; // 正在输入：不自动隐藏
   quickHideTimer = setTimeout(() => {
     invoke("hide_quick").catch(() => {});
   }, 500);
+}
+
+// 快捷窗口输入框聚焦/失焦：聚焦期间窗口保持，失焦后恢复 hover 自动隐藏
+function onQuickTyping(e) {
+  quickTyping = e?.payload?.typing === true;
+  if (quickTyping) clearTimeout(quickHideTimer);
 }
 
 // 快捷窗口点"查看详情"：展开主窗口并打开对应内容（term 打开词条详情，translate 进入翻译分区）
@@ -877,6 +887,7 @@ async function setupQuickListeners() {
     await listen("quick-open-detail", (e) => onQuickOpenDetail(e.payload));
     await listen("quick-hover-in", onQuickHoverIn);
     await listen("quick-hover-out", onQuickHoverOut);
+    await listen("quick-typing", onQuickTyping);
   } catch (err) {
     console.error("快捷窗口事件监听失败", err);
   }

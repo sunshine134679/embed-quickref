@@ -19,6 +19,14 @@ function onHoverOut() {
   emitTo("main", "quick-hover-out").catch(() => {});
 }
 
+// 输入框聚焦/失焦上报：输入期间快捷窗不自动隐藏（鼠标移出也不收）
+function onInputFocus() {
+  emitTo("main", "quick-typing", { typing: true }).catch(() => {});
+}
+function onInputBlur() {
+  emitTo("main", "quick-typing", { typing: false }).catch(() => {});
+}
+
 // 面板分区：terms(术语) | translate(翻译)
 const panel = ref("terms");
 const q = ref("");
@@ -157,6 +165,8 @@ onMounted(async () => {
         spellcheck="false"
         autocomplete="off"
         @keydown="onKeydown"
+        @focus="onInputFocus"
+        @blur="onInputBlur"
       />
       <button class="quick-go" :disabled="!q.trim() || searching" @click="doSearch">
         {{ searching ? "…" : "查找" }}
