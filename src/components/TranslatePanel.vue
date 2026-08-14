@@ -7,7 +7,25 @@ defineProps({
   status: { type: String, default: "idle" }, // idle | loading | done | error
   result: { type: Object, default: null },
   error: { type: String, default: "" },
+  history: { type: Array, default: () => [] },
 });
+
+const emit = defineEmits(["replay", "clear-history"]);
+
+// 历史条目时间显示：今天显示时分，其余显示月日
+function fmtTime(t) {
+  const d = new Date(t);
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const pad = (n) => String(n).padStart(2, "0");
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return sameDay ? hm : `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hm}`;
+}
+
+// 历史摘要首行截断展示
+function summaryLine(s) {
+  return (s || "").split("\n")[0].slice(0, 60);
+}
 
 const copied = ref("");
 async function copyText(text, key) {
@@ -85,11 +103,33 @@ function speakableText() {
 
 <template>
   <div class="translate-panel">
-    <!-- 空态 -->
+    <!-- 空态：居中提示 + 最近翻译历史 -->
     <div v-if="!query.trim()" class="empty-state">
       <p class="empty-title">英语翻译</p>
       <p class="empty-hint">输入英文单词或句子自动翻译，如 interrupt、float</p>
       <p class="empty-hint dim">或输入中文句子，翻译成英文</p>
+
+      <!-- 最近翻译历史 -->
+      <div v-if="history.length" class="history">
+        <div class="history-head">
+          <span class="history-title">最近翻译</span>
+          <button class="history-clear" title="清空翻译历史" @click="emit('clear-history')">清空</button>
+        </div>
+        <button
+          v-for="(h, i) in history.slice(0, 8)"
+          :key="i"
+          class="history-item"
+          title="点击重新查看该翻译"
+          @click="emit('replay', h)"
+        >
+          <span class="hi-kind">{{ h.kind === "word" || h.kind === "word-ai" ? "词" : "译" }}</span>
+          <span class="hi-body">
+            <span class="hi-input">{{ h.input }}</span>
+            <span class="hi-summary">{{ summaryLine(h.summary) }}</span>
+          </span>
+          <span class="hi-time">{{ fmtTime(h.time) }}</span>
+        </button>
+      </div>
     </div>
 
     <!-- 等待中 -->
@@ -246,9 +286,19 @@ function speakableText() {
   user-select: text;
 }
 
-/* ---------- 空态 ---------- */
+/* 内容区撑满 + 空态 flex 居中：消除"提示词偏上"的歪感 */
+.translate-panel:has(.empty-state) {
+  display: flex;
+  flex-direction: column;
+}
+
 .empty-state {
-  padding: 56px 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
   text-align: center;
 }
 
@@ -268,6 +318,103 @@ function speakableText() {
   margin-top: 4px;
   color: var(--text-6);
   font-size: 13px;
+}
+
+/* 最近翻译历史：空态下方左对齐列表 */
+.history {
+  width: 100%;
+  max-width: 420px;
+  margin-top: 26px;
+  text-align: left;
+}
+
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.history-title {
+  color: var(--text-5);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.history-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-6);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.history-clear:hover {
+  color: var(--danger-soft);
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.history-item:hover {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(219, 226, 234, 0.7);
+}
+
+.hi-kind {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.hi-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.hi-input {
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hi-summary {
+  color: var(--text-5);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hi-time {
+  flex: none;
+  color: var(--text-6);
+  font-size: 11px;
 }
 
 /* ---------- 加载 ---------- */

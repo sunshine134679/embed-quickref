@@ -6,6 +6,8 @@ import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { TrayIcon } from "@tauri-apps/api/tray";
 import { Menu } from "@tauri-apps/api/menu";
 import { defaultWindowIcon } from "@tauri-apps/api/app";
+import { listen } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
 import SearchBox from "./components/SearchBox.vue";
 import ResultList from "./components/ResultList.vue";
 import TermCard from "./components/TermCard.vue";
@@ -14,14 +16,17 @@ import AiHistory from "./components/AiHistory.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import FloatingDot from "./components/FloatingDot.vue";
 import TranslatePanel from "./components/TranslatePanel.vue";
+import QuickPanel from "./components/QuickPanel.vue";
 import { initSettings, useSettings } from "./composables/useSettings";
 import { fmtWhen } from "./utils/format";
 import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
-import { translateQuery, isSingleWord } from "./composables/useTranslate";
+import { translateQuery, isSingleWord, loadHistory, addHistory, clearHistory } from "./composables/useTranslate";
 import { load } from "@tauri-apps/plugin-store";
 
 const win = getCurrentWindow();
+// 快捷查找窗口（label=quick）只渲染 QuickPanel，主窗口渲染完整界面
+const isQuick = win.label === "quick";
 const { settings, saveSettings } = useSettings();
 
 const view = ref("search"); // search | detail | ai | history | settings
@@ -37,6 +42,8 @@ const currentTerm = ref(null);
 const translateStatus = ref("idle");
 const translateResult = ref(null);
 const translateError = ref("");
+// 翻译历史（最近的在前），翻译成功后更新
+const translateHistory = ref(loadHistory());
 let translateTimer = null;
 let translateSeq = 0;
 const aiQuery = ref("");
@@ -229,6 +236,8 @@ async function runTranslate(text) {
     if (seq !== translateSeq) return;
     translateResult.value = result;
     translateStatus.value = "done";
+    addHistory(result, text);
+    translateHistory.value = loadHistory();
   } catch (e) {
     if (seq !== translateSeq) return;
     translateError.value = String(e?.message || e);
@@ -236,19 +245,26 @@ async function runTranslate(text) {
   }
 }
 
-// 切换搜索分区：切换即清空输入并回到搜索视图
+// 点击历史条目：回填输入并立即翻译（命中缓存秒出）
+function replayHistory(h) {
+  query.value = h.input;
+  runTranslateNow();
+}
+
+// 切换搜索分区：切换即清空输入并回到搜索视图；已选中同分区时也回到搜索视图
 function switchPanel(p) {
-  if (panel.value === p) return;
-  panel.value = p;
-  translateSeq++; // 作废进行中的翻译
-  clearTimeout(translateTimer);
-  query.value = "";
-  results.value = [];
-  selectedIndex.value = 0;
-  translateStatus.value = "idle";
-  translateResult.value = null;
-  translateError.value = "";
-  persistState();
+  if (panel.value !== p) {
+    panel.value = p;
+    translateSeq++; // 作废进行中的翻译
+    clearTimeout(translateTimer);
+    query.value = "";
+    results.value = [];
+    selectedIndex.value = 0;
+    translateStatus.value = "idle";
+    translateResult.value = null;
+    translateError.value = "";
+    persistState();
+  }
   if (view.value !== "search") view.value = "search";
   focusInput();
 }
@@ -801,6 +817,56 @@ async function focusInput() {
   searchBox.value?.focus();
 }
 
+// ---------- 快捷查找窗口（quick）：圆点 hover 弹出 / 详情跳转回主窗口 ----------
+
+let quickHideTimer = null;
+// 鼠标悬停在悬浮圆点上：显示快捷查找窗口（定位到圆点旁，位置计算在 Rust 侧）
+async function showQuickOnHover() {
+  clearTimeout(quickHideTimer);
+  if (form.value !== "compact" || !dotReady.value) return;
+  try {
+    const pos = await win.outerPosition();
+    await invoke("show_quick", { x: pos.x, y: pos.y });
+  } catch (e) {
+    console.error("显示快捷查找窗口失败", e);
+  }
+}
+
+// 鼠标离开圆点：延迟隐藏，留出移动到快捷窗口的时间
+function hideQuickOnLeave() {
+  clearTimeout(quickHideTimer);
+  quickHideTimer = setTimeout(() => {
+    invoke("hide_quick").catch(() => {});
+  }, 260);
+}
+
+// 快捷窗口点"查看详情"：展开主窗口并打开对应内容（term 打开词条详情，translate 进入翻译分区）
+async function onQuickOpenDetail(payload) {
+  if (!payload) return;
+  await win.show();
+  if (form.value === "compact") {
+    await enterExpanded(payload.kind === "translate" ? "search" : "detail");
+  }
+  if (payload.kind === "term") {
+    const t = search(payload.abbr || "")[0];
+    if (t) openTab(t);
+  } else if (payload.kind === "translate") {
+    panel.value = "translate";
+    query.value = payload.text || "";
+    runTranslateNow();
+  }
+  await win.setFocus();
+}
+
+// 注册快捷窗口事件：hover 弹出 + 详情跳转
+async function setupQuickListeners() {
+  try {
+    await listen("quick-open-detail", (e) => onQuickOpenDetail(e.payload));
+  } catch (err) {
+    console.error("快捷窗口事件监听失败", err);
+  }
+}
+
 async function showAndFocus() {
   await win.show();
   await win.setFocus();
@@ -918,6 +984,8 @@ async function setupTray() {
 }
 
 onMounted(async () => {
+  // 快捷查找窗口：不初始化主界面逻辑
+  if (isQuick) return;
   await initSettings();
   await initUserTerms();
   try {
@@ -1019,6 +1087,11 @@ onMounted(async () => {
       }
     }, 400);
   });
+  try {
+    await setupQuickListeners();
+  } catch (e) {
+    console.error("快捷窗口初始化失败", e);
+  }
   window.addEventListener("keydown", onKeydown);
   document.addEventListener("mouseenter", onPointerEnter);
   document.addEventListener("mouseleave", onPointerLeave);
@@ -1037,12 +1110,15 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="shell" :class="{ compact: form === 'compact' }">
+  <QuickPanel v-if="isQuick" />
+  <div v-else class="shell" :class="{ compact: form === 'compact' }">
     <FloatingDot
       v-if="form === 'compact' && dotReady"
       @expand="onDotExpand"
       @settings="onDotSettings"
       @quit="closeApp"
+      @mouseenter="showQuickOnHover"
+      @mouseleave="hideQuickOnLeave"
     />
     <Transition name="fade" @after-leave="onMainLeave"><div v-show="form === `expanded`" class="main-view" :style="animStyle">
     <header class="topbar">
@@ -1209,6 +1285,9 @@ onUnmounted(() => {
           :status="translateStatus"
           :result="translateResult"
           :error="translateError"
+          :history="translateHistory"
+          @replay="replayHistory"
+          @clear-history="translateHistory = []; clearHistory()"
         />
       </template>
       <div v-else-if="view === 'detail'" class="detail-wrap">

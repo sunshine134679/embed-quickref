@@ -180,3 +180,49 @@ export function speakEnglish(text) {
   utterance.rate = 0.85;
   window.speechSynthesis.speak(utterance);
 }
+
+// ---------- 翻译历史：每次成功翻译写入，空态下快捷回看 ----------
+const HISTORY_STORAGE_KEY = "embed-quickref-translate-history-v1";
+const HISTORY_LIMIT = 20;
+
+export function loadHistory() {
+  try {
+    const list = JSON.parse(localStorage.getItem(HISTORY_STORAGE_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+// 记录一次翻译：kind word|word-ai|sentence；保留原输入与一句话摘要（最近的在前）
+export function addHistory(result, input) {
+  if (!result || !input) return;
+  const summary =
+    result.kind === "word"
+      ? result.entry.primary
+      : result.kind === "word-ai"
+        ? (result.reply || "").split("\n").find((l) => l.startsWith("释义")) || result.reply
+        : result.translated;
+  const entry = {
+    kind: result.kind,
+    input: input.trim(),
+    summary: (summary || "").trim().slice(0, 80),
+    time: Date.now(),
+  };
+  const list = loadHistory().filter((h) => h.input !== entry.input);
+  list.unshift(entry);
+  try {
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(list.slice(0, HISTORY_LIMIT)));
+  } catch {
+    /* 存储不可用时忽略 */
+  }
+}
+
+// 清空翻译历史
+export function clearHistory() {
+  try {
+    localStorage.removeItem(HISTORY_STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
