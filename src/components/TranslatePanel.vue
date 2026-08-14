@@ -35,6 +35,44 @@ async function copyText(text, key) {
   }, 1200);
 }
 
+// ---- 结构化展示辅助 ----
+
+// 词性分组：把 "n. 寄存器；登记  v. 注册；登记" 拆成 [{pos:'n.', meaning:'寄存器；登记'}, ...]
+function splitPrimary(primary) {
+  if (!primary) return [];
+  return (primary || "")
+    .split(/\s{2,}/)
+    .map((g) => g.trim())
+    .filter(Boolean)
+    .map((g) => {
+      const m = g.match(/^((?:n|v|adj|adv|pron|prep|conj|int|det|abbr|aux)\.)\s*(.*)$/i);
+      return m ? { pos: m[1].toLowerCase(), meaning: m[2] } : { pos: "", meaning: g };
+    });
+}
+
+// 义项 pos："n. 嵌入式" -> { pos:'n.', field:'嵌入式' }
+function splitPos(pos) {
+  if (!pos) return { pos: "", field: "" };
+  const m = pos.match(/^((?:n|v|adj|adv|pron|prep|conj|int|det|abbr|aux)\.)\s*(.*)$/i);
+  if (m) return { pos: m[1].toLowerCase(), field: m[2] };
+  return { pos: "", field: pos };
+}
+
+// AI 单词解释（音标/释义/例句/译文 固定格式）解析为结构化字段；解析失败返回 null
+function parseAiReply(reply) {
+  const out = { pronunciation: "", meaning: "", example: "", translated: "" };
+  for (const line of (reply || "").split("\n")) {
+    const t = line.trim();
+    const m = t.match(/^(音标|释义|例句|译文)[:：]\s*(.*)$/);
+    if (!m) continue;
+    if (m[1] === "音标") out.pronunciation = m[2].trim();
+    else if (m[1] === "释义") out.meaning = m[2].trim();
+    else if (m[1] === "例句") out.example = m[2].trim();
+    else if (m[1] === "译文") out.translated = m[2].trim();
+  }
+  return out.pronunciation || out.meaning || out.example || out.translated ? out : null;
+}
+
 // 可朗读的英文文本：单词卡片读单词；句子英译中读原文，中译英读译文
 function speakableText() {
   const r = arguments[0] || null;
@@ -48,8 +86,10 @@ function speakableText() {
 <template>
   <div class="translate-panel">
     <!-- 空态 -->
-    <div v-if="!query.trim()" class="empty muted">
-      输入英文单词或句子，如 interrupt、float，或 “把内核启动参数传给设备树”
+    <div v-if="!query.trim()" class="empty-state">
+      <p class="empty-title">英语翻译</p>
+      <p class="empty-hint">输入英文单词或句子自动翻译，如 interrupt、float</p>
+      <p class="empty-hint dim">或输入中文句子，翻译成英文</p>
     </div>
 
     <!-- 等待中 -->
@@ -61,13 +101,14 @@ function speakableText() {
     </p>
 
     <!-- 本地学习词典命中的单词卡片 -->
-    <article v-else-if="result && result.kind === 'word'" class="translate-card">
-      <div class="head">
+    <article v-else-if="result && result.kind === 'word'" class="word-card">
+      <header class="word-head">
         <h1>{{ result.word }}</h1>
         <span v-if="result.entry.pronunciation" class="pron">
           <span v-if="result.entry.pronunciation.uk" class="pron-item">英 {{ result.entry.pronunciation.uk }}</span>
           <span v-if="result.entry.pronunciation.us" class="pron-item">美 {{ result.entry.pronunciation.us }}</span>
         </span>
+        <span class="head-spacer"></span>
         <button
           class="speak-btn"
           title="播放英语读音"
@@ -79,31 +120,48 @@ function speakableText() {
             <path d="M19 6a8.5 8.5 0 0 1 0 12" />
           </svg>
         </button>
+      </header>
+
+      <!-- 词性释义：按词性分组展示 -->
+      <div v-if="splitPrimary(result.entry.primary).length" class="pos-list">
+        <div v-for="(p, i) in splitPrimary(result.entry.primary)" :key="i" class="pos-row">
+          <span v-if="p.pos" class="pos-chip">{{ p.pos }}</span>
+          <span class="pos-meaning">{{ p.meaning }}</span>
+        </div>
       </div>
-      <div v-if="result.entry.primary" class="word-primary">{{ result.entry.primary }}</div>
+      <p v-else-if="result.entry.primary" class="word-primary">{{ result.entry.primary }}</p>
+
       <div v-if="result.entry.forms && result.entry.forms.length" class="word-forms">
         <span class="label">词形</span>
-        <span v-for="(f, i) in result.entry.forms" :key="i" class="form">{{ f }}</span>
+        <span v-for="(f, i) in result.entry.forms" :key="i" class="form" :class="{ base: i === 0 }">{{ f }}</span>
       </div>
+
       <div v-if="result.entry.usage" class="word-usage">
         <span class="label">用法</span>
         <span class="usage-text">{{ result.entry.usage }}</span>
       </div>
+
+      <!-- 义项列表 -->
       <section v-for="(s, i) in result.entry.senses" :key="i" class="sense">
-        <div class="sense-title">{{ s.pos }} · {{ s.meaning }}</div>
+        <div class="sense-head">
+          <span v-if="splitPos(s.pos).pos" class="pos-chip">{{ splitPos(s.pos).pos }}</span>
+          <span v-if="splitPos(s.pos).field" class="field-chip">{{ splitPos(s.pos).field }}</span>
+          <span class="sense-meaning">{{ s.meaning }}</span>
+        </div>
         <div v-if="s.example" class="sense-example">
-          <span class="example-label">例句</span>
           <code>{{ s.example }}</code>
           <p v-if="s.exampleZh" class="sense-example-zh">{{ s.exampleZh }}</p>
         </div>
       </section>
+
       <p class="hint">按 <kbd>Esc</kbd> 返回 · 点击 🔊 可朗读发音</p>
     </article>
 
     <!-- AI 词典式解释（单词未命中本地词典） -->
-    <article v-else-if="result && result.kind === 'word-ai'" class="translate-card">
-      <div class="head">
+    <article v-else-if="result && result.kind === 'word-ai'" class="word-card">
+      <header class="word-head">
         <h1>{{ result.text }}</h1>
+        <span class="head-spacer"></span>
         <button class="speak-btn" title="播放英语读音" @click="speakEnglish(result.text)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
             <path d="M4 9v6h4l5 4V5L8 9H4z" />
@@ -111,18 +169,45 @@ function speakableText() {
             <path d="M19 6a8.5 8.5 0 0 1 0 12" />
           </svg>
         </button>
-      </div>
-      <pre class="ai-reply">{{ result.reply }}</pre>
+      </header>
+
+      <!-- AI 结构化字段 -->
+      <template v-if="parseAiReply(result.reply)">
+        <div v-if="parseAiReply(result.reply).pronunciation" class="ai-pron">
+          <span class="label">音标</span>
+          <span class="pron-value">{{ parseAiReply(result.reply).pronunciation }}</span>
+        </div>
+        <div v-if="parseAiReply(result.reply).meaning" class="ai-meaning">
+          <span class="label">释义</span>
+          <span class="meaning-text">{{ parseAiReply(result.reply).meaning }}</span>
+        </div>
+        <div v-if="parseAiReply(result.reply).example" class="ai-example">
+          <span class="label">例句</span>
+          <code>{{ parseAiReply(result.reply).example }}</code>
+        </div>
+        <div v-if="parseAiReply(result.reply).translated" class="ai-translated">
+          <span class="label">译文</span>
+          <span class="translated-text">{{ parseAiReply(result.reply).translated }}</span>
+        </div>
+      </template>
+      <pre v-else class="ai-reply">{{ result.reply }}</pre>
+
       <p class="hint">按 <kbd>Esc</kbd> 返回 · 点击 🔊 可朗读发音</p>
     </article>
 
     <!-- 句子翻译 -->
-    <article v-else-if="result && result.kind === 'sentence'" class="translate-card sentence-card">
+    <article v-else-if="result && result.kind === 'sentence'" class="sentence-card">
+      <div class="dir-row">
+        <span class="dir-chip">{{ result.target === "zh" ? "英 → 中" : "中 → 英" }}</span>
+        <span class="dir-dot">●</span>
+        <span class="dir-hint">句子翻译</span>
+      </div>
       <div class="sentence-src">
-        <span class="label">{{ result.target === "zh" ? "英 → 中" : "中 → 英" }}</span>
+        <span class="block-label">原文</span>
         <p class="src-text">{{ result.text }}</p>
       </div>
       <div class="sentence-dst">
+        <span class="block-label dst-label">译文</span>
         <p class="dst-text">{{ result.translated }}</p>
       </div>
       <div class="actions">
@@ -132,36 +217,64 @@ function speakableText() {
           title="复制译文"
           @click="copyText(result.translated, 'dst')"
         >
-          {{ copied === "dst" ? "已复制 ✓" : "复制译文" }}
+          <svg v-if="copied !== 'dst'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <rect x="9" y="9" width="11" height="11" rx="2" />
+            <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+          </svg>
+          <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 12.5l5 5L20 6.5" />
+          </svg>
+          {{ copied === "dst" ? "已复制" : "复制译文" }}
         </button>
         <button class="act-btn" title="播放英语读音" @click="speakEnglish(speakableText(result))">
-          🔊 朗读
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+            <path d="M4 9v6h4l5 4V5L8 9H4z" />
+            <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+            <path d="M19 6a8.5 8.5 0 0 1 0 12" />
+          </svg>
+          朗读
         </button>
       </div>
       <p class="hint">按 <kbd>Esc</kbd> 返回</p>
     </article>
-
-    <div v-else class="empty muted">输入后自动翻译</div>
   </div>
 </template>
 
 <style scoped>
 .translate-panel {
-  padding: 14px 24px;
+  padding: 16px 24px 20px;
   user-select: text;
 }
 
-.empty.muted {
-  padding: 48px 20px;
+/* ---------- 空态 ---------- */
+.empty-state {
+  padding: 56px 20px;
   text-align: center;
-  color: var(--text-6);
 }
 
-/* 加载动画：与 AI 回答风格一致 */
+.empty-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.empty-hint {
+  margin-top: 8px;
+  color: var(--text-4);
+  font-size: 13.5px;
+}
+
+.empty-hint.dim {
+  margin-top: 4px;
+  color: var(--text-6);
+  font-size: 13px;
+}
+
+/* ---------- 加载 ---------- */
 .loading-dots {
   display: flex;
   gap: 6px;
-  padding: 24px 4px;
+  padding: 28px 4px;
 }
 
 .loading-dots i {
@@ -200,29 +313,34 @@ function speakableText() {
   line-height: 1.6;
 }
 
-.translate-card {
-  padding: 18px 20px;
+/* ---------- 单词卡片 ---------- */
+.word-card {
+  padding: 20px 22px 18px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(226, 232, 240, 0.75);
-  border-radius: 10px;
+  border-radius: 12px;
 }
 
-.head {
+.word-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
 }
 
-h1 {
-  font-size: 22px;
+.word-head h1 {
+  font-size: 26px;
   font-weight: 700;
   color: var(--text-1);
+  letter-spacing: 0.2px;
+}
+
+.head-spacer {
+  flex: 1;
 }
 
 .pron {
   display: inline-flex;
-  gap: 10px;
+  gap: 12px;
   color: var(--text-5);
   font-size: 13px;
   font-family: Consolas, "Cascadia Code", monospace;
@@ -230,26 +348,61 @@ h1 {
 
 .speak-btn {
   flex: none;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(219, 226, 234, 0.9);
-  border-radius: 8px;
+  border-radius: 9px;
   background: rgba(255, 255, 255, 0.85);
   color: var(--text-4);
   cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
 }
 
 .speak-btn:hover {
   color: var(--accent);
   border-color: rgba(var(--accent-rgb), 0.5);
+  background: rgba(var(--accent-rgb), 0.06);
 }
 
 .speak-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
+}
+
+/* 词性释义：每行 = 词性 chip + 释义 */
+.pos-list {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pos-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.pos-chip {
+  flex: none;
+  min-width: 30px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(82, 112, 143, 0.12);
+  color: #52708f;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.pos-meaning {
+  color: var(--text-2);
+  font-size: 14.5px;
+  line-height: 1.7;
 }
 
 .word-primary {
@@ -259,17 +412,18 @@ h1 {
   line-height: 1.7;
 }
 
+/* 词形 */
 .word-forms {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 7px;
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 .label {
   flex: none;
-  padding: 1px 8px;
+  padding: 1px 9px;
   border-radius: 10px;
   background: rgba(82, 112, 143, 0.1);
   color: #52708f;
@@ -278,23 +432,32 @@ h1 {
 }
 
 .form {
-  padding: 2px 9px;
+  padding: 2px 10px;
   background: #eef2f7;
-  border-radius: 6px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  border-radius: 7px;
   color: var(--text-3);
   font-size: 12px;
   font-family: Consolas, "Courier New", monospace;
 }
 
+.form.base {
+  background: rgba(var(--accent-rgb), 0.12);
+  border-color: rgba(143, 168, 196, 0.55);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* 用法 */
 .word-usage {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 10px 12px;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 11px 13px;
   background: #f1f5f9;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border-radius: 9px;
 }
 
 .usage-text {
@@ -303,35 +466,43 @@ h1 {
   line-height: 1.7;
 }
 
+/* 义项 */
 .sense {
-  margin-top: 12px;
-  padding-top: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid rgba(238, 242, 246, 0.9);
 }
 
-.sense-title {
+.sense-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.field-chip {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: rgba(27, 138, 125, 0.1);
+  color: #1b8a7d;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.sense-meaning {
   color: var(--text-2);
   font-size: 14px;
   font-weight: 600;
 }
 
 .sense-example {
-  position: relative;
-  margin-top: 8px;
-  padding: 24px 12px 10px;
+  margin-top: 9px;
+  padding: 11px 13px;
   background: #f0f7f4;
   border: 1px solid #d5e8de;
   border-left: 3px solid #6b9e78;
   border-radius: 8px;
-}
-
-.example-label {
-  position: absolute;
-  top: 6px;
-  left: 10px;
-  font-size: 11px;
-  color: #6b9e78;
-  font-weight: 600;
 }
 
 .sense-example code {
@@ -350,7 +521,46 @@ h1 {
   line-height: 1.6;
 }
 
-/* AI 词典式回答：纯文本块 */
+/* AI 单词解释：字段行（音标/释义/例句/译文） */
+.ai-pron,
+.ai-meaning,
+.ai-example,
+.ai-translated {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.ai-meaning .meaning-text,
+.ai-translated .translated-text {
+  color: var(--text-2);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.ai-translated .translated-text {
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.pron-value {
+  color: var(--text-4);
+  font-size: 13px;
+  font-family: Consolas, "Cascadia Code", monospace;
+}
+
+.ai-example code {
+  display: block;
+  flex: 1;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 13px;
+  color: #0f172a;
+  word-break: break-word;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
 .ai-reply {
   margin-top: 12px;
   white-space: pre-wrap;
@@ -361,14 +571,62 @@ h1 {
   font-size: 13.5px;
 }
 
-/* 句子翻译 */
+/* ---------- 句子翻译 ---------- */
+.sentence-card {
+  padding: 16px 22px 18px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  border-radius: 12px;
+}
+
+.dir-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dir-chip {
+  padding: 2px 10px;
+  border-radius: 10px;
+  background: rgba(82, 112, 143, 0.12);
+  color: #52708f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dir-dot {
+  color: #c2ccd8;
+  font-size: 6px;
+}
+
+.dir-hint {
+  color: var(--text-6);
+  font-size: 12px;
+}
+
+/* 原文/译文块：统一带块标签，译文用 accent 浅底突出 */
+.block-label {
+  display: inline-block;
+  margin-bottom: 6px;
+  color: var(--text-5);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.dst-label {
+  color: rgba(var(--accent-rgb), 0.85);
+}
+
 .sentence-src {
-  padding-bottom: 10px;
-  border-bottom: 1px dashed rgba(219, 226, 234, 0.9);
+  padding: 12px 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 9px;
 }
 
 .src-text {
-  margin-top: 8px;
   color: var(--text-3);
   font-size: 14px;
   line-height: 1.7;
@@ -376,12 +634,16 @@ h1 {
 }
 
 .sentence-dst {
-  margin-top: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  background: rgba(var(--accent-rgb), 0.1);
+  border: 1px solid rgba(143, 168, 196, 0.5);
+  border-radius: 9px;
 }
 
 .dst-text {
   color: var(--text-1);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.7;
   word-break: break-word;
@@ -389,12 +651,15 @@ h1 {
 
 .actions {
   display: flex;
-  gap: 8px;
-  margin-top: 14px;
+  gap: 10px;
+  margin-top: 16px;
 }
 
 .act-btn {
-  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
   padding: 0 14px;
   border: 1px solid rgba(219, 226, 234, 0.95);
   border-radius: 8px;
@@ -402,11 +667,18 @@ h1 {
   color: var(--text-4);
   font-size: 12.5px;
   cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
 }
 
 .act-btn:hover {
   color: var(--accent);
   border-color: rgba(var(--accent-rgb), 0.5);
+  background: rgba(var(--accent-rgb), 0.05);
+}
+
+.act-btn svg {
+  width: 15px;
+  height: 15px;
 }
 
 .act-btn.done {
@@ -415,7 +687,7 @@ h1 {
 }
 
 .hint {
-  margin-top: 14px;
+  margin-top: 16px;
   color: var(--text-6);
   font-size: 12px;
 }

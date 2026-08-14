@@ -1408,7 +1408,7 @@ body {
   height: 14px;
 }
 
-/* 术语/翻译分区切换：浅灰分段控件，选中态白色浮起 + accent 文字 */
+/* 术语/翻译分区切换：浅灰分段控件，选中态白底浮起 + accent 文字 + 底部指示条 */
 .panel-switch {
   flex: none;
   display: flex;
@@ -1419,8 +1419,9 @@ body {
 }
 
 .panel-switch button {
+  position: relative;
   height: 28px;
-  padding: 0 12px;
+  padding: 0 14px;
   border: none;
   border-radius: 6px;
   background: transparent;
@@ -1440,6 +1441,18 @@ body {
   color: var(--accent);
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(30, 41, 59, 0.1);
+}
+
+.panel-switch button.on::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+  background: rgba(var(--accent-rgb), 0.75);
 }
 
 .icon-btn {
