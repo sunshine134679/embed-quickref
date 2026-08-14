@@ -107,8 +107,8 @@ function speakableText() {
     <div v-if="!query.trim()" class="empty-state">
       <div class="empty-main">
         <p class="empty-title">英语翻译</p>
-        <p class="empty-hint">输入英文单词或句子自动翻译，如 interrupt、float</p>
-        <p class="empty-hint dim">或输入中文句子，翻译成英文</p>
+        <p class="empty-hint">输入英文单词或句子，按 <kbd>Enter</kbd> 或点「翻译」按钮</p>
+        <p class="empty-hint dim">输入中文句子，翻译成英文</p>
       </div>
 
       <!-- 最近翻译历史 -->
@@ -279,6 +279,9 @@ function speakableText() {
       </div>
       <p class="hint">按 <kbd>Esc</kbd> 返回</p>
     </article>
+
+    <!-- 已输入但未翻译：等待手动触发 -->
+    <div v-else class="empty muted">按 <kbd>Enter</kbd> 或点「翻译」按钮</div>
   </div>
 </template>
 

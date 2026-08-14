@@ -21,7 +21,7 @@ import { initSettings, useSettings } from "./composables/useSettings";
 import { fmtWhen } from "./utils/format";
 import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
-import { translateQuery, isSingleWord, loadHistory, addHistory, clearHistory } from "./composables/useTranslate";
+import { translateQuery, loadHistory, addHistory, clearHistory } from "./composables/useTranslate";
 import { load } from "@tauri-apps/plugin-store";
 
 const win = getCurrentWindow();
@@ -196,7 +196,10 @@ async function restoreState() {
 watch(query, (q) => {
   if (panel.value === "translate") {
     if (view.value !== "search") view.value = "search";
-    scheduleTranslate(q);
+    // 手动触发：输入只清空结果，等待用户回车/点翻译按钮
+    translateStatus.value = "idle";
+    translateResult.value = null;
+    translateError.value = "";
     return;
   }
   results.value = search(q);
@@ -206,19 +209,7 @@ watch(query, (q) => {
 
 // ---------- 英语翻译分区：与专业名词查询分离 ----------
 
-// 防抖触发翻译：本地单词命中零网络，短防抖；句子等长输入稍长防抖
-function scheduleTranslate(q) {
-  clearTimeout(translateTimer);
-  const text = (q || "").trim();
-  translateStatus.value = "idle";
-  translateResult.value = null;
-  translateError.value = "";
-  if (!text) return;
-  translateStatus.value = "loading";
-  translateTimer = setTimeout(() => runTranslate(text), isSingleWord(text) ? 150 : 350);
-}
-
-// 立即翻译（Enter/Tab 触发）：先取消未执行的防抖，再执行
+// 立即翻译（Enter/Tab/翻译按钮触发）：先取消未执行的防抖，再执行
 function runTranslateNow() {
   clearTimeout(translateTimer);
   const text = (query.value || "").trim();
@@ -1178,9 +1169,18 @@ onUnmounted(() => {
       <SearchBox
         ref="searchBox"
         v-model="query"
-        :placeholder="panel === 'translate' ? '输入英语单词或句子…' : '查询缩写 / 协议 / 术语…'"
+        :placeholder="panel === 'translate' ? '输入英语单词或句子，回车翻译' : '查询缩写 / 协议 / 术语…'"
         @focus="onSearchFocus"
       />
+      <button
+        v-if="panel === 'translate'"
+        class="translate-go"
+        :disabled="!query.trim() || translateStatus === 'loading'"
+        title="翻译（Enter）"
+        @click="runTranslateNow"
+      >
+        {{ translateStatus === "loading" ? "翻译中…" : "翻译" }}
+      </button>
       <button
         class="icon-btn"
         :class="{ active: pinned }"
@@ -1381,7 +1381,7 @@ onUnmounted(() => {
         <span><kbd>Tab</kbd> 问 AI</span>
       </template>
       <template v-else>
-        <span><kbd>Enter</kbd> / <kbd>Tab</kbd> 翻译</span>
+        <span><kbd>Enter</kbd> 翻译</span>
       </template>
       <span><kbd>Ctrl+H</kbd> AI 历史</span>
       <span><kbd>Esc</kbd> 返回 / 收起</span>
@@ -1601,6 +1601,30 @@ body {
 .icon-btn svg {
   width: 18px;
   height: 18px;
+}
+
+/* 翻译分区的手动翻译按钮：accent 浅底、与 icon-btn 同高 */
+.translate-go {
+  flex: none;
+  height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.14);
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.translate-go:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb), 0.22);
+}
+
+.translate-go:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .tabbar {
