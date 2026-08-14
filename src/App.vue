@@ -302,6 +302,9 @@ async function enterCompact(animate = true) {
 
 // 展开主界面：680×500，就地展开并纠正到可见区
 async function enterExpanded(initialView = "search") {
+  // 展开主窗口时隐藏快捷查找窗：避免小窗叠在大窗口上（quick 窗口只服务圆点态 hover）
+  invoke("hide_quick").catch(() => {});
+  clearTimeout(quickHideTimer);
   // 中断进行中的收起动画（若用户在动画期间展开）：标记取消并清除飞行动画样式
   shrinkCancel = true;
   shrinkTask = null;
