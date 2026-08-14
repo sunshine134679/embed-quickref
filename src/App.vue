@@ -832,12 +832,25 @@ async function showQuickOnHover() {
   }
 }
 
-// 鼠标离开圆点：延迟隐藏，留出移动到快捷窗口的时间
+// 鼠标离开圆点：延迟隐藏，留出移动到快捷窗口的时间（快捷窗口内 hover 会取消）
 function hideQuickOnLeave() {
   clearTimeout(quickHideTimer);
   quickHideTimer = setTimeout(() => {
     invoke("hide_quick").catch(() => {});
-  }, 260);
+  }, 500);
+}
+
+// 快捷窗口内鼠标进入：取消隐藏计时（用户正在移向/使用快捷窗）
+function onQuickHoverIn() {
+  clearTimeout(quickHideTimer);
+}
+
+// 快捷窗口内鼠标离开：重新开始隐藏计时（可能正在移回圆点，圆点 hover 会再取消）
+function onQuickHoverOut() {
+  clearTimeout(quickHideTimer);
+  quickHideTimer = setTimeout(() => {
+    invoke("hide_quick").catch(() => {});
+  }, 500);
 }
 
 // 快捷窗口点"查看详情"：展开主窗口并打开对应内容（term 打开词条详情，translate 进入翻译分区）
@@ -862,6 +875,8 @@ async function onQuickOpenDetail(payload) {
 async function setupQuickListeners() {
   try {
     await listen("quick-open-detail", (e) => onQuickOpenDetail(e.payload));
+    await listen("quick-hover-in", onQuickHoverIn);
+    await listen("quick-hover-out", onQuickHoverOut);
   } catch (err) {
     console.error("快捷窗口事件监听失败", err);
   }

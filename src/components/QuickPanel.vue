@@ -11,6 +11,14 @@ import { categoryColor } from "../utils/categories";
 const win = getCurrentWindow();
 const { settings } = useSettings();
 
+// 鼠标进出本窗口时通知主窗口：进入取消隐藏计时，离开重新计时
+function onHoverIn() {
+  emitTo("main", "quick-hover-in").catch(() => {});
+}
+function onHoverOut() {
+  emitTo("main", "quick-hover-out").catch(() => {});
+}
+
 // 面板分区：terms(术语) | translate(翻译)
 const panel = ref("terms");
 const q = ref("");
@@ -128,7 +136,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="quick-shell">
+  <div class="quick-shell" @mouseenter="onHoverIn" @mouseleave="onHoverOut">
     <header class="quick-top">
       <div class="seg">
         <button :class="{ on: panel === 'terms' }" @click="panel = 'terms'; q = ''; schedule()">术语</button>
@@ -175,7 +183,7 @@ onMounted(async () => {
             </span>
             <span class="tag" :style="catStyle(t.category)">{{ t.category }}</span>
           </button>
-          <button class="q-detail-btn" @click="openDetail">查看「{{ termResults[0].abbr }}」详情解释 ›</button>
+          <button class="q-detail-btn" @click="openDetail">查看「{{ termResults[0].abbr }}」详情 ›</button>
         </div>
         <div v-else-if="q.trim()" class="q-empty">本地词库未命中，试试翻译分区</div>
         <div v-else class="q-hint">输入缩写或关键词，如 I2C、DTS、bootcmd</div>
@@ -197,8 +205,15 @@ onMounted(async () => {
             <div class="qt-trans-text">{{ transResult.translated }}</div>
           </template>
           <div class="q-trans-actions">
-            <button class="q-mini-btn" @click="speak()">🔊 发音</button>
-            <button class="q-detail-btn" @click="openDetail">查看详情解释 ›</button>
+            <button class="q-mini-btn" @click="speak()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" class="q-spk-icon">
+                <path d="M4 9v6h4l5 4V5L8 9H4z" />
+                <path d="M16.5 8.5a5 5 0 0 1 0 7" />
+                <path d="M19 6a8.5 8.5 0 0 1 0 12" />
+              </svg>
+              发音
+            </button>
+            <button class="q-detail-btn" @click="openDetail">查看详情 ›</button>
           </div>
         </div>
         <div v-else-if="q.trim()" class="q-hint">按 Enter 翻译</div>
@@ -334,6 +349,16 @@ onMounted(async () => {
   flex-direction: column;
 }
 
+/* 结果内容垂直居中：消除固定窗口高度下的底部大片空白 */
+.q-term-list,
+.q-trans {
+  margin: auto 0;
+}
+
+.q-term-list {
+  width: 100%;
+}
+
 .quick-body::-webkit-scrollbar {
   width: 5px;
 }
@@ -450,11 +475,19 @@ onMounted(async () => {
 
 .q-mini-btn,
 .q-detail-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   height: 28px;
   padding: 0 12px;
   border-radius: 7px;
   font-size: 12px;
   cursor: pointer;
+}
+
+.q-spk-icon {
+  width: 13px;
+  height: 13px;
 }
 
 .q-mini-btn {
