@@ -10,7 +10,7 @@ defineProps({
   history: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["replay", "clear-history"]);
+const emit = defineEmits(["replay", "clear-history", "open-full"]);
 
 // 历史条目时间显示：今天显示时分，其余显示月日
 function fmtTime(t) {
@@ -118,7 +118,7 @@ function speakableText() {
           <button class="history-clear" title="清空翻译历史" @click="emit('clear-history')">清空</button>
         </div>
         <button
-          v-for="(h, i) in history.slice(0, 8)"
+          v-for="(h, i) in history.slice(0, 5)"
           :key="i"
           class="history-item"
           title="点击重新查看该翻译"
@@ -131,6 +131,7 @@ function speakableText() {
           </span>
           <span class="hi-time">{{ fmtTime(h.time) }}</span>
         </button>
+        <button class="history-all" @click="emit('open-full')">查看全部记录 ›</button>
       </div>
     </div>
 
@@ -427,6 +428,24 @@ function speakableText() {
   flex: none;
   color: var(--text-6);
   font-size: 11px;
+}
+
+/* 查看全部记录：跳转总历史对应分区 */
+.history-all {
+  display: block;
+  margin: 8px auto 0;
+  padding: 7px 16px;
+  border: 1px solid rgba(143, 168, 196, 0.6);
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.history-all:hover {
+  background: rgba(var(--accent-rgb), 0.18);
 }
 
 /* ---------- 加载 ---------- */

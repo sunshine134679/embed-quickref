@@ -12,14 +12,15 @@ import SearchBox from "./components/SearchBox.vue";
 import ResultList from "./components/ResultList.vue";
 import TermCard from "./components/TermCard.vue";
 import AiAnswer from "./components/AiAnswer.vue";
-import AiHistory from "./components/AiHistory.vue";
+import HistoryPanel from "./components/HistoryPanel.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import FloatingDot from "./components/FloatingDot.vue";
 import TranslatePanel from "./components/TranslatePanel.vue";
 import QuickPanel from "./components/QuickPanel.vue";
 import { initSettings, useSettings } from "./composables/useSettings";
 import { fmtWhen } from "./utils/format";
-import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints } from "./composables/useSearch";
+import { categoryColor } from "./utils/categories";
+import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints, loadTermHistory, addTermHistory, clearTermHistory } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
 import { translateQuery, loadHistory, addHistory, clearHistory } from "./composables/useTranslate";
 import { load } from "@tauri-apps/plugin-store";
@@ -28,6 +29,11 @@ const win = getCurrentWindow();
 // 快捷查找窗口（label=quick）只渲染 QuickPanel，主窗口渲染完整界面
 const isQuick = win.label === "quick";
 const { settings, saveSettings } = useSettings();
+
+function catStyle(cat) {
+  const { fg, bg } = categoryColor(cat);
+  return { color: fg, background: bg };
+}
 
 const view = ref("search"); // search | detail | ai | history | settings
 // 记录进入 AI 页面前的视图，Esc 从 AI 页逐级返回（ai -> detail/history -> search）
@@ -60,6 +66,10 @@ const aiSessions = ref([]); // AI 解释历史，新的在前
 let aiSessionId = null;
 let aiStore = null;
 const searchBox = ref(null);
+// 术语搜索历史（打开过的词条）
+const termHistory = ref(loadTermHistory());
+// 总历史视图（HistoryPanel）当前分区：terms | translate | ai
+const historyTab = ref("terms");
 // 悬浮圆点模式：compact(圆点) | expanded(主界面)
 const form = ref("expanded");
 // 界面模式：floating(悬浮圆点，默认) | popup(弹窗) | pinned(固定)
@@ -236,12 +246,6 @@ async function runTranslate(text) {
   }
 }
 
-// 点击历史条目：回填输入并立即翻译（命中缓存秒出）
-function replayHistory(h) {
-  query.value = h.input;
-  runTranslateNow();
-}
-
 // 切换搜索分区：切换即清空输入并回到搜索视图；已选中同分区时也回到搜索视图
 function switchPanel(p) {
   if (panel.value !== p) {
@@ -389,6 +393,9 @@ function openTab(term) {
   activeTab.value = term.abbr;
   currentTerm.value = term;
   view.value = "detail";
+  // 记录术语搜索历史（空态/总历史展示）
+  addTermHistory(term);
+  termHistory.value = loadTermHistory();
 }
 
 function selectTab(abbr) {
@@ -629,13 +636,43 @@ async function removeAiSession(id) {
   }
 }
 
-function toggleHistory() {
+// 打开总历史视图（可指定初始分区 terms/translate/ai），再次触发关闭
+function toggleHistory(tabName = null) {
   if (view.value === "history") {
     view.value = "search";
     focusInput();
   } else {
+    if (tabName) historyTab.value = tabName;
     view.value = "history";
   }
+}
+
+// 空态「查看全部记录」：跳转总历史对应分区
+function openFullHistory(tabName) {
+  historyTab.value = tabName;
+  view.value = "history";
+}
+
+// 总历史：术语记录点击 → 打开词条详情
+function openTermFromHistory(h) {
+  const t = search(h.abbr || "")[0];
+  if (t) openTab(t);
+}
+
+// 总历史：翻译记录点击 → 回填输入并立即翻译（命中缓存秒出）
+function replayHistory(h) {
+  query.value = h.input;
+  runTranslateNow();
+}
+
+// 总历史：清空术语/翻译历史
+function clearTermHist() {
+  clearTermHistory();
+  termHistory.value = [];
+}
+function clearTransHist() {
+  clearHistory();
+  translateHistory.value = [];
 }
 
 async function dismissWindow() {
@@ -1197,7 +1234,7 @@ onUnmounted(() => {
       <button
         class="icon-btn"
         :class="{ active: view === 'history' }"
-        title="AI 解释历史 (Ctrl+H)"
+        title="历史记录 (Ctrl+H)"
         @click="toggleHistory"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
@@ -1303,6 +1340,29 @@ onUnmounted(() => {
               问 AI：{{ query.trim().slice(0, 18) }}{{ query.trim().length > 18 ? "…" : "" }}
             </button>
           </div>
+          <div v-else-if="termHistory.length" class="empty recent-terms">
+            <div class="recent-head">
+              <span class="recent-title">最近搜索</span>
+              <button class="recent-clear" title="清空术语搜索历史" @click="clearTermHist">清空</button>
+            </div>
+            <div class="recent-list">
+              <button
+                v-for="(h, i) in termHistory.slice(0, 5)"
+                :key="i"
+                class="recent-item"
+                title="打开词条详情"
+                @click="openTermFromHistory(h)"
+              >
+                <span class="ri-abbr">{{ h.abbr }}</span>
+                <span class="ri-body">
+                  <span v-if="h.zh" class="ri-zh">{{ h.zh }}</span>
+                  <span v-if="h.full" class="ri-full">{{ h.full }}</span>
+                </span>
+                <span v-if="h.category" class="tag" :style="catStyle(h.category)">{{ h.category }}</span>
+              </button>
+            </div>
+            <button class="recent-all" @click="openFullHistory('terms')">查看全部记录 ›</button>
+          </div>
           <div v-else class="empty muted">输入缩写或关键词，如 I2C、MQTT、DTS</div>
         </template>
         <TranslatePanel
@@ -1314,6 +1374,7 @@ onUnmounted(() => {
           :history="translateHistory"
           @replay="replayHistory"
           @clear-history="translateHistory = []; clearHistory()"
+          @open-full="openFullHistory('translate')"
         />
       </template>
       <div v-else-if="view === 'detail'" class="detail-wrap">
@@ -1346,11 +1407,16 @@ onUnmounted(() => {
         @save-update="updateCachedTerm"
         @append-followups="appendFollowupsToTerm"
       />
-      <AiHistory
+      <HistoryPanel
         v-else-if="view === 'history'"
-        :sessions="aiSessions"
-        @open="openAiSession"
-        @remove="removeAiSession"
+        :initial-tab="historyTab"
+        :ai-sessions="aiSessions"
+        @open-term="openTermFromHistory"
+        @open-translate="replayHistory"
+        @open-ai="openAiSession"
+        @remove-ai="removeAiSession"
+        @clear-terms="clearTermHist"
+        @clear-translate="clearTransHist"
       />
       <SettingsPanel
         v-else-if="view === 'settings'"
@@ -1842,6 +1908,114 @@ body {
 
 .empty.muted {
   color: var(--text-6);
+}
+
+/* 术语空态：最近搜索（最多 5 条）+ 查看全部 */
+.recent-terms {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 40px 20px;
+}
+
+.recent-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 4px;
+}
+
+.recent-title {
+  color: var(--text-5);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+}
+
+.recent-clear {
+  border: none;
+  background: transparent;
+  color: var(--text-6);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.recent-clear:hover {
+  color: var(--danger-soft);
+}
+
+.recent-list {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+}
+
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.recent-item:hover {
+  background: rgba(241, 245, 249, 0.9);
+  border-color: rgba(219, 226, 234, 0.7);
+}
+
+.ri-abbr {
+  flex: none;
+  min-width: 60px;
+  font-weight: 700;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.ri-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.ri-zh {
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-full {
+  color: var(--text-5);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recent-all {
+  margin-top: 10px;
+  padding: 7px 16px;
+  border: 1px solid rgba(143, 168, 196, 0.6);
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.recent-all:hover {
+  background: rgba(var(--accent-rgb), 0.18);
 }
 
 .statusbar {

@@ -131,6 +131,46 @@ export function search(query) {
   return scored.slice(0, 20).map((s) => s.term);
 }
 
+// ---------- 术语搜索历史：打开词条时记录，空态/总历史展示 ----------
+const TERM_HISTORY_KEY = "embed-quickref-term-history-v1";
+const TERM_HISTORY_LIMIT = 30;
+
+export function loadTermHistory() {
+  try {
+    const list = JSON.parse(localStorage.getItem(TERM_HISTORY_KEY) || "[]");
+    return Array.isArray(list) ? list : [];
+  } catch {
+    return [];
+  }
+}
+
+// 打开词条时记录（最近的在最前，同缩写去重保留最新）
+export function addTermHistory(term) {
+  if (!term?.abbr) return;
+  const entry = {
+    abbr: term.abbr,
+    full: term.full || "",
+    zh: term.zh || "",
+    category: term.category || "",
+    time: Date.now(),
+  };
+  const list = loadTermHistory().filter((h) => h.abbr !== entry.abbr);
+  list.unshift(entry);
+  try {
+    localStorage.setItem(TERM_HISTORY_KEY, JSON.stringify(list.slice(0, TERM_HISTORY_LIMIT)));
+  } catch {
+    /* 存储不可用时忽略 */
+  }
+}
+
+export function clearTermHistory() {
+  try {
+    localStorage.removeItem(TERM_HISTORY_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function useSearch() {
   return { search, addUserTerm, updateUserTerm, appendUserTermPoints, userTerms };
 }
