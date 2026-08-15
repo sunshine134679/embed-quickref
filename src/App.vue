@@ -24,6 +24,7 @@ import { categoryColor } from "./utils/categories";
 import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints, loadTermHistory, addTermHistory, clearTermHistory, ensureTerms } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
 import { translateQuery, loadHistory, addHistory, clearHistory } from "./composables/useTranslate";
+import { loadFavorites, saveFavorites, toggleFavorite, isFavorite } from "./composables/useFavorites";
 import { load } from "@tauri-apps/plugin-store";
 
 const win = getCurrentWindow();
@@ -700,6 +701,14 @@ function openTermFromHistory(h) {
   // query 未变化时 watch 不触发：手动确保结果列表选中第一项（含选中样式）
   selectedIndex.value = 0;
   focusInput();
+}
+
+// ---------- 收藏：词条详情星标切换，历史面板「术语」tab 顶部回看 ----------
+const favorites = ref(loadFavorites());
+
+function onToggleStar() {
+  favorites.value = toggleFavorite(favorites.value, currentTerm.value);
+  saveFavorites(favorites.value);
 }
 
 // 总历史：翻译记录点击 → 回填输入并立即翻译（命中缓存秒出）
@@ -1491,7 +1500,7 @@ onUnmounted(() => {
           <span class="ai-entry-text">已用 AI 解释过 · {{ fmtWhen(termAiSession.time) }}</span>
           <span class="ai-entry-arrow">查看解释 ›</span>
         </button>
-        <TermCard :term="currentTerm" />
+        <TermCard :term="currentTerm" :starred="isFavorite(favorites, currentTerm)" @toggle-star="onToggleStar" />
       </div>
       <AiAnswer
         v-else-if="view === 'ai'"
@@ -1512,6 +1521,7 @@ onUnmounted(() => {
         v-else-if="view === 'history'"
         :initial-tab="historyTab"
         :ai-sessions="aiSessions"
+        :favorites="favorites"
         @open-term="openTermFromHistory"
         @open-translate="replayHistory"
         @open-ai="openAiSession"

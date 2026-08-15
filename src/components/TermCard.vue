@@ -4,7 +4,9 @@ import { categoryColor } from "../utils/categories";
 
 defineProps({
   term: { type: Object, required: true },
+  starred: { type: Boolean, default: false },
 });
+defineEmits(["toggle-star"]);
 
 // 复制反馈：记录当前复制的块（usage/definition），1.2s 后复位
 const copied = ref("");
@@ -45,6 +47,16 @@ function catStyle(cat) {
       <h1>{{ term.abbr }}</h1>
       <span class="tag" :style="catStyle(term.category)">{{ term.category }}</span>
       <span class="tag source">{{ term.source === "ai" ? "AI 缓存" : "内置词库" }}</span>
+      <button
+        class="star-btn"
+        :class="{ on: starred }"
+        :title="starred ? '取消收藏' : '收藏（历史面板可回看）'"
+        @click="$emit('toggle-star')"
+      >
+        <svg viewBox="0 0 24 24" :fill="starred ? 'currentColor' : 'none'" stroke="currentColor" stroke-width="1.6">
+          <path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 17l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" />
+        </svg>
+      </button>
     </div>
     <p v-if="term.full" class="full">{{ term.full }}</p>
     <p v-if="term.zh" class="zh">{{ term.zh }}</p>
@@ -116,6 +128,36 @@ h1 {
 .source {
   background: #e8f0f9;
   color: #5b7a9d;
+}
+
+/* 收藏星标：标题行右侧，选中时 accent 色，未选中低调灰 */
+.star-btn {
+  flex: none;
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-6);
+  cursor: pointer;
+}
+
+.star-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.star-btn:hover {
+  color: var(--accent);
+  background: rgba(var(--accent-rgb), 0.08);
+}
+
+.star-btn.on {
+  color: var(--accent);
 }
 
 .full {

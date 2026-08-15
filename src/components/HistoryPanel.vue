@@ -9,6 +9,8 @@ const props = defineProps({
   // 打开时初始选中的分区：terms | translate | ai
   initialTab: { type: String, default: "terms" },
   aiSessions: { type: Array, default: () => [] },
+  // 收藏词条（[{ abbr, category, full, zh }]）：术语 tab 顶部置顶回看
+  favorites: { type: Array, default: () => [] },
 });
 const emit = defineEmits(["open-term", "open-translate", "open-ai", "remove-ai", "clear-terms", "clear-translate"]);
 
@@ -92,8 +94,27 @@ function openTranslate(h) {
     </div>
 
     <div ref="listEl" class="h-body">
-      <!-- 术语历史：最近搜索的词条 -->
+      <!-- 术语历史：收藏置顶 + 最近搜索 -->
       <template v-if="tab === 'terms'">
+        <div v-if="favorites.length" class="h-list">
+          <div class="h-head">
+            <span class="h-title">收藏</span>
+          </div>
+          <button
+            v-for="(f, i) in favorites"
+            :key="i"
+            class="h-item"
+            title="打开词条详情"
+            @click="openTerm(f)"
+          >
+            <span class="hi-abbr">{{ f.abbr }}</span>
+            <span class="hi-body">
+              <span v-if="f.zh" class="hi-zh">{{ f.zh }}</span>
+              <span v-if="f.full" class="hi-full">{{ f.full }}</span>
+            </span>
+            <span v-if="f.category" class="tag" :style="catStyle(f.category)">{{ f.category }}</span>
+          </button>
+        </div>
         <div v-if="termHistory.length" class="h-list">
           <div class="h-head">
             <span class="h-title">最近搜索</span>
@@ -115,7 +136,7 @@ function openTranslate(h) {
             <span class="hi-time">{{ fmtTime(h.time) }}</span>
           </button>
         </div>
-        <div v-else class="h-empty">还没有术语搜索记录，去搜索一个试试</div>
+        <div v-if="!termHistory.length && !favorites.length" class="h-empty">还没有术语搜索记录，去搜索一个试试</div>
       </template>
 
       <!-- 英语历史：最近翻译 -->
@@ -230,6 +251,11 @@ function openTranslate(h) {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 4px;
+}
+
+/* 收藏区与最近搜索区之间的间距 */
+.h-list + .h-list {
+  margin-top: 12px;
 }
 
 .h-title {
