@@ -103,16 +103,12 @@ function speakableText() {
 
 <template>
   <div class="translate-panel">
-    <!-- 空态：居中提示 + 最近翻译历史 -->
+    <!-- 空态：与术语分区统一——无历史时一行提示，有历史时直接显示最近翻译 -->
     <div v-if="!query.trim()" class="empty-state">
-      <div class="empty-main">
-        <p class="empty-title">英语翻译</p>
-        <p class="empty-hint">输入英文单词或句子，按 <kbd>Enter</kbd> 或点「翻译」按钮</p>
-        <p class="empty-hint dim">输入中文句子，翻译成英文</p>
-      </div>
+      <p v-if="!history.length" class="empty-muted">输入英文单词或句子，如 interrupt、float</p>
 
       <!-- 最近翻译历史 -->
-      <div v-if="history.length" class="history">
+      <div v-else class="history">
         <div class="history-head">
           <span class="history-title">最近翻译</span>
           <button class="history-clear" title="清空翻译历史" @click="emit('clear-history')">清空</button>
@@ -292,7 +288,7 @@ function speakableText() {
   user-select: text;
 }
 
-/* 内容区撑满 + 空态 flex 居中：消除"提示词偏上"的歪感 */
+/* 内容区撑满：空态占满，与术语分区风格统一 */
 .translate-panel:has(.empty-state) {
   display: flex;
   flex-direction: column;
@@ -302,42 +298,25 @@ function speakableText() {
   flex: 1;
   display: flex;
   flex-direction: column;
+  padding: 24px 20px;
+}
+
+/* 无历史时：一行居中提示（同术语"输入缩写或关键词，如 I2C、MQTT、DTS"） */
+.empty-muted {
+  flex: 1;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 20px;
   text-align: center;
-}
-
-/* 提示文字块：水平居中，占满空态上半部使其视觉居中 */
-.empty-main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.empty-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--text-2);
-}
-
-.empty-hint {
-  margin-top: 8px;
-  color: var(--text-4);
+  color: var(--text-6);
   font-size: 13.5px;
 }
 
-.empty-hint.dim {
-  margin-top: 4px;
-  color: var(--text-6);
-  font-size: 13px;
-}
-
-/* 最近翻译历史：空态下方左对齐列表 */
+/* 最近翻译历史：空态顶部左对齐列表（同术语最近搜索） */
 .history {
   width: 100%;
   max-width: 420px;
-  margin-top: 26px;
+  margin: 0 auto;
   text-align: left;
 }
 
