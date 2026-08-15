@@ -16,10 +16,17 @@ const panel = ref("terms");
 const q = ref("");
 
 // 鼠标进出本窗口时通知主窗口：进入取消隐藏计时，离开重新计时
-// busy=正在输入且内容非空：此时移出窗口也保留（手在键盘上），空输入移出则收起
+// busy=正在输入：聚焦后短暂保护窗口（手正放上键盘）、输入法组合输入中（拼音未上屏）、
+// 或内容非空——此时移出窗口也保留；纯空输入（含自动聚焦误触）移出则收起
 const inputFocused = ref(false);
+let focusAt = 0; // 聚焦时间戳：聚焦瞬间用户可能正把手放上键盘，短暂视为使用中
+let composing = false; // 输入法 composition 进行中（中文拼音未上屏，q 仍为空）
 function currentBusy() {
-  return inputFocused.value && q.value.trim() !== "";
+  return inputFocused.value && (Date.now() - focusAt < 2000 || composing || q.value.trim() !== "");
+}
+// 统一的输入状态上报（聚焦/失焦/composition/内容变化都走这里）
+function reportTyping() {
+  emitTo("main", "quick-typing", { typing: inputFocused.value, busy: currentBusy() }).catch(() => {});
 }
 function onHoverIn() {
   emitTo("main", "quick-hover-in").catch(() => {});
@@ -31,18 +38,27 @@ function onHoverOut() {
 // 输入框聚焦/失焦上报：聚焦期间快捷窗不自动隐藏（鼠标移出也不收）
 function onInputFocus() {
   inputFocused.value = true;
-  emitTo("main", "quick-typing", { typing: true, busy: currentBusy() }).catch(() => {});
+  focusAt = Date.now();
+  reportTyping();
 }
 function onInputBlur() {
   inputFocused.value = false;
-  emitTo("main", "quick-typing", { typing: false, busy: currentBusy() }).catch(() => {});
+  reportTyping();
+}
+
+// 输入法组合输入（中文拼音等）：上屏前 q 为空，必须单独标记为"正在输入"
+function onCompositionStart() {
+  composing = true;
+  reportTyping();
+}
+function onCompositionEnd() {
+  composing = false;
+  reportTyping();
 }
 
 // 输入内容变化时实时同步 busy：鼠标停留在圆点上直接打字（未进窗）也要能被识别为"使用中"
 watch(q, () => {
-  if (inputFocused.value) {
-    emitTo("main", "quick-typing", { typing: true, busy: currentBusy() }).catch(() => {});
-  }
+  if (inputFocused.value) reportTyping();
 });
 
 // 面板分区：terms(术语) | translate(翻译)
@@ -214,6 +230,8 @@ onMounted(async () => {
         @keydown="onKeydown"
         @focus="onInputFocus"
         @blur="onInputBlur"
+        @compositionstart="onCompositionStart"
+        @compositionend="onCompositionEnd"
       />
       <button class="quick-go" :disabled="!q.trim() || searching" @click="doSearch">
         {{ searching ? "…" : "查找" }}
