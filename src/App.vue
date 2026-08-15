@@ -916,6 +916,9 @@ let quickGen = 0; // 显示代次：退场动画期间重新显示则取消隐�
 let quickTyping = false;
 // 正在输入且内容非空：真正的"使用中"，此时移出圆点/窗口都不收
 let quickBusy = false;
+// 鼠标是否仍在圆点/快捷窗上：busy 变 false 时据此重新评估是否需要收起
+let dotHovered = false;
+let quickWindowHovered = false;
 const QUICK_SHOW_DELAY = 120; // 弹出防抖时长：鼠标停留超过才弹
 const QUICK_HIDE_DELAY = 350; // 离开缓冲：留出从圆点/窗口移向对方的时间
 const QUICK_FADE = 140; // 退场动画时长（与 QuickPanel .closing 的 transition 同步）
@@ -925,6 +928,7 @@ function showQuickOnHover() {
   clearTimeout(quickShowTimer);
   clearTimeout(quickHideTimer);
   if (form.value !== "compact" || !dotReady.value) return;
+  dotHovered = true;
   quickGen++; // 预约显示：取消一切进行中的隐藏（含退场动画）
   quickShowTimer = setTimeout(doShowQuick, QUICK_SHOW_DELAY);
 }
@@ -960,17 +964,20 @@ function hideQuickDelayed() {
 
 // 鼠标离开圆点：快速划过时防抖已取消弹出；已弹出则延迟隐藏（快捷窗口内 hover/输入会取消）
 function hideQuickOnLeave() {
+  dotHovered = false;
   if (quickBusy) return; // 正在输入且有内容：不自动隐藏
   hideQuickDelayed();
 }
 
 // 快捷窗口内鼠标进入：取消隐藏计时（用户正在移向/使用快捷窗）
 function onQuickHoverIn() {
+  quickWindowHovered = true;
   clearTimeout(quickHideTimer);
 }
 
 // 快捷窗口内鼠标离开：正在输入且有内容则保留，否则重新开始隐藏计时
 function onQuickHoverOut(e) {
+  quickWindowHovered = false;
   clearTimeout(quickHideTimer);
   quickBusy = e?.payload?.busy === true;
   if (quickBusy) return;
@@ -985,9 +992,15 @@ function onQuickBlur() {
 
 // 快捷窗口输入框聚焦/失焦：聚焦期间窗口保持，失焦后恢复 hover 自动隐藏
 function onQuickTyping(e) {
+  const prevBusy = quickBusy;
   quickTyping = e?.payload?.typing === true;
   if (e?.payload?.busy !== undefined) quickBusy = e?.payload?.busy === true;
   if (quickTyping) clearTimeout(quickHideTimer);
+  // busy 从 true 变 false（2s 聚焦保护到期/内容清空）：鼠标已不在圆点也不在快捷窗
+  // → 立即安排收起。否则主窗口侧 quickBusy 停在 true，快速移开圆点（未碰快捷窗）永不收
+  if (prevBusy && !quickBusy && !dotHovered && !quickWindowHovered) {
+    hideQuickDelayed();
+  }
 }
 
 // 快捷窗口点"查看详情"：展开主窗口并打开对应内容（term 打开词条详情，translate 进入翻译分区）

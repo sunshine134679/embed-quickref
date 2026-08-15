@@ -21,6 +21,7 @@ const q = ref("");
 const inputFocused = ref(false);
 const hovering = ref(false); // 鼠标是否仍在窗内（搜索结果出来时若已移开则触发收起评估）
 let focusAt = 0; // 聚焦时间戳：聚焦瞬间用户可能正把手放上键盘，短暂视为使用中
+let focusGuardTimer = null; // 2s 聚焦保护到期后重新上报 busy（否则主窗口侧 quickBusy 停在 true）
 let composing = false; // 输入法 composition 进行中（中文拼音未上屏，q 仍为空）
 let leftAt = 0; // 鼠标最近一次离开窗口的时间戳（进入窗口时清零）
 let searchAt = 0; // 最近一次搜索发起时间：判断结果出来前鼠标是否已离开
@@ -61,9 +62,16 @@ function onInputFocus() {
   inputFocused.value = true;
   focusAt = Date.now();
   reportTyping();
+  // 2s 聚焦保护到期后重新评估并上报：若此时未输入内容，busy 应变 false，
+  // 否则主窗口侧 quickBusy 一直停在 true，鼠标快速移开圆点（没碰快捷窗）时窗口永不收起
+  clearTimeout(focusGuardTimer);
+  focusGuardTimer = setTimeout(() => {
+    if (inputFocused.value) reportTyping();
+  }, 2000);
 }
 function onInputBlur() {
   inputFocused.value = false;
+  clearTimeout(focusGuardTimer);
   reportTyping();
 }
 
