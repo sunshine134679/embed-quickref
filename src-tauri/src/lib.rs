@@ -21,7 +21,7 @@ pub fn run() {
 
 // 快捷查找窗口：显示在悬浮圆点旁（默认右侧，越界翻到左侧/上移），物理像素定位
 const QUICK_W: f64 = 440.0;
-const QUICK_H: f64 = 300.0;
+const QUICK_H: f64 = 240.0; // 与 tauri.conf.json quick 窗口尺寸保持一致
 const DOT_W: f64 = 64.0;
 const GAP: f64 = 10.0;
 
@@ -55,7 +55,11 @@ fn show_quick(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
         .set_position(PhysicalPosition::new(qx.max(area_x), qy.max(area_y)))
         .map_err(|e| e.to_string())?;
     quick.show().map_err(|e| e.to_string())?;
-    quick.set_focus().map_err(|e| e.to_string())
+    // 仅首次显示时聚焦（hover 即输）：窗口已可见时重复 show 不抢当前窗口焦点
+    if !quick.is_visible().map_err(|e| e.to_string())? {
+        quick.set_focus().map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

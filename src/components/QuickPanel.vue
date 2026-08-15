@@ -1,7 +1,7 @@
 <script setup>
 import { ref, watch, onMounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import { emitTo } from "@tauri-apps/api/event";
+import { emitTo, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import { search, initUserTerms, ensureTerms } from "../composables/useSearch";
 import { initSettings, useSettings } from "../composables/useSettings";
@@ -11,25 +11,41 @@ import { categoryColor } from "../utils/categories";
 const win = getCurrentWindow();
 const { settings } = useSettings();
 
+// 面板分区：terms(术语) | translate(翻译)；q 需在 currentBusy/watch 之前声明（TDZ）
+const panel = ref("terms");
+const q = ref("");
+
 // 鼠标进出本窗口时通知主窗口：进入取消隐藏计时，离开重新计时
+// busy=正在输入且内容非空：此时移出窗口也保留（手在键盘上），空输入移出则收起
+const inputFocused = ref(false);
+function currentBusy() {
+  return inputFocused.value && q.value.trim() !== "";
+}
 function onHoverIn() {
   emitTo("main", "quick-hover-in").catch(() => {});
 }
 function onHoverOut() {
-  emitTo("main", "quick-hover-out").catch(() => {});
+  emitTo("main", "quick-hover-out", { busy: currentBusy() }).catch(() => {});
 }
 
-// 输入框聚焦/失焦上报：输入期间快捷窗不自动隐藏（鼠标移出也不收）
+// 输入框聚焦/失焦上报：聚焦期间快捷窗不自动隐藏（鼠标移出也不收）
 function onInputFocus() {
-  emitTo("main", "quick-typing", { typing: true }).catch(() => {});
+  inputFocused.value = true;
+  emitTo("main", "quick-typing", { typing: true, busy: currentBusy() }).catch(() => {});
 }
 function onInputBlur() {
-  emitTo("main", "quick-typing", { typing: false }).catch(() => {});
+  inputFocused.value = false;
+  emitTo("main", "quick-typing", { typing: false, busy: currentBusy() }).catch(() => {});
 }
 
+// 输入内容变化时实时同步 busy：鼠标停留在圆点上直接打字（未进窗）也要能被识别为"使用中"
+watch(q, () => {
+  if (inputFocused.value) {
+    emitTo("main", "quick-typing", { typing: true, busy: currentBusy() }).catch(() => {});
+  }
+});
+
 // 面板分区：terms(术语) | translate(翻译)
-const panel = ref("terms");
-const q = ref("");
 const searching = ref(false);
 const error = ref("");
 // 术语结果（简洁）：abbr/zh/definition 首行 + 分类
@@ -137,16 +153,30 @@ function closeSelf() {
   invoke("hide_quick").catch(() => {});
 }
 
+const shellRef = ref(null);
+
 onMounted(async () => {
   await initSettings().catch(() => {});
   // 词库与用户词库并行加载（词库独立 chunk，后台拉取）
   await Promise.all([ensureTerms(), initUserTerms()]).catch(() => {});
-  setTimeout(() => document.querySelector(".quick-input")?.focus(), 80);
+  // 主窗口收起动画：播放退场（淡出），动画结束窗口才真正隐藏
+  listen("quick-hide", () => shellRef.value?.classList.add("closing")).catch(() => {});
+  // 窗口每次显示（hover 弹出/防抖后）：恢复内容可见并聚焦输入框（挂载时窗口隐藏，focus 无效，必须显示后再聚焦）
+  listen("quick-show", () => {
+    shellRef.value?.classList.remove("closing");
+    setTimeout(() => document.querySelector(".quick-input")?.focus(), 30);
+  }).catch(() => {});
+  // 窗口失焦（用户点击窗外/切走）：通知主窗口安排收起
+  win
+    .onFocusChanged(({ payload: focused }) => {
+      if (!focused) emitTo("main", "quick-blur").catch(() => {});
+    })
+    .catch(() => {});
 });
 </script>
 
 <template>
-  <div class="quick-shell" @mouseenter="onHoverIn" @mouseleave="onHoverOut">
+  <div ref="shellRef" class="quick-shell" @mouseenter="onHoverIn" @mouseleave="onHoverOut">
     <header class="quick-top">
       <div class="seg">
         <button :class="{ on: panel === 'terms' }" @click="panel = 'terms'; q = ''; schedule()">术语</button>
@@ -245,6 +275,26 @@ onMounted(async () => {
   border: 1px solid rgba(255, 255, 255, 0.55);
   border-radius: 12px;
   user-select: none;
+  /* 展开：快速淡入+轻微上浮（窗口本身是透明的，内容动画即窗口动画） */
+  animation: quick-pop 160ms ease-out;
+  /* 收起：退场动画由主窗口发 quick-hide 后切 .closing 触发 */
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+
+.quick-shell.closing {
+  opacity: 0;
+  transform: scale(0.96);
+}
+
+@keyframes quick-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .quick-top {

@@ -6,7 +6,7 @@ import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { TrayIcon } from "@tauri-apps/api/tray";
 import { Menu } from "@tauri-apps/api/menu";
 import { defaultWindowIcon } from "@tauri-apps/api/app";
-import { listen } from "@tauri-apps/api/event";
+import { listen, emitTo } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
 import SearchBox from "./components/SearchBox.vue";
 import ResultList from "./components/ResultList.vue";
@@ -859,28 +859,59 @@ async function focusInput() {
 
 // ---------- 快捷查找窗口（quick）：圆点 hover 弹出 / 详情跳转回主窗口 ----------
 
-let quickHideTimer = null;
-// 快捷窗输入状态：聚焦输入期间不自动隐藏（鼠标移出窗口也不收）
+let quickShowTimer = null; // 弹出防抖：鼠标快速划过圆点不弹窗（避免闪烁与残留）
+let quickHideTimer = null; // 收起缓冲：离开后留出移动到快捷窗的时间
+let quickGen = 0; // 显示代次：退场动画期间重新显示则取消隐藏
+// 快捷窗输入状态：聚焦期间不自动隐藏（鼠标移出窗口也不收）
 let quickTyping = false;
-// 鼠标悬停在悬浮圆点上：显示快捷查找窗口（定位到圆点旁，位置计算在 Rust 侧）
-async function showQuickOnHover() {
+// 正在输入且内容非空：真正的"使用中"，此时移出圆点/窗口都不收
+let quickBusy = false;
+const QUICK_SHOW_DELAY = 120; // 弹出防抖时长：鼠标停留超过才弹
+const QUICK_HIDE_DELAY = 350; // 离开缓冲：留出从圆点/窗口移向对方的时间
+const QUICK_FADE = 140; // 退场动画时长（与 QuickPanel .closing 的 transition 同步）
+
+// 鼠标悬停在悬浮圆点上：防抖后显示快捷查找窗口（定位到圆点旁，位置计算在 Rust 侧）
+function showQuickOnHover() {
+  clearTimeout(quickShowTimer);
   clearTimeout(quickHideTimer);
   if (form.value !== "compact" || !dotReady.value) return;
+  quickGen++; // 预约显示：取消一切进行中的隐藏（含退场动画）
+  quickShowTimer = setTimeout(doShowQuick, QUICK_SHOW_DELAY);
+}
+
+async function doShowQuick() {
   try {
     const pos = await win.outerPosition();
     await invoke("show_quick", { x: pos.x, y: pos.y });
+    // 清除可能残留的退场动画类（退场中重新弹出时恢复内容可见）
+    emitTo("quick", "quick-show").catch(() => {});
   } catch (e) {
     console.error("显示快捷查找窗口失败", e);
   }
 }
 
-// 鼠标离开圆点：延迟隐藏，留出移动到快捷窗口的时间（快捷窗口内 hover/输入会取消）
-function hideQuickOnLeave() {
+// 统一收起：先播退场动画再隐藏；动画期间若重新显示则放弃隐藏
+async function hideQuick() {
+  const g = quickGen;
+  emitTo("quick", "quick-hide").catch(() => {});
+  await new Promise((r) => setTimeout(r, QUICK_FADE));
+  if (g !== quickGen) {
+    emitTo("quick", "quick-show").catch(() => {}); // 退场期间重新弹出：恢复内容
+    return;
+  }
+  invoke("hide_quick").catch(() => {});
+}
+
+function hideQuickDelayed() {
+  clearTimeout(quickShowTimer);
   clearTimeout(quickHideTimer);
-  if (quickTyping) return; // 正在输入：不自动隐藏
-  quickHideTimer = setTimeout(() => {
-    invoke("hide_quick").catch(() => {});
-  }, 500);
+  quickHideTimer = setTimeout(hideQuick, QUICK_HIDE_DELAY);
+}
+
+// 鼠标离开圆点：快速划过时防抖已取消弹出；已弹出则延迟隐藏（快捷窗口内 hover/输入会取消）
+function hideQuickOnLeave() {
+  if (quickBusy) return; // 正在输入且有内容：不自动隐藏
+  hideQuickDelayed();
 }
 
 // 快捷窗口内鼠标进入：取消隐藏计时（用户正在移向/使用快捷窗）
@@ -888,18 +919,24 @@ function onQuickHoverIn() {
   clearTimeout(quickHideTimer);
 }
 
-// 快捷窗口内鼠标离开：重新开始隐藏计时（可能正在移回圆点，圆点 hover 会再取消）
-function onQuickHoverOut() {
+// 快捷窗口内鼠标离开：正在输入且有内容则保留，否则重新开始隐藏计时
+function onQuickHoverOut(e) {
   clearTimeout(quickHideTimer);
-  if (quickTyping) return; // 正在输入：不自动隐藏
-  quickHideTimer = setTimeout(() => {
-    invoke("hide_quick").catch(() => {});
-  }, 500);
+  quickBusy = e?.payload?.busy === true;
+  if (quickBusy) return;
+  hideQuickDelayed();
+}
+
+// 快捷窗口失焦（用户点击窗外/切走）：无论是否在输入都安排收起
+function onQuickBlur() {
+  clearTimeout(quickHideTimer);
+  hideQuickDelayed();
 }
 
 // 快捷窗口输入框聚焦/失焦：聚焦期间窗口保持，失焦后恢复 hover 自动隐藏
 function onQuickTyping(e) {
   quickTyping = e?.payload?.typing === true;
+  if (e?.payload?.busy !== undefined) quickBusy = e?.payload?.busy === true;
   if (quickTyping) clearTimeout(quickHideTimer);
 }
 
@@ -928,6 +965,7 @@ async function setupQuickListeners() {
     await listen("quick-hover-in", onQuickHoverIn);
     await listen("quick-hover-out", onQuickHoverOut);
     await listen("quick-typing", onQuickTyping);
+    await listen("quick-blur", onQuickBlur);
   } catch (err) {
     console.error("快捷窗口事件监听失败", err);
   }
