@@ -85,6 +85,15 @@ const animStyle = ref(null);
 const DOT_SIZE = 64;
 const EXPAND_W = 680;
 const EXPAND_H = 500;
+// 最近一次搜索内容：展开主窗口时恢复输入框（自动全选，方便直接输入搜索）
+const LAST_QUERY_KEY = "embed-quickref-last-query";
+function loadLastQuery() {
+  try {
+    return localStorage.getItem(LAST_QUERY_KEY) || "";
+  } catch (e) {
+    return "";
+  }
+}
 // 进行中的平滑缩窗任务与取消标志（动画路径：淡出与缩窗并行）
 let shrinkTask = null;
 let shrinkCancel = false;
@@ -205,6 +214,10 @@ async function restoreState() {
 }
 
 watch(query, (q) => {
+  // 记忆最近一次搜索内容：展开主窗口时恢复（术语/翻译共用）
+  try {
+    localStorage.setItem(LAST_QUERY_KEY, q);
+  } catch (e) {}
   if (panel.value === "translate") {
     if (view.value !== "search") view.value = "search";
     // 手动触发：输入只清空结果，等待用户回车/点翻译按钮
@@ -331,7 +344,13 @@ async function enterExpanded(initialView = "search") {
   }
   form.value = "expanded";
   view.value = initialView;
-  if (initialView === "search") focusInput();
+  // 有上次搜索内容时优先回搜索态并恢复输入框（自动聚焦+全选，方便直接输入）；设置视图除外
+  const savedQuery = loadLastQuery();
+  if (savedQuery && initialView !== "settings") {
+    view.value = "search";
+    query.value = savedQuery;
+  }
+  if (view.value === "search") focusInput();
 }
 
 // 窗口位置纠正到当前显示器可见范围（完整可见 clamp，物理像素）
@@ -665,10 +684,14 @@ function openFullHistory(tabName) {
   view.value = "history";
 }
 
-// 总历史：术语记录点击 → 打开词条详情
+// 术语历史（最近搜索/总历史）：点击 → 回填搜索框并选中结果第一项（可直接回车/点击进入详情）
 function openTermFromHistory(h) {
-  const t = search(h.abbr || "")[0];
-  if (t) openTab(t);
+  if (view.value !== "search") view.value = "search";
+  if (panel.value !== "terms") panel.value = "terms";
+  query.value = h.abbr;
+  // query 未变化时 watch 不触发：手动确保结果列表选中第一项（含选中样式）
+  selectedIndex.value = 0;
+  focusInput();
 }
 
 // 总历史：翻译记录点击 → 回填输入并立即翻译（命中缓存秒出）
@@ -1400,7 +1423,7 @@ onUnmounted(() => {
                 v-for="(h, i) in termHistory.slice(0, 5)"
                 :key="i"
                 class="recent-item"
-                title="打开词条详情"
+                title="回填搜索并选中结果"
                 @click="openTermFromHistory(h)"
               >
                 <span class="ri-abbr">{{ h.abbr }}</span>
