@@ -32,11 +32,13 @@ export function lookupWord(text) {
 }
 
 // 单个英文单词的词典式 AI 提示词（未命中本地词典时用）
+// 末行强调拼写错误必须明说：不完整/乱词不硬编解释
 const WORD_PROMPT = `你是专业的英语学习词典。用户输入一个英文单词，请用中文简洁解释，按以下格式回答（不要使用 Markdown 标记，不要输出任何多余内容）：
 音标: /美式音标/（可省略则写 /--/）
 释义: <词性.> <中文释义，列出主要含义>
 例句: <一个体现该词用法的英文例句>
-译文: <例句的中文翻译>`;
+译文: <例句的中文翻译>
+如果输入的不是真实存在的英文单词（拼写错误、不完整、乱码），不要编造解释，第一行直接输出：未找到: <可能的正确拼写，没有则留空>`;
 
 // 中英互译提示词：按输入语言自动选择目标语言
 const SENTENCE_PROMPT = `你是专业的中英互译引擎。把用户输入的文本翻译成目标语言：
@@ -127,9 +129,99 @@ async function askOnce(messages, settings) {
   }
 }
 
+// ---------- 单词拼写建议：词库（术语缩写/全称拆词 + 学习词典）前缀 + 编辑距离模糊匹配 ----------
+// 词表懒加载（terms.json 已被 useSearch 缓存为 chunk，此处复用同一模块不会重复加载）
+let wordIndex = null;
+async function ensureWordIndex() {
+  if (wordIndex) return wordIndex;
+  const terms = (await import("../data/terms.json")).default;
+  const map = new Map();
+  const add = (w, zh) => {
+    const k = String(w || "").trim().toLowerCase();
+    if (k && k.length >= 2 && /^[a-z]+$/.test(k) && !map.has(k)) {
+      map.set(k, { word: k, zh: zh || "" });
+    }
+  };
+  for (const t of terms) {
+    add(t.abbr, t.zh);
+    for (const part of String(t.full || "").split(/[\s\-/]+/)) {
+      if (/^[a-z]+$/i.test(part)) add(part.toLowerCase(), t.zh);
+    }
+  }
+  for (const [hw, entry] of Object.entries(learningDictionary)) {
+    add(hw, entry.primary);
+    for (const f of entry.forms || []) add(f, entry.primary);
+  }
+  wordIndex = { map, words: [...map.values()] };
+  return wordIndex;
+}
+
+// 编辑距离（Levenshtein）：长度差过大直接放弃（距离上限），控制搜索成本
+function editDistance(a, b) {
+  const m = a.length;
+  const n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  if (Math.abs(m - n) > 3) return 9;
+  let prev = new Array(n + 1);
+  let curr = new Array(n + 1);
+  for (let j = 0; j <= n; j++) prev[j] = j;
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= n; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+    }
+    [prev, curr] = [curr, prev];
+  }
+  return prev[n];
+}
+
+// 输入联想/拼写建议：前缀匹配（补全）优先，其次编辑距离 ≤ 阈值（防手快输错）
+// 默认对词表精确命中的输入也返回相似词（排除自身）：如 int 也推荐 init，防止打错；
+// 翻译校验场景传 { includeExact: false }：词表精确命中视为有效词（如 echo），不判错
+// 返回 [{ word, zh, dist }] 最多 6 条
+export async function suggestWords(input, options = {}) {
+  const { includeExact = true } = options;
+  const idx = await ensureWordIndex();
+  const q = String(input || "").trim().toLowerCase().replace(/[\s_\-]+/g, "");
+  if (q.length < 2) return [];
+  if (!includeExact && idx.map.has(q)) return [];
+  const maxDist = q.length <= 3 ? 1 : 2;
+  const out = [];
+  for (const w of idx.words) {
+    if (w.word === q) continue;
+    if (w.word.startsWith(q)) {
+      out.push({ word: w.word, zh: w.zh, dist: 0 });
+    } else if (w.word.length >= q.length - 1) {
+      const d = editDistance(q, w.word);
+      if (d <= maxDist) out.push({ word: w.word, zh: w.zh, dist: d });
+    }
+  }
+  out.sort((a, b) => a.dist - b.dist || a.word.length - b.word.length);
+  // 前缀词（dist 0）易挤满列表把模糊词挤掉（如 int 的 init 是编辑距离 1 而非前缀）：
+  // 分组各自截断——前缀最多 3 条 + 模糊最多 5 条（编辑距离 1 的候选多，放宽模糊组保证
+  // 用户想纠正的词（int→init）能出现）
+  const prefix = [];
+  const fuzzy = [];
+  for (const s of out) {
+    if (s.dist === 0) {
+      if (prefix.length < 3) prefix.push(s);
+    } else {
+      if (fuzzy.length < 5) fuzzy.push(s);
+    }
+    if (prefix.length >= 3 && fuzzy.length >= 5) break;
+  }
+  return [...prefix, ...fuzzy];
+}
+
+// AI 单词回复中识别"未找到"（拼写错误/不完整/乱词）：不硬编解释
+const NOT_FOUND_RE = /未找到|不存在|拼写错误|不是(一个|个)?(有效|正确|真实|合法)?(的)?(英文)?(单词|词汇)|无意义|无效(的)?输入|无法(识别|翻译)/;
+
 // 主入口：根据输入类型返回结果
 // - 英文单词命中本地学习词典 -> { kind: "word", word, entry }（零网络）
-// - 英文单词未命中 -> { kind: "word-ai", text, reply }（AI 词典式解释）
+// - 英文单词未命中且疑似拼写错误/不完整 -> { kind: "word-not-found", text, suggestions }（本地建议）
+// - 英文单词未命中且无本地近似 -> { kind: "word-ai", text, reply }（AI 词典式解释，AI 会识别乱词）
 // - 句子/中文 -> { kind: "sentence", text, source, target, translated }
 // 返回 Promise；无 apiKey 时抛错提示去设置
 export async function translateQuery(text, settings) {
@@ -140,7 +232,18 @@ export async function translateQuery(text, settings) {
   if (isSingleWord(input)) {
     const local = lookupWord(input);
     if (local) return { kind: "word", word: local.word, entry: local.entry };
-    const key = "word:" + normalizeWord(input);
+    // 拼写建议：不完整（前缀补全）或高置信近似（编辑距离 1）直接给建议，不调 AI 硬编
+    // 严格模式：词表精确命中（echo 等有效命令词）视为有效，不判错
+    const q = normalizeWord(input);
+    const sugg = await suggestWords(input, { includeExact: false });
+    if (sugg.length) {
+      const top = sugg[0];
+      if (top.dist <= 1 || (q.length >= 3 && top.word.startsWith(q))) {
+        return { kind: "word-not-found", text: input, suggestions: sugg.slice(0, 3) };
+      }
+    }
+    // AI 词典式解释（提示词要求拼写错误明说）
+    const key = "word:" + q;
     let reply = cached(key);
     if (!reply) {
       reply = await askOnce(
@@ -151,6 +254,12 @@ export async function translateQuery(text, settings) {
         settings
       );
       setCache(key, reply);
+    }
+    // AI 判定拼写错误/不存在：转为"未找到"（含 AI 给出的可能拼写）
+    if (NOT_FOUND_RE.test(reply)) {
+      const m = String(reply).match(/未找到\s*[:：]?\s*(.+)?/);
+      const aiSugg = m && m[1] && m[1].trim() ? [{ word: m[1].trim().split(/\s*[、,，/]\s*/)[0], zh: "", dist: 1 }] : [];
+      return { kind: "word-not-found", text: input, suggestions: aiSugg };
     }
     return { kind: "word-ai", text: input, reply };
   }

@@ -71,6 +71,13 @@ const transResult = ref(null);
 let seq = 0;
 let timer = null;
 
+// 未找到/拼写建议：回填建议词并立即查找（快捷窗保持简洁，不做输入联想，仅未找到时给建议）
+function pickSuggestion(word) {
+  q.value = word;
+  clearTimeout(timer);
+  doSearch();
+}
+
 // AI 词典回复（音标/释义/例句/译文四行）：快捷窗空间有限，只给最有用的中文释义；
 // 优先取"释义:"行，兜底跳过音标行取第一行非空
 function aiDefinition(reply) {
@@ -266,7 +273,22 @@ onMounted(async () => {
 
       <!-- 翻译结果：简洁译文 + 发音 -->
       <template v-else>
-        <div v-if="transResult" class="q-trans">
+        <!-- 未找到：拼写错误/不完整单词——明确报错，不硬编结果 -->
+        <div v-if="transResult && transResult.kind === 'word-not-found'" class="q-notfound">
+          <p class="qnf-title">未找到「{{ transResult.text }}」</p>
+          <p v-if="!transResult.suggestions.length" class="qnf-hint">请检查拼写，或输入完整单词</p>
+          <div v-else class="qnf-sugg">
+            <button
+              v-for="(s, i) in transResult.suggestions"
+              :key="i"
+              class="qnf-item"
+              @click="pickSuggestion(s.word)"
+            >
+              {{ s.word }}<span v-if="s.zh" class="qnf-zh">{{ s.zh }}</span>
+            </button>
+          </div>
+        </div>
+        <div v-else-if="transResult" class="q-trans">
           <template v-if="transResult.kind === 'word'">
             <div class="qt-word">{{ transResult.word }}</div>
             <div class="qt-zh">{{ transResult.entry.primary }}</div>
@@ -524,6 +546,57 @@ onMounted(async () => {
   color: var(--text-4);
   font-size: 10.5px;
   white-space: nowrap;
+}
+
+/* 未找到：拼写错误/不完整单词 */
+.q-notfound {
+  padding: 10px 12px;
+  background: rgba(251, 241, 241, 0.85);
+  border: 1px solid rgba(240, 210, 210, 0.8);
+  border-radius: 10px;
+}
+
+.qnf-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #a05d5d;
+}
+
+.qnf-hint {
+  margin-top: 4px;
+  color: var(--text-5);
+  font-size: 11.5px;
+}
+
+.qnf-sugg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.qnf-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border: 1px solid rgba(143, 168, 196, 0.6);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.qnf-item:hover {
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.qnf-zh {
+  font-weight: 400;
+  color: var(--text-5);
+  font-size: 11px;
 }
 
 /* 翻译结果 */

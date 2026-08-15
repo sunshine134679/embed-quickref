@@ -1,8 +1,9 @@
 <script setup>
-import { ref } from "vue";
-import { speakEnglish } from "../composables/useTranslate";
+import { ref, watch } from "vue";
+import { speakEnglish, isSingleWord, suggestWords } from "../composables/useTranslate";
+import WordSuggest from "./WordSuggest.vue";
 
-defineProps({
+const props = defineProps({
   query: { type: String, default: "" },
   status: { type: String, default: "idle" }, // idle | loading | done | error
   result: { type: Object, default: null },
@@ -10,7 +11,20 @@ defineProps({
   history: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["replay", "clear-history", "open-full"]);
+const emit = defineEmits(["replay", "clear-history", "open-full", "use-suggestion"]);
+
+// 输入联想：英文单词输入时（未翻译）在搜索栏下方实时给出拼写建议（前缀补全 + 模糊匹配）
+const suggestions = ref([]);
+watch(
+  () => props.query,
+  async (q) => {
+    if (q && isSingleWord(q) && props.status !== "done") {
+      suggestions.value = await suggestWords(q).catch(() => []);
+    } else {
+      suggestions.value = [];
+    }
+  }
+);
 
 // 历史条目时间显示：今天显示时分，其余显示月日
 function fmtTime(t) {
@@ -131,6 +145,11 @@ function speakableText() {
       </div>
     </div>
 
+    <!-- 输入联想：英文单词输入中实时拼写建议（防手快输错），点击即翻译 -->
+    <div v-else-if="suggestions.length && status !== 'done'" class="suggest-area">
+      <WordSuggest :suggestions="suggestions" @pick="(w) => emit('use-suggestion', w)" />
+    </div>
+
     <!-- 等待中 -->
     <div v-else-if="status === 'loading'" class="loading-dots"><i></i><i></i><i></i></div>
 
@@ -138,6 +157,26 @@ function speakableText() {
     <p v-else-if="status === 'error'" class="error">
       {{ error === "no-api-key" ? "翻译需要 API Key，请先在设置中配置" : error }}
     </p>
+
+    <!-- 未找到：拼写错误/不完整单词——明确报错，不硬编结果 -->
+    <article v-else-if="result && result.kind === 'word-not-found'" class="not-found-card">
+      <p class="nf-title">未找到「{{ result.text }}」</p>
+      <p v-if="!result.suggestions.length" class="nf-hint">该单词不存在或拼写有误，请检查后重试</p>
+      <template v-else>
+        <p class="nf-hint">你是不是想查：</p>
+        <div class="nf-sugg">
+          <button
+            v-for="(s, i) in result.suggestions"
+            :key="i"
+            class="nf-item"
+            @click="emit('replay', { input: s.word })"
+          >
+            <span class="nf-word">{{ s.word }}</span>
+            <span v-if="s.zh" class="nf-zh">{{ s.zh }}</span>
+          </button>
+        </div>
+      </template>
+    </article>
 
     <!-- 本地学习词典命中的单词卡片 -->
     <article v-else-if="result && result.kind === 'word'" class="word-card">
@@ -310,6 +349,74 @@ function speakableText() {
   text-align: center;
   color: var(--text-6);
   font-size: 13.5px;
+}
+
+/* 未找到单词：拼写错误/不完整——明确报错卡片 */
+.not-found-card {
+  width: 100%;
+  max-width: 420px;
+  margin: 20px auto 0;
+  padding: 16px 18px;
+  background: rgba(251, 241, 241, 0.85);
+  border: 1px solid rgba(240, 210, 210, 0.8);
+  border-radius: 12px;
+  text-align: left;
+}
+
+.nf-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #a05d5d;
+}
+
+.nf-hint {
+  margin-top: 6px;
+  color: var(--text-5);
+  font-size: 12.5px;
+}
+
+.nf-sugg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.nf-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border: 1px solid rgba(143, 168, 196, 0.6);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+.nf-item:hover {
+  background: rgba(var(--accent-rgb), 0.12);
+}
+
+.nf-word {
+  font-weight: 700;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.nf-zh {
+  color: var(--text-5);
+  font-size: 12px;
+}
+
+/* 输入联想区域：搜索栏下方建议列表 */
+.suggest-area {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 14px;
+  overflow-y: auto;
 }
 
 /* 最近翻译历史：空态顶部左对齐列表（同术语最近搜索） */

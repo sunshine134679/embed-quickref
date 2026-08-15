@@ -259,8 +259,11 @@ async function runTranslate(text) {
     if (seq !== translateSeq) return;
     translateResult.value = result;
     translateStatus.value = "done";
-    addHistory(result, text);
-    translateHistory.value = loadHistory();
+    // 未找到/拼写错误不算有效翻译，不写入历史
+    if (result.kind !== "word-not-found") {
+      addHistory(result, text);
+      translateHistory.value = loadHistory();
+    }
   } catch (e) {
     if (seq !== translateSeq) return;
     translateError.value = String(e?.message || e);
@@ -699,6 +702,12 @@ function openTermFromHistory(h) {
 // 总历史：翻译记录点击 → 回填输入并立即翻译（命中缓存秒出）
 function replayHistory(h) {
   query.value = h.input;
+  runTranslateNow();
+}
+
+// 输入联想建议点击：回填建议词并立即翻译
+function onUseSuggestion(word) {
+  query.value = word;
   runTranslateNow();
 }
 
@@ -1450,6 +1459,7 @@ onUnmounted(() => {
           @replay="replayHistory"
           @clear-history="translateHistory = []; clearHistory()"
           @open-full="openFullHistory('translate')"
+          @use-suggestion="onUseSuggestion"
         />
       </template>
       <div v-else-if="view === 'detail'" class="detail-wrap">
