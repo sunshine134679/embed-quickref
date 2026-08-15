@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -92,6 +92,37 @@ function aiDefinition(reply) {
   }
   return "";
 }
+
+// 释义中的词性/词义分离，让两者用不同颜色区分：
+// "<动词> 埋葬；安葬" 或 "n. 浮点数；漂浮物" → { pos, meaning }
+function splitAiMeaning(def) {
+  const s = String(def || "").trim();
+  const m = s.match(/^<([^>]+)>\s*(.*)$/);
+  if (m) return { pos: m[1].trim(), meaning: m[2].trim() };
+  const m2 = s.match(/^((?:n|v|adj|adv|pron|prep|conj|int|det|abbr|aux)\.)\s*(.*)$/i);
+  if (m2) return { pos: m2[1].toLowerCase(), meaning: m2[2].trim() };
+  return { pos: "", meaning: s };
+}
+
+// 本地词典 primary（"n. 浮点数；漂浮物  v. 漂浮；使浮动"）按双空格拆成多组词性+释义
+function splitPrimary(primary) {
+  if (!primary) return [];
+  return String(primary)
+    .split(/\s{2,}/)
+    .map((g) => g.trim())
+    .filter(Boolean)
+    .map((g) => {
+      const m = g.match(/^((?:n|v|adj|adv|pron|prep|conj|int|det|abbr|aux)\.)\s*(.*)$/i);
+      return m ? { pos: m[1].toLowerCase(), meaning: m[2].trim() } : { pos: "", meaning: g };
+    });
+}
+
+// AI 词典释义的词性/词义分离（computed：解析一次供模板复用）
+const aiMeaning = computed(() => {
+  const r = transResult.value;
+  if (!r || r.kind !== "word-ai") return { pos: "", meaning: "" };
+  return splitAiMeaning(aiDefinition(r.reply));
+});
 
 function catStyle(cat) {
   const { fg, bg } = categoryColor(cat);
@@ -291,11 +322,19 @@ onMounted(async () => {
         <div v-else-if="transResult" class="q-trans">
           <template v-if="transResult.kind === 'word'">
             <div class="qt-word">{{ transResult.word }}</div>
-            <div class="qt-zh">{{ transResult.entry.primary }}</div>
+            <!-- 词性/词义分离显示：词性 chip 与词义不同颜色 -->
+            <div v-for="(p, i) in splitPrimary(transResult.entry.primary)" :key="i" class="qt-pos-row">
+              <span v-if="p.pos" class="qt-pos">{{ p.pos }}</span>
+              <span class="qt-meaning">{{ p.meaning }}</span>
+            </div>
           </template>
           <template v-else-if="transResult.kind === 'word-ai'">
             <div class="qt-word">{{ transResult.text }}</div>
-            <div class="qt-zh">{{ aiDefinition(transResult.reply) }}</div>
+            <div v-if="aiMeaning.pos" class="qt-pos-row">
+              <span class="qt-pos">{{ aiMeaning.pos }}</span>
+              <span class="qt-meaning">{{ aiMeaning.meaning }}</span>
+            </div>
+            <div v-else class="qt-zh">{{ aiMeaning.meaning || aiDefinition(transResult.reply) }}</div>
           </template>
           <template v-else>
             <div class="qt-dir">{{ transResult.target === "zh" ? "英 → 中" : "中 → 英" }}</div>
@@ -614,6 +653,32 @@ onMounted(async () => {
   font-size: 18px;
   font-weight: 700;
   color: var(--text-1);
+}
+
+/* 词性/词义分离：词性 chip 用 accent 色，词义正文深色，颜色区分开 */
+.qt-pos-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 2px;
+}
+
+.qt-pos {
+  flex: none;
+  padding: 1px 8px;
+  border-radius: 9px;
+  background: rgba(var(--accent-rgb), 0.13);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.qt-meaning {
+  color: var(--text-2);
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
 .qt-dir {
