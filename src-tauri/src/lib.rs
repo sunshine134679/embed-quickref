@@ -54,9 +54,12 @@ fn show_quick(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
     quick
         .set_position(PhysicalPosition::new(qx.max(area_x), qy.max(area_y)))
         .map_err(|e| e.to_string())?;
+    // 记录显示前可见性与焦点：仅"从隐藏到显示"或"已可见但未聚焦"时抢 OS 键盘焦点
+    // （hover 即输，不必再点窗口）；正在使用中（可见且聚焦）的窗口不抢焦点
+    let was_visible = quick.is_visible().map_err(|e| e.to_string())?;
+    let was_focused = quick.is_focused().map_err(|e| e.to_string())?;
     quick.show().map_err(|e| e.to_string())?;
-    // 仅首次显示时聚焦（hover 即输）：窗口已可见时重复 show 不抢当前窗口焦点
-    if !quick.is_visible().map_err(|e| e.to_string())? {
+    if !was_visible || !was_focused {
         quick.set_focus().map_err(|e| e.to_string())?;
     }
     Ok(())
