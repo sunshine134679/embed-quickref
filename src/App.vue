@@ -256,7 +256,11 @@ async function runTranslate(text) {
   translateStatus.value = "loading";
   translateError.value = "";
   try {
-    const result = await translateQuery(text, settings.value);
+    const result = await translateQuery(text, settings.value, (partial, target) => {
+      // 流式上屏：长句翻译逐段更新结果卡片；过期响应丢弃
+      if (seq !== translateSeq) return;
+      translateResult.value = { kind: "sentence", text, target, translated: partial };
+    });
     if (seq !== translateSeq) return;
     translateResult.value = result;
     translateStatus.value = "done";

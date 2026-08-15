@@ -150,8 +150,8 @@ function speakableText() {
       <WordSuggest :suggestions="suggestions" @pick="(w) => emit('use-suggestion', w)" />
     </div>
 
-    <!-- 等待中 -->
-    <div v-else-if="status === 'loading'" class="loading-dots"><i></i><i></i><i></i></div>
+    <!-- 等待中：仅在还没有任何结果时显示（句子流式翻译期间 result 已有部分内容，直接展示） -->
+    <div v-else-if="status === 'loading' && !result" class="loading-dots"><i></i><i></i><i></i></div>
 
     <!-- 错误 -->
     <p v-else-if="status === 'error'" class="error">

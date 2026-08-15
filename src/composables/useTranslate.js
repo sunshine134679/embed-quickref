@@ -129,6 +129,65 @@ async function askOnce(messages, settings) {
   }
 }
 
+// 流式版（SSE）：长句翻译逐段上屏，减少等待感；onDelta 可选——不传则仅返回最终文本
+async function askStream(messages, settings, onDelta) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${settings.apiKey}`,
+        "Content-Type": "application/json",
+      },
+      signal: ctrl.signal,
+      body: JSON.stringify({
+        model: settings.model,
+        stream: true,
+        temperature: 0.3,
+        messages,
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text().catch(() => "");
+      throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 160)}` : ""}`);
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let full = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) {
+        const data = line.trim();
+        if (!data.startsWith("data:")) continue;
+        const payload = data.slice(5).trim();
+        if (payload === "[DONE]") continue;
+        try {
+          const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+          if (delta) {
+            full += delta;
+            if (onDelta) onDelta(full);
+          }
+        } catch {
+          // 忽略跨分片的不完整 JSON
+        }
+      }
+    }
+    return full.trim();
+  } catch (e) {
+    if (e.name === "AbortError") throw new Error(`翻译请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请重试`);
+    throw e;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ---------- 单词拼写建议：词库（术语缩写/全称拆词 + 学习词典）前缀 + 编辑距离模糊匹配 ----------
 // 词表懒加载（terms.json 已被 useSearch 缓存为 chunk，此处复用同一模块不会重复加载）
 let wordIndex = null;
@@ -222,9 +281,10 @@ const NOT_FOUND_RE = /未找到|不存在|拼写错误|不是(一个|个)?(有�
 // - 英文单词命中本地学习词典 -> { kind: "word", word, entry }（零网络）
 // - 英文单词未命中且疑似拼写错误/不完整 -> { kind: "word-not-found", text, suggestions }（本地建议）
 // - 英文单词未命中且无本地近似 -> { kind: "word-ai", text, reply }（AI 词典式解释，AI 会识别乱词）
-// - 句子/中文 -> { kind: "sentence", text, source, target, translated }
+// - 句子/中文 -> { kind: "sentence", text, source, target, translated }（SSE 流式，onDelta 逐段回调）
+// onDelta(partialText, target)：句子流式翻译时随内容增长回调（快捷窗不传则静默等最终结果）
 // 返回 Promise；无 apiKey 时抛错提示去设置
-export async function translateQuery(text, settings) {
+export async function translateQuery(text, settings, onDelta) {
   const input = (text || "").trim();
   if (!input) return null;
   if (!settings.apiKey) throw new Error("no-api-key");
@@ -242,7 +302,7 @@ export async function translateQuery(text, settings) {
         return { kind: "word-not-found", text: input, suggestions: sugg.slice(0, 3) };
       }
     }
-    // AI 词典式解释（提示词要求拼写错误明说）
+    // AI 词典式解释（提示词要求拼写错误明说）；单次短回复，非流式 + 缓存
     const key = "word:" + q;
     let reply = cached(key);
     if (!reply) {
@@ -268,12 +328,14 @@ export async function translateQuery(text, settings) {
   const key = `sentence:${target}:${normalizeWord(input)}`;
   let translated = cached(key);
   if (!translated) {
-    translated = await askOnce(
+    // 长句/中文翻译走 SSE 流式：onDelta 收到的是累计文本，UI 可逐段上屏
+    translated = await askStream(
       [
         { role: "system", content: SENTENCE_PROMPT },
         { role: "user", content: input },
       ],
-      settings
+      settings,
+      onDelta ? (partial) => onDelta(partial, target) : undefined
     );
     setCache(key, translated);
   }
