@@ -22,6 +22,8 @@ const inputFocused = ref(false);
 const hovering = ref(false); // 鼠标是否仍在窗内（搜索结果出来时若已移开则触发收起评估）
 let focusAt = 0; // 聚焦时间戳：聚焦瞬间用户可能正把手放上键盘，短暂视为使用中
 let composing = false; // 输入法 composition 进行中（中文拼音未上屏，q 仍为空）
+let leftAt = 0; // 鼠标最近一次离开窗口的时间戳（进入窗口时清零）
+let searchAt = 0; // 最近一次搜索发起时间：判断结果出来前鼠标是否已离开
 function currentBusy() {
   // 搜索已完成（结果已展示）→ 不算"使用中"：鼠标移开应收起（重新 hover 会恢复结果）
   if (transResult.value || termResults.value.length || selectedTerm.value) return false;
@@ -33,18 +35,24 @@ function reportTyping() {
 }
 function onHoverIn() {
   hovering.value = true;
+  leftAt = 0; // 进入窗口：之前的离开不再计入"本轮搜索期间已离开"
   emitTo("main", "quick-hover-in").catch(() => {});
 }
 function onHoverOut() {
   hovering.value = false;
+  leftAt = Date.now();
   emitTo("main", "quick-hover-out", { busy: currentBusy() }).catch(() => {});
 }
 
-// 搜索完成（结果已展示）：若鼠标已不在窗内，通知主窗口重新评估收起——
-// 结果出来前 busy 保护（输入中）会拦住隐藏，结果出来后应随鼠标移开而收起
+// 搜索完成（结果已展示）：只有鼠标真的在本轮搜索开始后离开过窗口，才补发 hover-out 直接收起
+// （覆盖"搜索中移开鼠标→结果出来才收起"）；鼠标全程没离开（如停在圆点上靠自动聚焦打字、
+// 刚按回车要看结果）则只同步 busy=false，等真正移开鼠标时再走正常收起流程——
+// 否则窗口会在用户刚回车想读结果时被当成"已移开"自动收起
 function notifyResultDone() {
-  if (!hovering.value) {
+  if (!hovering.value && leftAt > searchAt) {
     emitTo("main", "quick-hover-out", { busy: false }).catch(() => {});
+  } else {
+    emitTo("main", "quick-typing", { typing: inputFocused.value, busy: false }).catch(() => {});
   }
 }
 
@@ -148,6 +156,7 @@ function catStyle(cat) {
 async function doSearch() {
   const text = q.value.trim();
   if (!text) return;
+  searchAt = Date.now(); // 本轮搜索起点：结果出来前鼠标离开窗口才触发"完成即收起"
   clearTimeout(timer);
   const my = ++seq;
   searching.value = true;
@@ -197,6 +206,7 @@ function schedule() {
     return;
   }
   searching.value = true;
+  searchAt = Date.now(); // 防抖窗口内移开鼠标也算"搜索期间离开"，结果出来直接收起
   timer = setTimeout(doSearch, isSingleWord(text) ? 150 : 300);
 }
 
