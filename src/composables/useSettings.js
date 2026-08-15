@@ -6,6 +6,7 @@ export const DEFAULT_SETTINGS = {
   apiKey: "",
   baseUrl: "https://api.deepseek.com",
   model: "deepseek-chat",
+  accent: "us", // 发音口音：us(美式) | en(英式)
 };
 
 const settings = ref({ ...DEFAULT_SETTINGS });

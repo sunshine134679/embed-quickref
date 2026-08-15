@@ -36,6 +36,13 @@ const form = reactive({ ...props.settings });
       <input v-model="form.model" type="text" spellcheck="false" placeholder="deepseek-chat" />
     </label>
     <div class="field">
+      <label class="field-label">发音口音</label>
+      <div class="accent-options">
+        <button :class="{ active: form.accent !== 'en' }" @click="form.accent = 'us'">美式英语</button>
+        <button :class="{ active: form.accent === 'en' }" @click="form.accent = 'en'">英式英语</button>
+      </div>
+    </div>
+    <div class="field">
       <label class="field-label">界面模式</label>
       <div class="mode-options">
         <button
@@ -122,6 +129,30 @@ input:focus {
   display: flex;
   flex-direction: column;
   gap: 6px;
+}
+
+/* 发音口音：紧凑双按钮选择 */
+.accent-options {
+  display: flex;
+  gap: 8px;
+}
+
+.accent-options button {
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid #dbe2ea;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.accent-options button.active {
+  border-color: rgba(var(--accent-rgb), 0.6);
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .mode-opt {

@@ -1,4 +1,5 @@
 import { fetch } from "@tauri-apps/plugin-http";
+import { useSettings } from "./useSettings";
 import learningDictionary from "../data/learning-dictionary";
 
 // 本地学习词典：精确命中 + 词形索引（interrupted -> interrupt）
@@ -343,11 +344,13 @@ export async function translateQuery(text, settings, onDelta) {
 }
 
 // 用 WebView2 的 speechSynthesis 朗读英文（不新增 Rust 命令，失败静默）
+// 口音跟随设置（accent：us 美式 / en 英式），默认美式
 export function speakEnglish(text) {
   if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") return;
+  const { settings } = useSettings();
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "en-US";
+  utterance.lang = settings.value.accent === "en" ? "en-GB" : "en-US";
   utterance.rate = 0.85;
   window.speechSynthesis.speak(utterance);
 }
