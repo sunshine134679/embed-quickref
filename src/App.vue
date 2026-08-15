@@ -319,6 +319,7 @@ async function enterCompact(animate = true) {
 // 展开主界面：680×500，就地展开并纠正到可见区
 // opts.skipRestore：快捷窗跳转（quick-open-detail）时跳过"恢复上次搜索内容"——
 // 该场景马上要设置自己的 query/打开详情，恢复会触发 watch 把详情视图覆盖回搜索
+// opts.noFocus：跳转后不聚焦搜索框（AI 跳转场景，聚焦会触发 onSearchFocus 把 AI 视图覆盖回搜索）
 async function enterExpanded(initialView = "search", opts = {}) {
   // 展开主窗口时隐藏快捷查找窗：避免小窗叠在大窗口上（quick 窗口只服务圆点态 hover）
   invoke("hide_quick").catch(() => {});
@@ -355,7 +356,7 @@ async function enterExpanded(initialView = "search", opts = {}) {
     view.value = "search";
     query.value = savedQuery;
   }
-  if (view.value === "search") focusInput();
+  if (!opts.noFocus && view.value === "search") focusInput();
 }
 
 // 窗口位置纠正到当前显示器可见范围（完整可见 clamp，物理像素）
@@ -994,10 +995,23 @@ async function onQuickOpenDetail(payload) {
   await win.setFocus();
 }
 
+// 快捷窗术语搜不到按 Tab：展开主窗口用 AI 搜索该词
+async function onQuickAskAi(payload) {
+  const text = (payload?.text || "").trim();
+  if (!text) return;
+  await win.show();
+  if (form.value === "compact") {
+    // noFocus：聚焦搜索框会触发 onSearchFocus 把 AI 视图覆盖回搜索
+    await enterExpanded("search", { skipRestore: true, noFocus: true });
+  }
+  runAi(text);
+}
+
 // 注册快捷窗口事件：hover 弹出 + 详情跳转
 async function setupQuickListeners() {
   try {
     await listen("quick-open-detail", (e) => onQuickOpenDetail(e.payload));
+    await listen("quick-ask-ai", (e) => onQuickAskAi(e.payload));
     await listen("quick-hover-in", onQuickHoverIn);
     await listen("quick-hover-out", onQuickHoverOut);
     await listen("quick-typing", onQuickTyping);

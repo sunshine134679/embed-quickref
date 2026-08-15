@@ -238,6 +238,13 @@ function onKeydown(e) {
   } else if (e.key === "Escape") {
     e.preventDefault();
     invoke("hide_quick").catch(() => {});
+  } else if (e.key === "Tab" && !e.shiftKey) {
+    // 术语搜不到：一键跳主窗口用 AI 搜索
+    if (panel.value === "terms" && q.value.trim() && !termResults.value.length && !selectedTerm.value) {
+      e.preventDefault();
+      emitTo("main", "quick-ask-ai", { text: q.value.trim() }).catch(() => {});
+      invoke("hide_quick").catch(() => {});
+    }
   }
 }
 
@@ -341,7 +348,9 @@ onMounted(async () => {
           </button>
           <button class="q-detail-btn" @click="openDetail">查看「{{ termResults[0].abbr }}」详情 ›</button>
         </div>
-        <div v-else-if="q.trim()" class="q-empty">本地词库未命中，试试翻译分区</div>
+        <div v-else-if="q.trim()" class="q-empty">
+          本地词库未命中，试试翻译分区 · 按 <kbd>Tab</kbd> 用 AI 搜索
+        </div>
         <div v-else class="q-hint">输入缩写或关键词，如 I2C、DTS、bootcmd</div>
       </template>
 
