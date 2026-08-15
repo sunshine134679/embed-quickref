@@ -42,7 +42,19 @@ function onHoverIn() {
 function onHoverOut() {
   hovering.value = false;
   leftAt = Date.now();
-  emitTo("main", "quick-hover-out", { busy: currentBusy() }).catch(() => {});
+  // 移出窗口的"使用中"判定：结果已展示 → 不算；否则只认"真在输入"
+  // （内容非空/输入法组合中）才保护窗口——聚焦 2s 保护（还没输入）不算，
+  // 鼠标正离开窗口（如移开轨迹穿过窗口）应立即收起，否则要等聚焦保护到期
+  // （最长 2s）窗口才收，延迟明显。"停圆点 → 手放键盘 → 打字"场景由
+  // 圆点离开路径（hideQuickOnLeave）的 busy 兜底
+  const busy = resultShown()
+    ? false
+    : inputFocused.value && (composing || q.value.trim() !== "");
+  emitTo("main", "quick-hover-out", { busy }).catch(() => {});
+}
+// 结果已展示（术语列表/简介/翻译结果）→ 搜索完成，不算"使用中"
+function resultShown() {
+  return !!(transResult.value || termResults.value.length || selectedTerm.value);
 }
 
 // 搜索完成（结果已展示）：只有鼠标真的在本轮搜索开始后离开过窗口，才补发 hover-out 直接收起
