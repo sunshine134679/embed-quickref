@@ -19,9 +19,12 @@ const q = ref("");
 // busy=正在输入：聚焦后短暂保护窗口（手正放上键盘）、输入法组合输入中（拼音未上屏）、
 // 或内容非空——此时移出窗口也保留；纯空输入（含自动聚焦误触）移出则收起
 const inputFocused = ref(false);
+const hovering = ref(false); // 鼠标是否仍在窗内（搜索结果出来时若已移开则触发收起评估）
 let focusAt = 0; // 聚焦时间戳：聚焦瞬间用户可能正把手放上键盘，短暂视为使用中
 let composing = false; // 输入法 composition 进行中（中文拼音未上屏，q 仍为空）
 function currentBusy() {
+  // 搜索已完成（结果已展示）→ 不算"使用中"：鼠标移开应收起（重新 hover 会恢复结果）
+  if (transResult.value || termResults.value.length || selectedTerm.value) return false;
   return inputFocused.value && (Date.now() - focusAt < 2000 || composing || q.value.trim() !== "");
 }
 // 统一的输入状态上报（聚焦/失焦/composition/内容变化都走这里）
@@ -29,10 +32,20 @@ function reportTyping() {
   emitTo("main", "quick-typing", { typing: inputFocused.value, busy: currentBusy() }).catch(() => {});
 }
 function onHoverIn() {
+  hovering.value = true;
   emitTo("main", "quick-hover-in").catch(() => {});
 }
 function onHoverOut() {
+  hovering.value = false;
   emitTo("main", "quick-hover-out", { busy: currentBusy() }).catch(() => {});
+}
+
+// 搜索完成（结果已展示）：若鼠标已不在窗内，通知主窗口重新评估收起——
+// 结果出来前 busy 保护（输入中）会拦住隐藏，结果出来后应随鼠标移开而收起
+function notifyResultDone() {
+  if (!hovering.value) {
+    emitTo("main", "quick-hover-out", { busy: false }).catch(() => {});
+  }
 }
 
 // 输入框聚焦/失焦上报：聚焦期间快捷窗不自动隐藏（鼠标移出也不收）
@@ -151,6 +164,7 @@ async function doSearch() {
     selectedTerm.value = exact.length === 1 ? exact[0] : null;
     termResults.value = exact.length === 1 ? [] : (exact.length > 1 ? exact : all).slice(0, 5);
     searching.value = false;
+    notifyResultDone();
     return;
   }
   if (!settings.value.apiKey) {
@@ -162,6 +176,7 @@ async function doSearch() {
     const r = await translateQuery(text, settings.value);
     if (my !== seq) return;
     transResult.value = r;
+    notifyResultDone();
   } catch (e) {
     if (my !== seq) return;
     error.value = String(e?.message || e);
