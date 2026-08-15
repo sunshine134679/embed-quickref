@@ -55,6 +55,21 @@ const transResult = ref(null);
 let seq = 0;
 let timer = null;
 
+// AI 词典回复（音标/释义/例句/译文四行）：快捷窗空间有限，只给最有用的中文释义；
+// 优先取"释义:"行，兜底跳过音标行取第一行非空
+function aiDefinition(reply) {
+  const lines = String(reply || "").split("\n");
+  for (const l of lines) {
+    const t = l.trim();
+    if (/^释义\s*[:：]/.test(t)) return t.replace(/^释义\s*[:：]\s*/, "").trim();
+  }
+  for (const l of lines) {
+    const t = l.trim();
+    if (t && !/^音标\s*[:：]/.test(t)) return t;
+  }
+  return "";
+}
+
 function catStyle(cat) {
   const { fg, bg } = categoryColor(cat);
   return { color: fg, background: bg };
@@ -240,7 +255,7 @@ onMounted(async () => {
           </template>
           <template v-else-if="transResult.kind === 'word-ai'">
             <div class="qt-word">{{ transResult.text }}</div>
-            <div class="qt-zh">{{ (transResult.reply || '').split('\n')[0] }}</div>
+            <div class="qt-zh">{{ aiDefinition(transResult.reply) }}</div>
           </template>
           <template v-else>
             <div class="qt-dir">{{ transResult.target === "zh" ? "英 → 中" : "中 → 英" }}</div>

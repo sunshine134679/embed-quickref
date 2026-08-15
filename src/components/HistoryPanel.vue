@@ -12,7 +12,9 @@ const props = defineProps({
 });
 const emit = defineEmits(["open-term", "open-translate", "open-ai", "remove-ai", "clear-terms", "clear-translate"]);
 
-const tab = ref(props.initialTab);
+// tab 默认术语分区，props 有效时立即覆盖（immediate：异步组件首次挂载 props 可能未就绪，
+// 不能依赖 ref(props.initialTab) 的初始值，否则打开历史时 3 个 tab 都无选中态）
+const tab = ref("terms");
 const termHistory = ref(loadTermHistory());
 const translateHistory = ref(loadHistory());
 const listEl = ref(null);
@@ -27,7 +29,8 @@ watch(
   () => props.initialTab,
   (t) => {
     if (t) tab.value = t;
-  }
+  },
+  { immediate: true }
 );
 // 每次进入视图刷新历史；AI 会话变化（新增/删除）时也刷新
 watch(
@@ -140,9 +143,9 @@ function openTranslate(h) {
         <div v-else class="h-empty">还没有翻译记录，去翻译一个试试</div>
       </template>
 
-      <!-- AI 解释历史（复用原组件） -->
+      <!-- AI 解释历史（复用原组件）；显式条件分支：tab 意外值时不误显示 AI 内容 -->
       <AiHistory
-        v-else
+        v-else-if="tab === 'ai'"
         :sessions="aiSessions"
         @open="(s) => emit('open-ai', s)"
         @remove="(id) => emit('remove-ai', id)"

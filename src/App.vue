@@ -673,7 +673,9 @@ function toggleHistory(tabName = null) {
     view.value = "search";
     focusInput();
   } else {
-    if (tabName) historyTab.value = tabName;
+    // 顶栏按钮/Ctrl+H 无参数：始终默认术语分区（避免沿用上次的 translate/ai 残留）；
+    // 类型守卫：模板若直接传函数引用，Vue 会把 event 当作首参传入
+    historyTab.value = typeof tabName === "string" ? tabName : "terms";
     view.value = "history";
   }
 }
@@ -1308,7 +1310,7 @@ onUnmounted(() => {
         class="icon-btn"
         :class="{ active: view === 'history' }"
         title="历史记录 (Ctrl+H)"
-        @click="toggleHistory"
+        @click="toggleHistory()"
       >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
           <path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1" />
