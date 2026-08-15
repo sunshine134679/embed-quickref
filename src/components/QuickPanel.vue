@@ -66,6 +66,8 @@ const searching = ref(false);
 const error = ref("");
 // 术语结果（简洁）：abbr/zh/definition 首行 + 分类
 const termResults = ref([]);
+// 当前查看的术语简介（快捷窗内展示，不跳主界面）；null 时显示列表
+const selectedTerm = ref(null);
 // 翻译结果（简洁）
 const transResult = ref(null);
 let seq = 0;
@@ -138,10 +140,16 @@ async function doSearch() {
   searching.value = true;
   error.value = "";
   termResults.value = [];
+  selectedTerm.value = null;
   transResult.value = null;
   if (panel.value === "terms") {
     await ensureTerms().catch(() => {});
-    termResults.value = search(text).slice(0, 5);
+    const all = search(text);
+    const key = text.trim().toLowerCase();
+    // 精确命中（abbr 完全等于输入）：单条直接显示简介，一词多义（同缩写不同分类）列列表选择
+    const exact = all.filter((t) => (t.abbr || "").trim().toLowerCase() === key);
+    selectedTerm.value = exact.length === 1 ? exact[0] : null;
+    termResults.value = exact.length === 1 ? [] : (exact.length > 1 ? exact : all).slice(0, 5);
     searching.value = false;
     return;
   }
@@ -167,6 +175,7 @@ function schedule() {
   const text = q.value.trim();
   if (!text) {
     termResults.value = [];
+    selectedTerm.value = null;
     transResult.value = null;
     error.value = "";
     searching.value = false;
@@ -178,11 +187,11 @@ function schedule() {
 
 watch(q, schedule);
 
-// 详情跳转：通知主窗口展开并打开对应内容，然后隐藏本窗口
+// 详情跳转：通知主窗口展开并打开对应内容，然后隐藏本窗口（简介页"查看详情"）
 async function openDetail() {
   let payload = null;
   if (panel.value === "terms") {
-    const t = termResults.value[0];
+    const t = selectedTerm.value || termResults.value[0];
     if (!t) return;
     payload = { kind: "term", abbr: t.abbr };
   } else if (transResult.value) {
@@ -193,10 +202,9 @@ async function openDetail() {
   await invoke("hide_quick").catch(() => {});
 }
 
-// 直接选中术语列表里的某条
+// 选中术语列表里的某条：在快捷窗内展示简介（不跳主界面）
 function pickTerm(t) {
-  emitTo("main", "quick-open-detail", { kind: "term", abbr: t.abbr }).catch(() => {});
-  invoke("hide_quick").catch(() => {});
+  selectedTerm.value = t;
 }
 
 function speak() {
@@ -285,9 +293,29 @@ onMounted(async () => {
         {{ error === "no-api-key" ? "翻译需要 API Key，请到主窗口设置" : error }}
       </p>
 
-      <!-- 术语结果：简洁列表 -->
+      <!-- 术语结果：简介视图（精确单条/列表选择后，快捷窗内展示） -->
       <template v-else-if="panel === 'terms'">
-        <div v-if="termResults.length" class="q-term-list">
+        <div v-if="selectedTerm" class="q-term-detail">
+          <header class="qtd-head">
+            <span class="qtd-abbr">{{ selectedTerm.abbr }}</span>
+            <span v-if="selectedTerm.full" class="qtd-full">{{ selectedTerm.full }}</span>
+            <span v-if="selectedTerm.category" class="tag" :style="catStyle(selectedTerm.category)">{{ selectedTerm.category }}</span>
+          </header>
+          <p v-if="selectedTerm.zh" class="qtd-zh">{{ selectedTerm.zh }}</p>
+          <p v-if="selectedTerm.definition" class="qtd-def">{{ selectedTerm.definition }}</p>
+          <div v-if="selectedTerm.usage" class="qtd-usage">
+            <span class="qtd-label">用法</span>{{ selectedTerm.usage }}
+          </div>
+          <div v-if="selectedTerm.example" class="qtd-example">
+            <code>{{ Array.isArray(selectedTerm.example) ? selectedTerm.example.join("\n") : selectedTerm.example }}</code>
+          </div>
+          <div class="qtd-actions">
+            <button v-if="termResults.length" class="q-mini-btn" @click="selectedTerm = null">返回列表</button>
+            <button class="q-detail-btn" @click="openDetail">查看详情 ›</button>
+          </div>
+        </div>
+        <!-- 列表：一词多义（同缩写不同分类）或普通匹配，点击后在快捷窗内看简介 -->
+        <div v-else-if="termResults.length" class="q-term-list">
           <button v-for="(t, i) in termResults" :key="i" class="q-term" @click="pickTerm(t)">
             <span class="qt-abbr">{{ t.abbr }}</span>
             <span class="qt-body">
@@ -507,6 +535,110 @@ onMounted(async () => {
 
 /* 结果紧贴搜索框下方（顶部对齐），不做垂直居中——居中会让结果悬浮在窗口中部、
    与搜索框之间空出一大段，观感像"中间另开辟一段" */
+/* 术语简介：快捷窗内展示的词条卡片（选择后），底部"查看详情"跳主界面 */
+.q-term-detail {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  border-radius: 10px;
+}
+
+.qtd-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.qtd-abbr {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+
+.qtd-full {
+  font-size: 12px;
+  color: var(--text-4);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.qtd-zh {
+  margin-top: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+}
+
+.qtd-def {
+  margin-top: 6px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-3);
+}
+
+.qtd-usage {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-4);
+}
+
+.qtd-label {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: rgba(238, 242, 247, 0.9);
+  color: var(--text-5);
+  font-size: 10.5px;
+}
+
+.qtd-example {
+  margin-top: 6px;
+  padding: 6px 9px;
+  background: rgba(236, 245, 237, 0.85);
+  border-radius: 7px;
+}
+
+.qtd-example code {
+  font-size: 11.5px;
+  color: #2f6b3a;
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.qtd-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.q-term-detail .q-mini-btn,
+.q-term-detail .q-detail-btn {
+  height: 28px;
+  padding: 0 12px;
+  border-radius: 7px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.q-term-detail .q-mini-btn {
+  border: 1px solid rgba(219, 226, 234, 0.9);
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-4);
+}
+
+.q-term-detail .q-mini-btn:hover {
+  color: var(--accent);
+}
+
+/* 术语结果列表 */
 .q-term-list {
   width: 100%;
 }

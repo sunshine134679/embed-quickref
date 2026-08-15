@@ -317,7 +317,9 @@ async function enterCompact(animate = true) {
 }
 
 // 展开主界面：680×500，就地展开并纠正到可见区
-async function enterExpanded(initialView = "search") {
+// opts.skipRestore：快捷窗跳转（quick-open-detail）时跳过"恢复上次搜索内容"——
+// 该场景马上要设置自己的 query/打开详情，恢复会触发 watch 把详情视图覆盖回搜索
+async function enterExpanded(initialView = "search", opts = {}) {
   // 展开主窗口时隐藏快捷查找窗：避免小窗叠在大窗口上（quick 窗口只服务圆点态 hover）
   invoke("hide_quick").catch(() => {});
   clearTimeout(quickHideTimer);
@@ -349,7 +351,7 @@ async function enterExpanded(initialView = "search") {
   view.value = initialView;
   // 有上次搜索内容时优先回搜索态并恢复输入框（自动聚焦+全选，方便直接输入）；设置视图除外
   const savedQuery = loadLastQuery();
-  if (savedQuery && initialView !== "settings") {
+  if (!opts.skipRestore && savedQuery && initialView !== "settings") {
     view.value = "search";
     query.value = savedQuery;
   }
@@ -979,7 +981,7 @@ async function onQuickOpenDetail(payload) {
   if (!payload) return;
   await win.show();
   if (form.value === "compact") {
-    await enterExpanded(payload.kind === "translate" ? "search" : "detail");
+    await enterExpanded(payload.kind === "translate" ? "search" : "detail", { skipRestore: true });
   }
   if (payload.kind === "term") {
     const t = search(payload.abbr || "")[0];
