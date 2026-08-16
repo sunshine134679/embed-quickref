@@ -919,9 +919,13 @@ let quickBusy = false;
 // 鼠标是否仍在圆点/快捷窗上：busy 变 false 时据此重新评估是否需要收起
 let dotHovered = false;
 let quickWindowHovered = false;
+// 快捷窗最近一次真正隐藏的时间：刚隐藏后短时间内重新弹出不再抢 OS 焦点
+// （用户刚用完移开、鼠标又路过圆点时，不打断正在使用的应用）
+let lastQuickHideAt = 0;
 const QUICK_SHOW_DELAY = 120; // 弹出防抖时长：鼠标停留超过才弹
 const QUICK_HIDE_DELAY = 350; // 离开缓冲：留出从圆点/窗口移向对方的时间
 const QUICK_FADE = 140; // 退场动画时长（与 QuickPanel .closing 的 transition 同步）
+const QUICK_FOCUS_COOLDOWN = 1500; // 隐藏后重新弹出不抢焦点的冷却时长
 
 // 鼠标悬停在悬浮圆点上：防抖后显示快捷查找窗口（定位到圆点旁，位置计算在 Rust 侧）
 function showQuickOnHover() {
@@ -936,7 +940,9 @@ function showQuickOnHover() {
 async function doShowQuick() {
   try {
     const pos = await win.outerPosition();
-    await invoke("show_quick", { x: pos.x, y: pos.y });
+    // 刚隐藏过（用户刚用完移开、鼠标又路过圆点）→ 重新弹出不抢焦点，避免反复打断
+    const focus = Date.now() - lastQuickHideAt > QUICK_FOCUS_COOLDOWN;
+    await invoke("show_quick", { x: pos.x, y: pos.y, focus });
     // 清除可能残留的退场动画类（退场中重新弹出时恢复内容可见）
     emitTo("quick", "quick-show").catch(() => {});
   } catch (e) {
@@ -953,6 +959,7 @@ async function hideQuick() {
     emitTo("quick", "quick-show").catch(() => {}); // 退场期间重新弹出：恢复内容
     return;
   }
+  lastQuickHideAt = Date.now();
   invoke("hide_quick").catch(() => {});
 }
 

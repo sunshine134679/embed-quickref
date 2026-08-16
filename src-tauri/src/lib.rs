@@ -1,4 +1,21 @@
 use tauri::{AppHandle, Manager, PhysicalPosition};
+use std::sync::Mutex;
+
+// Windows 前台窗口 FFI：快捷窗弹出时"借用"焦点（记录原前台窗口），收起时归还，
+// 避免快捷窗反复抢走用户正在使用的应用（如编辑器/播放器）的键盘焦点
+#[cfg(windows)]
+unsafe extern "system" {
+    fn GetForegroundWindow() -> isize;
+    fn SetForegroundWindow(hwnd: isize) -> i32;
+}
+
+// 焦点借用记录：弹出抢焦点前的 OS 前台窗口句柄
+struct QuickFocusState(Mutex<isize>);
+impl Default for QuickFocusState {
+    fn default() -> Self {
+        Self(Mutex::new(0))
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -14,6 +31,7 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_http::init())
+        .manage(QuickFocusState::default())
         .invoke_handler(tauri::generate_handler![show_quick, hide_quick])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -26,7 +44,7 @@ const DOT_W: f64 = 64.0;
 const GAP: f64 = 10.0;
 
 #[tauri::command]
-fn show_quick(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
+fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String> {
     let quick = app.get_webview_window("quick").ok_or("no quick window")?;
     let main = app.get_webview_window("main").ok_or("no main window")?;
     // 主窗口可能仍处于展开态（hover 触发时圆点刚挂载），以传入的圆点位置为准
@@ -54,12 +72,21 @@ fn show_quick(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
     quick
         .set_position(PhysicalPosition::new(qx.max(area_x), qy.max(area_y)))
         .map_err(|e| e.to_string())?;
-    // 记录显示前可见性与焦点：仅"从隐藏到显示"或"已可见但未聚焦"时抢 OS 键盘焦点
-    // （hover 即输，不必再点窗口）；正在使用中（可见且聚焦）的窗口不抢焦点
+    // 记录显示前可见性与焦点：focus=false（隐藏冷却期内重新弹出）不抢焦点；
+    // 否则仅"从隐藏到显示"或"已可见但未聚焦"时抢 OS 键盘焦点（hover 即输）
     let was_visible = quick.is_visible().map_err(|e| e.to_string())?;
     let was_focused = quick.is_focused().map_err(|e| e.to_string())?;
     quick.show().map_err(|e| e.to_string())?;
-    if !was_visible || !was_focused {
+    if focus && (!was_visible || !was_focused) {
+        // 记录焦点"借用"前的 OS 前台窗口（hide_quick 时归还），
+        // 防止快捷窗反复抢走用户正在使用的应用的键盘焦点
+        #[cfg(windows)]
+        {
+            let prev = unsafe { GetForegroundWindow() };
+            if prev != 0 {
+                *app.state::<QuickFocusState>().0.lock().unwrap() = prev;
+            }
+        }
         quick.set_focus().map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -68,5 +95,22 @@ fn show_quick(app: AppHandle, x: f64, y: f64) -> Result<(), String> {
 #[tauri::command]
 fn hide_quick(app: AppHandle) -> Result<(), String> {
     let quick = app.get_webview_window("quick").ok_or("no quick window")?;
-    quick.hide().map_err(|e| e.to_string())
+    quick.hide().map_err(|e| e.to_string())?;
+    // 归还焦点：仅当 OS 前台仍是快捷窗时，把键盘焦点还给弹出前借用的窗口
+    // （用户已点击其他窗口则不打扰）
+    #[cfg(windows)]
+    {
+        let fg = unsafe { GetForegroundWindow() };
+        if fg != 0 {
+            if let Ok(hwnd) = quick.hwnd() {
+                if fg == hwnd.0 as isize {
+                    let prev = *app.state::<QuickFocusState>().0.lock().unwrap();
+                    if prev != 0 && prev != fg {
+                        unsafe { SetForegroundWindow(prev) };
+                    }
+                }
+            }
+        }
+    }
+    Ok(())
 }
