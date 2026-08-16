@@ -25,7 +25,13 @@ let focusGuardTimer = null; // 2s 聚焦保护到期后重新上报 busy（否�
 let composing = false; // 输入法 composition 进行中（中文拼音未上屏，q 仍为空）
 let leftAt = 0; // 鼠标最近一次离开窗口的时间戳（进入窗口时清零）
 let searchAt = 0; // 最近一次搜索发起时间：判断结果出来前鼠标是否已离开
+let resultShownAt = 0; // 结果展示时间戳：刚出结果短暂保护窗口（用户刚回车要看结果）
+let graceTimer = null; // 结果宽限期定时器
+const RESULT_GRACE_MS = 1000; // 结果展示后的宽限期：期间移开鼠标不收起
+
 function currentBusy() {
+  // 结果刚展示（宽限期内）→ 仍算"使用中"：用户刚回车，要给时间看结果
+  if (resultGrace()) return true;
   // 搜索已完成（结果已展示）→ 不算"使用中"：鼠标移开应收起（重新 hover 会恢复结果）
   if (transResult.value || termResults.value.length || selectedTerm.value) return false;
   return inputFocused.value && (Date.now() - focusAt < 2000 || composing || q.value.trim() !== "");
@@ -42,26 +48,38 @@ function onHoverIn() {
 function onHoverOut() {
   hovering.value = false;
   leftAt = Date.now();
-  // 移出窗口的"使用中"判定：结果已展示 → 不算；否则只认"真在输入"
-  // （内容非空/输入法组合中）才保护窗口——聚焦 2s 保护（还没输入）不算，
-  // 鼠标正离开窗口（如移开轨迹穿过窗口）应立即收起，否则要等聚焦保护到期
-  // （最长 2s）窗口才收，延迟明显。"停圆点 → 手放键盘 → 打字"场景由
-  // 圆点离开路径（hideQuickOnLeave）的 busy 兜底
-  const busy = resultShown()
-    ? false
-    : inputFocused.value && (composing || q.value.trim() !== "");
+  // 移出窗口的"使用中"判定：结果宽限期内 → 保护（用户刚回车要看结果）；
+  // 结果已展示且过宽限期 → 不算；否则只认"真在输入"（内容非空/输入法组合中）。
+  // 聚焦 2s 保护（还没输入）不算——鼠标正离开窗口（如移开轨迹穿过窗口）应立即收起，
+  // 否则要等聚焦保护到期（最长 2s）窗口才收，延迟明显。"停圆点 → 手放键盘 → 打字"
+  // 场景由圆点离开路径（hideQuickOnLeave）的 busy 兜底
+  const busy = resultGrace()
+    ? true
+    : resultShown()
+      ? false
+      : inputFocused.value && (composing || q.value.trim() !== "");
   emitTo("main", "quick-hover-out", { busy }).catch(() => {});
 }
 // 结果已展示（术语列表/简介/翻译结果）→ 搜索完成，不算"使用中"
 function resultShown() {
   return !!(transResult.value || termResults.value.length || selectedTerm.value);
 }
+// 结果刚展示（宽限期内）→ 算"使用中"，鼠标移开不收起
+function resultGrace() {
+  return resultShown() && Date.now() - resultShownAt < RESULT_GRACE_MS;
+}
 
-// 搜索完成（结果已展示）：只有鼠标真的在本轮搜索开始后离开过窗口，才补发 hover-out 直接收起
-// （覆盖"搜索中移开鼠标→结果出来才收起"）；鼠标全程没离开（如停在圆点上靠自动聚焦打字、
-// 刚按回车要看结果）则只同步 busy=false，等真正移开鼠标时再走正常收起流程——
-// 否则窗口会在用户刚回车想读结果时被当成"已移开"自动收起
+// 搜索完成（结果已展示）：宽限期内 busy 保持 true（用户刚回车，移开鼠标也不收），
+// 宽限期结束后才同步 busy=false 并重新评估收起——快速输入+回车不会被当成"用完移开"
+// 立刻收起，同时保留"搜索完成移出自动收起"（宽限期后真正移开才收）
 function notifyResultDone() {
+  resultShownAt = Date.now();
+  clearTimeout(graceTimer);
+  graceTimer = setTimeout(syncResultDone, RESULT_GRACE_MS);
+}
+
+function syncResultDone() {
+  // 用当前状态重新评估：鼠标已回到窗内 → 只同步 busy；仍在窗外且搜索期间离开过 → 收起
   if (!hovering.value && leftAt > searchAt) {
     emitTo("main", "quick-hover-out", { busy: false }).catch(() => {});
   } else {
@@ -223,6 +241,7 @@ function schedule() {
     transResult.value = null;
     error.value = "";
     searching.value = false;
+    clearTimeout(graceTimer); // 结果已清空，宽限期不再有意义
     return;
   }
   searching.value = true;
