@@ -127,6 +127,8 @@ const error = ref("");
 const termResults = ref([]);
 // 当前查看的术语简介（快捷窗内展示，不跳主界面）；null 时显示列表
 const selectedTerm = ref(null);
+// 本轮搜索是否精确命中（abbr 完全等于输入）：未命中时按 Tab 可直接问 AI
+let exactHit = false;
 // 翻译结果（简洁）
 const transResult = ref(null);
 let seq = 0;
@@ -208,6 +210,7 @@ async function doSearch() {
     const key = text.trim().toLowerCase();
     // 精确命中（abbr 完全等于输入）：单条直接显示简介，一词多义（同缩写不同分类）列列表选择
     const exact = all.filter((t) => (t.abbr || "").trim().toLowerCase() === key);
+    exactHit = exact.length > 0; // 未精确命中（仅模糊/无结果）时按 Tab 可问 AI
     selectedTerm.value = exact.length === 1 ? exact[0] : null;
     termResults.value = exact.length === 1 ? [] : (exact.length > 1 ? exact : all).slice(0, 5);
     searching.value = false;
@@ -241,6 +244,7 @@ function schedule() {
     transResult.value = null;
     error.value = "";
     searching.value = false;
+    exactHit = false;
     clearTimeout(graceTimer); // 结果已清空，宽限期不再有意义
     return;
   }
@@ -288,8 +292,8 @@ function onKeydown(e) {
     e.preventDefault();
     invoke("hide_quick").catch(() => {});
   } else if (e.key === "Tab" && !e.shiftKey) {
-    // 术语搜不到：一键跳主窗口用 AI 搜索
-    if (panel.value === "terms" && q.value.trim() && !termResults.value.length && !selectedTerm.value) {
+    // 术语未精确命中（仅模糊结果/无结果）：一键跳主窗口用 AI 搜索
+    if (panel.value === "terms" && q.value.trim() && !exactHit) {
       e.preventDefault();
       emitTo("main", "quick-ask-ai", { text: q.value.trim() }).catch(() => {});
       invoke("hide_quick").catch(() => {});
@@ -396,6 +400,10 @@ onMounted(async () => {
             <span class="tag" :style="catStyle(t.category)">{{ t.category }}</span>
           </button>
           <button class="q-detail-btn" @click="openDetail">查看「{{ termResults[0].abbr }}」详情 ›</button>
+          <!-- 未精确命中（仅模糊匹配）：提示可直接按 Tab 问 AI -->
+          <p v-if="!exactHit" class="q-tab-hint">
+            没有完全匹配「{{ q.trim() }}」· 按 <kbd>Tab</kbd> 用 AI 搜索
+          </p>
         </div>
         <div v-else-if="q.trim()" class="q-empty">
           本地词库未命中，试试翻译分区 · 按 <kbd>Tab</kbd> 用 AI 搜索
@@ -952,6 +960,14 @@ onMounted(async () => {
   text-align: center;
   color: var(--text-6);
   font-size: 12.5px;
+}
+
+/* 模糊结果列表底部：未精确命中时提示按 Tab 问 AI */
+.q-tab-hint {
+  margin-top: 6px;
+  text-align: center;
+  color: var(--text-6);
+  font-size: 11.5px;
 }
 
 .q-error {

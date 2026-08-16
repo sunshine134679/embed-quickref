@@ -111,8 +111,8 @@ async function animateShrink() {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const s = DOT_SIZE / w; // 缩放比：展开宽 -> 圆点宽
-    // 目标：内容中心移到圆点中心（物理像素 -> 逻辑 px 换算）
-    const endPos = dotRestorePos || wPos;
+    // 目标：内容中心移到圆点中心（物理像素 -> 逻辑 px 换算；终点钳制到可见区防越界）
+    const endPos = (await clampToWorkArea(dotRestorePos || wPos)) || dotRestorePos || wPos;
     // 物理像素差换算为逻辑 px 后，再叠加"窗口中心 -> 圆点中心"的偏移（DOT_SIZE 与 w/h 同属逻辑像素）
     const dx = (endPos.x - wPos.x) / scale + DOT_SIZE / 2 - w / 2;
     const dy = (endPos.y - wPos.y) / scale + DOT_SIZE / 2 - h / 2;
@@ -337,11 +337,12 @@ async function enterExpanded(initialView = "search", opts = {}) {
   win.setIgnoreCursorEvents(false).catch(() => {}); // 恢复鼠标事件（动画期间已穿透）
   // 展开态：恢复 acrylic 毛玻璃背景
   await win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e));
-  // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
+  // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移（钳制到可见区，
+  // 最小化/异常状态下 outerPosition 可能返回 -32000）
   if (form.value === "compact") {
     try {
       const pos = await win.outerPosition();
-      dotRestorePos = { x: pos.x, y: pos.y };
+      dotRestorePos = await clampToWorkArea(pos);
     } catch (e) {
       console.error("记录圆点位置失败", e);
     }
@@ -383,10 +384,31 @@ async function clampToVisible() {
   }
 }
 
-// 应用记忆的圆点位置
+// 钳制坐标到当前显示器内：防最小化（outerPosition 返回 -32000）或异常状态
+// 把圆点/窗口带出屏幕（物理像素，与 outerPosition/setPosition 同单位）
+async function clampToWorkArea(pos, size = DOT_SIZE) {
+  try {
+    const mon = await currentMonitor();
+    if (!mon || !pos) return pos;
+    const s = mon.scaleFactor || 1;
+    const dotPx = Math.round(size * s);
+    const ax = mon.position.x;
+    const ay = mon.position.y;
+    const aw = mon.size.width;
+    const ah = mon.size.height;
+    const x = Math.min(Math.max(pos.x, ax), ax + aw - dotPx);
+    const y = Math.min(Math.max(pos.y, ay), ay + ah - dotPx);
+    return { x, y };
+  } catch {
+    return pos;
+  }
+}
+
+// 应用记忆的圆点位置（钳制到可见区，异常保存值不会把圆点带出屏幕）
 async function applyDotPosition(p) {
   try {
-    await win.setPosition(new PhysicalPosition(Math.max(0, p.x), Math.max(0, p.y)));
+    const c = await clampToWorkArea(p);
+    await win.setPosition(new PhysicalPosition(c.x, c.y));
   } catch (e) {
     console.error("恢复圆点位置失败", e);
   }
@@ -1254,7 +1276,8 @@ onMounted(async () => {
     if (form.value === "expanded") dotRestorePos = { x: pos.x, y: pos.y };
     clearTimeout(moveTimer);
     moveTimer = setTimeout(async () => {
-      dotPosition.value = { x: pos.x, y: pos.y };
+      // 钳制到可见区再保存：最小化等异常移动不会把圆点位置存到屏幕外
+      dotPosition.value = (await clampToWorkArea({ x: pos.x, y: pos.y })) || { x: pos.x, y: pos.y };
       if (stateStore) {
         await stateStore.set("dotPosition", dotPosition.value);
         await stateStore.save();
