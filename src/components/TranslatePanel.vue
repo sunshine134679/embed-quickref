@@ -1,6 +1,7 @@
 <script setup>
 import { ref, watch } from "vue";
 import { speakEnglish, isSingleWord, suggestWords } from "../composables/useTranslate";
+import { addUserTerm } from "../composables/useSearch";
 import WordSuggest from "./WordSuggest.vue";
 
 const props = defineProps({
@@ -112,6 +113,40 @@ function speakableText() {
   if (r.kind === "word") return r.word;
   if (r.kind === "word-ai") return r.text;
   return r.target === "zh" ? r.text : r.translated;
+}
+
+// ---- AI 单词解释并入词库：与术语功能一致，把 AI 词典式解释存为词条 ----
+// 状态："" 未操作 | saving 保存中 | added 已并入 | exists 个人词库已有 | builtin 内置词库已有 | error 失败
+const termSaved = ref("");
+
+async function saveWordToDict() {
+  const r = props.result;
+  if (!r || r.kind !== "word-ai" || termSaved.value === "saving") return;
+  const ai = parseAiReply(r.reply);
+  const meaning = ai?.meaning || (r.reply || "").split("\n")[0] || "";
+  const example = ai?.example || "";
+  const term = {
+    abbr: (r.text || "").trim(),
+    full: "",
+    zh: meaning.slice(0, 40),
+    category: "其他",
+    definition: meaning,
+    points: [
+      ...(ai?.pronunciation ? [`音标：${ai.pronunciation}`] : []),
+      ...(ai?.translated ? [`例句译文：${ai.translated}`] : []),
+    ].slice(0, 3),
+    usage: "",
+    example,
+    source: "ai",
+  };
+  termSaved.value = "saving";
+  try {
+    const res = await addUserTerm(term);
+    termSaved.value = res === "added" ? "added" : res === "user-exists" ? "exists" : res === "builtin" ? "builtin" : "error";
+  } catch (e) {
+    console.error("翻译并入词库失败", e);
+    termSaved.value = "error";
+  }
 }
 </script>
 
@@ -269,6 +304,23 @@ function speakableText() {
         </div>
       </template>
       <pre v-else class="ai-reply">{{ result.reply }}</pre>
+
+      <!-- AI 单词解释并入词库：与术语功能一致 -->
+      <div class="save-bar">
+        <button
+          v-if="termSaved !== 'added'"
+          class="save-btn"
+          :disabled="termSaved === 'saving'"
+          title="把本次 AI 词典式解释存入个人词库，之后在术语分区也能搜到"
+          @click="saveWordToDict"
+        >
+          {{ termSaved === "saving" ? "保存中…" : "将本词并入词库" }}
+        </button>
+        <span v-else class="save-done">已并入词库 ✓</span>
+        <span v-if="termSaved === 'exists'" class="save-note">个人词库已有该词</span>
+        <span v-else-if="termSaved === 'builtin'" class="save-note">内置词库已有该词条</span>
+        <span v-else-if="termSaved === 'error'" class="save-note">保存失败，请重试</span>
+      </div>
 
       <p class="hint">按 <kbd>Esc</kbd> 返回 · 点击 🔊 可朗读发音</p>
     </article>
@@ -832,6 +884,47 @@ function speakableText() {
   line-height: 1.8;
   color: var(--text-2);
   font-size: 13.5px;
+}
+
+/* ---------- AI 单词解释并入词库 ---------- */
+.save-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.save-btn {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid rgba(var(--accent-rgb), 0.55);
+  border-radius: 8px;
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: rgba(var(--accent-rgb), 0.18);
+}
+
+.save-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.save-done {
+  color: var(--success);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.save-note {
+  color: var(--text-5);
+  font-size: 12px;
 }
 
 /* ---------- 句子翻译 ---------- */

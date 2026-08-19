@@ -70,6 +70,19 @@ let aiStore = null;
 const searchBox = ref(null);
 // 术语搜索历史（打开过的词条）
 const termHistory = ref(loadTermHistory());
+// 搜索栏下方"最近搜索"：术语历史 + 翻译历史按时间合并（最近的在前，最多 5 条）
+const recentMix = computed(() => {
+  const items = [
+    ...termHistory.value.map((h) => ({ ...h, t: h.time || 0 })),
+    ...translateHistory.value.map((h) => ({ ...h, t: h.time || 0 })),
+  ];
+  items.sort((a, b) => b.t - a.t);
+  return items.slice(0, 5);
+});
+// 翻译历史摘要：首行截断
+function transSummaryLine(s) {
+  return (s || "").split("\n")[0].slice(0, 60);
+}
 // 总历史视图（HistoryPanel）当前分区：terms | translate | ai
 const historyTab = ref("terms");
 // 悬浮圆点模式：compact(圆点) | expanded(主界面)
@@ -739,6 +752,8 @@ function onToggleStar() {
 
 // 总历史：翻译记录点击 → 回填输入并立即翻译（命中缓存秒出）
 function replayHistory(h) {
+  // 从术语分区/总历史点翻译记录：先切到翻译面板，避免 query 变化落入术语搜索分支
+  if (panel.value !== "translate") panel.value = "translate";
   query.value = h.input;
   runTranslateNow();
 }
@@ -757,6 +772,11 @@ function clearTermHist() {
 function clearTransHist() {
   clearHistory();
   translateHistory.value = [];
+}
+// 最近搜索混排列表的清空：术语 + 翻译一起清
+function clearRecent() {
+  clearTermHist();
+  clearTransHist();
 }
 
 async function dismissWindow() {
@@ -1513,25 +1533,36 @@ onUnmounted(() => {
               问 AI：{{ query.trim().slice(0, 18) }}{{ query.trim().length > 18 ? "…" : "" }}
             </button>
           </div>
-          <div v-else-if="termHistory.length" class="empty recent-terms">
+          <div v-else-if="recentMix.length" class="empty recent-terms">
             <div class="recent-head">
               <span class="recent-title">最近搜索</span>
-              <button class="recent-clear" title="清空术语搜索历史" @click="clearTermHist">清空</button>
+              <button class="recent-clear" title="清空术语与翻译历史" @click="clearRecent">清空</button>
             </div>
             <div class="recent-list">
               <button
-                v-for="(h, i) in termHistory.slice(0, 5)"
+                v-for="(h, i) in recentMix"
                 :key="i"
                 class="recent-item"
-                title="回填搜索并选中结果"
-                @click="openTermFromHistory(h)"
+                :title="h.kind ? '点击回填并重新翻译' : '回填搜索并选中结果'"
+                @click="h.kind ? replayHistory(h) : openTermFromHistory(h)"
               >
-                <span class="ri-abbr">{{ h.abbr }}</span>
-                <span class="ri-body">
-                  <span v-if="h.zh" class="ri-zh">{{ h.zh }}</span>
-                  <span v-if="h.full" class="ri-full">{{ h.full }}</span>
-                </span>
-                <span v-if="h.category" class="tag" :style="catStyle(h.category)">{{ h.category }}</span>
+                <!-- 翻译记录：输入 + 译文摘要 + 类型标记 -->
+                <template v-if="h.kind">
+                  <span class="ri-kind">{{ h.kind === "sentence" ? "译" : "词" }}</span>
+                  <span class="ri-body">
+                    <span class="ri-input">{{ h.input }}</span>
+                    <span class="ri-sum">{{ transSummaryLine(h.summary) }}</span>
+                  </span>
+                </template>
+                <!-- 术语记录：缩写 + 中文名/全称 + 分类 -->
+                <template v-else>
+                  <span class="ri-abbr">{{ h.abbr }}</span>
+                  <span class="ri-body">
+                    <span v-if="h.zh" class="ri-zh">{{ h.zh }}</span>
+                    <span v-if="h.full" class="ri-full">{{ h.full }}</span>
+                  </span>
+                  <span v-if="h.category" class="tag" :style="catStyle(h.category)">{{ h.category }}</span>
+                </template>
               </button>
             </div>
             <button class="recent-all" @click="openFullHistory('terms')">查看全部记录 ›</button>
@@ -2170,6 +2201,38 @@ body {
 }
 
 .ri-full {
+  color: var(--text-5);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 翻译记录条目：类型标记 + 输入 + 译文摘要 */
+.ri-kind {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.ri-input {
+  color: var(--text-2);
+  font-size: 12.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ri-sum {
   color: var(--text-5);
   font-size: 12px;
   overflow: hidden;
