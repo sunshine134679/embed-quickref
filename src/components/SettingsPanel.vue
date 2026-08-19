@@ -1,5 +1,6 @@
 <script setup>
-import { reactive } from "vue";
+import { reactive, ref, computed, watch } from "vue";
+import { PROVIDERS, endpointFor } from "../data/providers";
 
 const props = defineProps({
   settings: { type: Object, required: true },
@@ -14,6 +15,32 @@ const MODES = [
 ];
 
 const form = reactive({ ...props.settings });
+// 服务商预设：按当前 Base URL 自动匹配（自定义 URL 不选中任何预设）
+const providerId = ref("");
+{
+  const p = PROVIDERS.find((x) => x.baseUrl === String(form.baseUrl || "").replace(/\/+$/, ""));
+  if (p) providerId.value = p.id;
+}
+const currentProvider = computed(() => PROVIDERS.find((x) => x.id === providerId.value) || null);
+// 端点自动判定：gpt-*/grok-* 走 OpenAI Responses，其余走 OpenAI 兼容
+const endpoint = computed(() => endpointFor(form.model));
+
+// 手动修改 Base URL：若与预设一致则同步高亮
+watch(
+  () => form.baseUrl,
+  (url) => {
+    const p = PROVIDERS.find((x) => x.baseUrl === String(url || "").replace(/\/+$/, ""));
+    if (p) providerId.value = p.id;
+    else if (!currentProvider.value) providerId.value = "";
+  }
+);
+// 选中预设：自动填 Base URL 与推荐模型
+watch(providerId, (id) => {
+  const p = PROVIDERS.find((x) => x.id === id);
+  if (!p) return;
+  form.baseUrl = p.baseUrl;
+  if (p.models.length) form.model = p.models[0];
+});
 </script>
 
 <template>
@@ -28,6 +55,13 @@ const form = reactive({ ...props.settings });
       <input v-model="form.apiKey" type="password" spellcheck="false" placeholder="sk-…（仅保存在本机）" />
     </label>
     <label>
+      <span>服务商</span>
+      <select v-model="providerId" class="provider-select">
+        <option value="">自定义</option>
+        <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.name }}</option>
+      </select>
+    </label>
+    <label>
       <span>Base URL</span>
       <input v-model="form.baseUrl" type="text" spellcheck="false" placeholder="https://api.deepseek.com" />
     </label>
@@ -35,6 +69,21 @@ const form = reactive({ ...props.settings });
       <span>模型名</span>
       <input v-model="form.model" type="text" spellcheck="false" placeholder="deepseek-chat" />
     </label>
+    <div v-if="currentProvider?.models?.length" class="model-chips">
+      <button
+        v-for="m in currentProvider.models"
+        :key="m"
+        class="model-chip"
+        :class="{ active: form.model === m }"
+        @click="form.model = m"
+      >
+        {{ m }}
+      </button>
+    </div>
+    <p class="hint">
+      接口：{{ endpoint === "responses" ? "OpenAI Responses (/responses)" : "OpenAI 兼容 (/chat/completions)" }}
+      —— gpt-*/grok-* 模型自动走 /responses
+    </p>
     <div class="field">
       <label class="field-label">发音口音</label>
       <div class="accent-options">
@@ -102,6 +151,44 @@ input {
   color: #1f2937;
   font-size: 13px;
   user-select: text;
+}
+
+.provider-select {
+  flex: 1;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #dbe2ea;
+  border-radius: 6px;
+  outline: none;
+  background: #ffffff;
+  color: #1f2937;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* 推荐模型：点击即填入，选中态高亮 */
+.model-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 0 10px 84px;
+}
+
+.model-chip {
+  padding: 3px 10px;
+  border: 1px solid #dbe2ea;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.model-chip.active {
+  border-color: rgba(var(--accent-rgb), 0.6);
+  background: rgba(var(--accent-rgb), 0.1);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 input:focus {

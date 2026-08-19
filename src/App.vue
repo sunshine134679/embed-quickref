@@ -948,6 +948,10 @@ const QUICK_SHOW_DELAY = 120; // 弹出防抖时长：鼠标停留超过才弹
 const QUICK_HIDE_DELAY = 350; // 离开缓冲：留出从圆点/窗口移向对方的时间
 const QUICK_FADE = 140; // 退场动画时长（与 QuickPanel .closing 的 transition 同步）
 const QUICK_FOCUS_COOLDOWN = 1500; // 隐藏后重新弹出不抢焦点的冷却时长
+// AI 跳转（快捷窗 Tab）后失焦缩回屏蔽期：展开瞬间 acrylic 效果异步应用等会产生一次失焦，
+// 用户鼠标不在窗内（pointerInside=false）时会 200ms 缩回——屏蔽跳转后这段时间的失焦缩回
+const AI_JUMP_GUARD_MS = 3000;
+let aiJumpGuardUntil = 0;
 
 // 鼠标悬停在悬浮圆点上：防抖后显示快捷查找窗口（定位到圆点旁，位置计算在 Rust 侧）
 function showQuickOnHover() {
@@ -979,6 +983,11 @@ async function hideQuick() {
   await new Promise((r) => setTimeout(r, QUICK_FADE));
   if (g !== quickGen) {
     emitTo("quick", "quick-show").catch(() => {}); // 退场期间重新弹出：恢复内容
+    return;
+  }
+  // 退场期间用户重新使用（回窗 hover/继续输入）：放弃隐藏，恢复内容
+  if (quickBusy || quickWindowHovered) {
+    emitTo("quick", "quick-show").catch(() => {});
     return;
   }
   lastQuickHideAt = Date.now();
@@ -1059,6 +1068,12 @@ async function onQuickAskAi(payload) {
     // noFocus：聚焦搜索框会触发 onSearchFocus 把 AI 视图覆盖回搜索
     await enterExpanded("search", { skipRestore: true, noFocus: true });
   }
+  // 展开后立即确保 OS 焦点在 main：不聚焦搜索框（不触发 onSearchFocus），
+  // 否则 hide_quick 归还焦点给 prev 或窗口效果重建的失焦会让本窗口在 200ms 后缩回圆点
+  await win.setFocus().catch(() => {});
+  // AI 跳转后的失焦屏蔽期：展开瞬间窗口效果（acrylic）异步应用可能产生一次失焦事件，
+  // 期间用户鼠标不在窗内（pointerInside=false）会立刻缩回——屏蔽这段时间的失焦缩回
+  aiJumpGuardUntil = Date.now() + AI_JUMP_GUARD_MS;
   runAi(text);
 }
 
@@ -1251,6 +1266,8 @@ onMounted(async () => {
     if (mode.value === "floating") {
       // 圆点态常驻桌面；仅展开态失焦后缩回圆点
       if (form.value !== "expanded") return;
+      // 快捷窗 Tab 跳转 AI 后的屏蔽期：效果重建等瞬时失焦不缩回（用户刚跳转过来）
+      if (Date.now() < aiJumpGuardUntil) return;
       clearTimeout(hideTimer);
       hideTimer = setTimeout(async () => {
         if (form.value !== "expanded" || pointerInside) return;

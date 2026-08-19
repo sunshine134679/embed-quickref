@@ -1,4 +1,6 @@
 import { fetch } from "@tauri-apps/plugin-http";
+import { endpointFor } from "../data/providers";
+import { assertSafeApiUrl } from "../utils/safeUrl";
 
 const SYSTEM_PROMPT = `你是嵌入式 Linux 领域的资深专家，专门解释网络协议、总线/通信协议、内核机制、构建工具链、硬件与存储、文件系统相关的术语与缩写。
 用户第一次提问时，根据问题类型选择回答格式：
@@ -6,8 +8,9 @@ const SYSTEM_PROMPT = `你是嵌入式 Linux 领域的资深专家，专门解�
 缩写: <术语的常用缩写，没有则写术语本身>
 全称: <英文全称，没有则写 ->
 中文名: <中文名称>
-分类: <Linux 命令|Windows 命令|Shell 脚本|Make 语法|CMake 语法|汇编指令|Git 操作|VSCode 配置|网络协议|总线协议|内核与系统|构建与工具链|硬件与存储|文件系统|文件后缀|其他>
+分类: <Linux 命令|Windows 命令|Shell 脚本|Make 语法|CMake 语法|汇编指令|Git 操作|VSCode 配置|网络协议|总线协议|内核与系统|构建与工具链|硬件与存储|文件系统|文件后缀|AI 开发|其他>
 注意区分命令/术语所属平台：Windows 专属命令（ipconfig、tasklist、netstat、dir、PowerShell cmdlet 如 Get-Process、Set-ExecutionPolicy 等）分类必须填 Windows 命令，不得归入 Linux 命令；Linux 专属命令（ls、grep、systemctl 等）同理；跨平台同名命令（ping、cd、echo 等）按用户提问语境选择平台。若回答的是 Windows/PowerShell/CMD 相关内容，定义与要点中明确标注平台。
+AI 相关术语（MCP、skill、agent、RAG、prompt、LLM、token、微调、向量数据库等）分类必须填 AI 开发，不得归入其他分类。
 定义: <一句话准确定义>
 要点:
 - <要点1，优先包含关键参数、速率、层级或典型场景>
@@ -61,59 +64,20 @@ const COMMAND_BREAKDOWN_PROMPT = `你是嵌入式 Linux 领域的资深专家。
 // 单次 AI 请求整体超时（SSE 流式长回答可能较慢，120s 足够）
 const REQUEST_TIMEOUT_MS = 120_000;
 
-// DeepSeek OpenAI 兼容接口，SSE 流式；走 tauri http 插件绕开 CORS
+// OpenAI 兼容接口，SSE 流式；走 tauri http 插件绕开 CORS
 // messages 为完整多轮对话（含 system），追问时把历史一起带上
+// 端点自动判定：gpt-*/grok-* 模型走 OpenAI Responses（/responses），其余走 /chat/completions
 export async function askAi(messages, settings, onDelta) {
+  assertSafeApiUrl(settings.baseUrl);
+  const endpoint = endpointFor(settings.model);
   // 超时保护：plugin-http 支持 AbortSignal，中止后 Rust 侧请求一并取消
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${settings.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      signal: ctrl.signal,
-      body: JSON.stringify({
-        model: settings.model,
-        stream: true,
-        temperature: 0.2,
-        messages,
-      }),
-    });
-    if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 200)}` : ""}`);
-    }
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let fullText = "";
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split("\n");
-      buffer = lines.pop();
-      for (const line of lines) {
-        const data = line.trim();
-        if (!data.startsWith("data:")) continue;
-        const payload = data.slice(5).trim();
-        if (payload === "[DONE]") continue;
-        try {
-          const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
-          if (delta) {
-            fullText += delta;
-            onDelta(fullText);
-          }
-        } catch {
-          // 忽略跨分片的不完整 JSON
-        }
-      }
-    }
-    return fullText;
+    const full = endpoint === "responses"
+      ? await streamResponses(settings, messages, ctrl.signal, onDelta)
+      : await streamCompletions(settings, messages, ctrl.signal, onDelta);
+    return full;
   } catch (e) {
     if (e.name === "AbortError") {
       throw new Error(`AI 请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请重试`);
@@ -122,6 +86,105 @@ export async function askAi(messages, settings, onDelta) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+async function streamCompletions(settings, messages, signal, onDelta) {
+  const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${settings.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    signal,
+    body: JSON.stringify({
+      model: settings.model,
+      stream: true,
+      temperature: 0.2,
+      messages,
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 200)}` : ""}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      const data = line.trim();
+      if (!data.startsWith("data:")) continue;
+      const payload = data.slice(5).trim();
+      if (payload === "[DONE]") continue;
+      try {
+        const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+        if (delta) {
+          fullText += delta;
+          onDelta(fullText);
+        }
+      } catch {
+        // 忽略跨分片的不完整 JSON
+      }
+    }
+  }
+  return fullText;
+}
+
+// OpenAI Responses 端点：input 内容项为 input_text，流式事件为 response.output_text.delta
+async function streamResponses(settings, messages, signal, onDelta) {
+  const url = `${settings.baseUrl.replace(/\/+$/, "")}/responses`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${settings.apiKey}`,
+      "Content-Type": "application/json",
+    },
+    signal,
+    body: JSON.stringify({
+      model: settings.model,
+      stream: true,
+      temperature: 0.2,
+      input: messages.map((m) => ({ role: m.role, content: [{ type: "input_text", text: m.content }] })),
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 200)}` : ""}`);
+  }
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let fullText = "";
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    for (const line of lines) {
+      const data = line.trim();
+      if (!data.startsWith("data:")) continue;
+      const payload = data.slice(5).trim();
+      if (payload === "[DONE]") continue;
+      try {
+        const evt = JSON.parse(payload);
+        if (evt.type === "response.output_text.delta" && evt.delta) {
+          fullText += evt.delta;
+          onDelta(fullText);
+        }
+      } catch {
+        // 忽略跨分片的不完整 JSON
+      }
+    }
+  }
+  return fullText;
 }
 
 // 将固定格式的 AI 回答解析为词条对象，解析失败返回 null

@@ -1,5 +1,7 @@
 import { fetch } from "@tauri-apps/plugin-http";
 import { useSettings } from "./useSettings";
+import { endpointFor } from "../data/providers";
+import { assertSafeApiUrl } from "../utils/safeUrl";
 import learningDictionary from "../data/learning-dictionary";
 
 // 本地学习词典：精确命中 + 词形索引（interrupted -> interrupt）
@@ -94,12 +96,28 @@ function setCache(key, value) {
   persistCache();
 }
 
-// 调用 DeepSeek（OpenAI 兼容）非流式接口，返回完整文本
+// 调用 OpenAI 兼容接口（DeepSeek/OpenCode Go 等），非流式，返回完整文本。
+// 端点自动判定：gpt-*/grok-* 模型走 OpenAI Responses（/responses），其余走 /chat/completions
 async function askOnce(messages, settings) {
+  assertSafeApiUrl(settings.baseUrl);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const endpoint = endpointFor(settings.model);
+    const url = `${settings.baseUrl.replace(/\/+$/, "")}/${endpoint === "responses" ? "responses" : "chat/completions"}`;
+    const body = endpoint === "responses"
+      ? {
+          model: settings.model,
+          stream: false,
+          temperature: 0.3,
+          input: messages.map((m) => ({ role: m.role, content: [{ type: "input_text", text: m.content }] })),
+        }
+      : {
+          model: settings.model,
+          stream: false,
+          temperature: 0.3,
+          messages,
+        };
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -107,19 +125,16 @@ async function askOnce(messages, settings) {
         "Content-Type": "application/json",
       },
       signal: ctrl.signal,
-      body: JSON.stringify({
-        model: settings.model,
-        stream: false,
-        temperature: 0.3,
-        messages,
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 160)}` : ""}`);
+      const bodyText = await res.text().catch(() => "");
+      throw new Error(`请求失败 (HTTP ${res.status})${bodyText ? `: ${bodyText.slice(0, 160)}` : ""}`);
     }
     const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content;
+    const content = endpoint === "responses"
+      ? extractResponsesText(data)
+      : data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("翻译服务返回为空");
     return content.trim();
   } catch (e) {
@@ -130,12 +145,42 @@ async function askOnce(messages, settings) {
   }
 }
 
+// Responses 非流式响应：output 数组中 message 项的 output_text 内容拼接
+function extractResponsesText(data) {
+  let text = "";
+  for (const item of data?.output ?? []) {
+    if (item.type !== "message") continue;
+    if (typeof item.content === "string") text += item.content;
+    else if (Array.isArray(item.content)) {
+      for (const p of item.content) {
+        if (p?.type === "output_text" && p.text) text += p.text;
+      }
+    }
+  }
+  return text;
+}
+
 // 流式版（SSE）：长句翻译逐段上屏，减少等待感；onDelta 可选——不传则仅返回最终文本
 async function askStream(messages, settings, onDelta) {
+  assertSafeApiUrl(settings.baseUrl);
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
-    const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const endpoint = endpointFor(settings.model);
+    const url = `${settings.baseUrl.replace(/\/+$/, "")}/${endpoint === "responses" ? "responses" : "chat/completions"}`;
+    const body = endpoint === "responses"
+      ? {
+          model: settings.model,
+          stream: true,
+          temperature: 0.3,
+          input: messages.map((m) => ({ role: m.role, content: [{ type: "input_text", text: m.content }] })),
+        }
+      : {
+          model: settings.model,
+          stream: true,
+          temperature: 0.3,
+          messages,
+        };
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -143,16 +188,11 @@ async function askStream(messages, settings, onDelta) {
         "Content-Type": "application/json",
       },
       signal: ctrl.signal,
-      body: JSON.stringify({
-        model: settings.model,
-        stream: true,
-        temperature: 0.3,
-        messages,
-      }),
+      body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const body = await res.text().catch(() => "");
-      throw new Error(`请求失败 (HTTP ${res.status})${body ? `: ${body.slice(0, 160)}` : ""}`);
+      const bodyText = await res.text().catch(() => "");
+      throw new Error(`请求失败 (HTTP ${res.status})${bodyText ? `: ${bodyText.slice(0, 160)}` : ""}`);
     }
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -170,7 +210,10 @@ async function askStream(messages, settings, onDelta) {
         const payload = data.slice(5).trim();
         if (payload === "[DONE]") continue;
         try {
-          const delta = JSON.parse(payload).choices?.[0]?.delta?.content;
+          const evt = JSON.parse(payload);
+          const delta = endpoint === "responses"
+            ? evt.type === "response.output_text.delta" ? evt.delta : ""
+            : evt.choices?.[0]?.delta?.content;
           if (delta) {
             full += delta;
             if (onDelta) onDelta(full);

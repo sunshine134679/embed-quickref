@@ -32,8 +32,11 @@ const RESULT_GRACE_MS = 1000; // 结果展示后的宽限期：期间移开鼠�
 function currentBusy() {
   // 结果刚展示（宽限期内）→ 仍算"使用中"：用户刚回车，要给时间看结果
   if (resultGrace()) return true;
-  // 搜索已完成（结果已展示）→ 不算"使用中"：鼠标移开应收起（重新 hover 会恢复结果）
-  if (transResult.value || termResults.value.length || selectedTerm.value) return false;
+  // 搜索已完成（结果已展示）→ 鼠标移开应收起（重新 hover 会恢复结果）；
+  // 但输入框仍聚焦且内容非空（用户在结果上继续输入/修改）→ 仍算"使用中"
+  if (transResult.value || termResults.value.length || selectedTerm.value) {
+    return inputFocused.value && q.value.trim() !== "";
+  }
   return inputFocused.value && (Date.now() - focusAt < 2000 || composing || q.value.trim() !== "");
 }
 // 统一的输入状态上报（聚焦/失焦/composition/内容变化都走这里）
