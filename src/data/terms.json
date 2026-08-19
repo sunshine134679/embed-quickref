@@ -13564,5 +13564,663 @@
     ],
     "usage": "Join-Path [-Path] <父路径> [-ChildPath] <子路径>；返回拼接后的完整路径字符串，子路径可含通配符。",
     "example": "$dir = Join-Path D:\\data 'backup'  # 拼接为 D:\\data\\backup\nJoin-Path (Join-Path D:\\a 'b') 'c.txt'  # 多级拼接为 D:\\a\\b\\c.txt"
+  },
+  {
+    "abbr": "LLM",
+    "full": "Large Language Model",
+    "zh": "大语言模型",
+    "category": "AI 开发",
+    "definition": "在海量文本上预训练、参数量达数十亿以上的语言模型，能生成与理解自然语言。",
+    "points": [
+      "核心是 Transformer 架构，参数量从数十亿到数千亿",
+      "通过 next-token prediction 预训练，再经 SFT/RLHF 对齐提升指令遵循能力",
+      "API 调用按 token 计费，上下文窗口通常 8K~200K"
+    ],
+    "usage": "嵌入式开发中用于写代码注释、生成设备树片段、解释内核日志；本地可用 Ollama 跑小模型，云端用 DeepSeek/OpenAI 等 API，调用时注意 temperature 与 max_tokens 参数。",
+    "example": "curl https://api.deepseek.com/chat/completions -H \"Authorization: Bearer $KEY\" -d '{\"model\":\"deepseek-chat\",\"messages\":[{\"role\":\"user\",\"content\":\"解释这段内核日志\"}]}'"
+  },
+  {
+    "abbr": "token",
+    "full": "Token",
+    "zh": "词元/令牌",
+    "category": "AI 开发",
+    "definition": "模型处理文本的最小基本单位，由分词器切分，通常是子词或单词片段。",
+    "points": [
+      "英文单词通常 1~2 个 token，1 个汉字约 1~2 个 token",
+      "API 按 token 计费，输入与输出分别计数",
+      "超出上下文窗口会被截断，长文本需先估算 token 数"
+    ],
+    "usage": "估算调用成本与上下文占用是日常必备技能；写长 prompt 前可用分词器离线统计 token 数，避免超长被截断；本地跑模型时可用 token/s 衡量推理速度，评估硬件是否够用。",
+    "example": "from transformers import AutoTokenizer\ntok = AutoTokenizer.from_pretrained(\"deepseek-ai/DeepSeek-R1-Distill-Qwen-7B\")\nprint(len(tok.encode(\"I2C 总线配置\")))  # 统计 token 数"
+  },
+  {
+    "abbr": "context window",
+    "full": "Context Window",
+    "zh": "上下文窗口",
+    "category": "AI 开发",
+    "definition": "模型单次请求能处理的输入与输出 token 总数上限，决定可容纳的对话与资料量。",
+    "points": [
+      "输入与输出共同占用窗口，超长部分会被截断",
+      "主流模型 8K~200K，本地小模型通常 4K~32K",
+      "检索增强（RAG）与摘要压缩是应对长上下文的主流手段"
+    ],
+    "usage": "设计 prompt 时需考虑上下文占用：把内核日志、设备树等资料拼接前先估算长度；长对话要定期总结历史或裁剪；选本地模型时窗口大小直接决定能一次喂入多少代码与文档。",
+    "example": "{\"model\":\"qwen2.5:14b\",\"messages\":[{\"role\":\"user\",\"content\":\"分析这份 dts 文件\"}],\"max_tokens\":2048}  // max_tokens 限制输出，防占满窗口"
+  },
+  {
+    "abbr": "temperature",
+    "full": "Temperature",
+    "zh": "温度（采样参数）",
+    "category": "AI 开发",
+    "definition": "控制输出随机性的采样参数，值越低输出越确定，越高越发散。",
+    "points": [
+      "取值范围通常 0~2，0 附近接近贪心解码",
+      "代码生成、翻译等任务用低温度（0~0.3）",
+      "创意写作、头脑风暴可用高温度（0.8~1.2）"
+    ],
+    "usage": "写代码、解析日志、格式化输出时应设低温度保证结果可复现；需要多种候选方案时可调高温度并多次采样；注意温度只能改变多样性，不能消除幻觉，关键场景仍需人工校验。",
+    "example": "curl https://api.deepseek.com/chat/completions -H \"Authorization: Bearer $KEY\" -d '{\"model\":\"deepseek-chat\",\"temperature\":0.2,\"messages\":[{\"role\":\"user\",\"content\":\"生成 GPIO 中断设备树节点\"}]}'"
+  },
+  {
+    "abbr": "streaming",
+    "full": "Streaming",
+    "zh": "流式输出",
+    "category": "AI 开发",
+    "definition": "模型逐 token 生成并实时返回结果的输出方式，可显著减少首字等待时间。",
+    "points": [
+      "基于 SSE（Server-Sent Events）逐块推送增量",
+      "开启后首个 token 秒级到达，适合交互式场景",
+      "代码补全、聊天助手等延迟敏感应用应开启"
+    ],
+    "usage": "调用 API 时设 stream:true 并流式解析逐段渲染结果，避免长时间空白等待；终端助手、文档问答等场景体验提升明显；注意流式响应需处理增量拼接与中断重连逻辑。",
+    "example": "curl -N https://api.deepseek.com/chat/completions -H \"Authorization: Bearer $KEY\" -d '{\"model\":\"deepseek-chat\",\"stream\":true,\"messages\":[{\"role\":\"user\",\"content\":\"解释 printk 的 loglevel\"}]}'"
+  },
+  {
+    "abbr": "multimodal",
+    "full": "Multimodal",
+    "zh": "多模态",
+    "category": "AI 开发",
+    "definition": "模型能同时处理文本、图像、音频等多种类型输入的能力。",
+    "points": [
+      "常见组合为文本+图像、文本+音频、文本+视频",
+      "图片以 URL 或 base64 形式传入 messages 中",
+      "可用于看电路原理图、识别 PCB 照片、分析示波器截图"
+    ],
+    "usage": "嵌入式开发中可把电路图、PCB 实物照、串口抓图发给多模态模型让其描述或排查问题；注意图片格式与尺寸限制，过大图片需先压缩；本地可用 Qwen2.5-VL、LLaVA 等模型离线处理。",
+    "example": "{\"model\":\"qwen-vl-max\",\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"image_url\",\"image_url\":{\"url\":\"https://example.com/pcb.jpg\"}},{\"type\":\"text\",\"text\":\"这块板子上 UART 引脚在哪？\"}]}]}"
+  },
+  {
+    "abbr": "VLM",
+    "full": "Vision Language Model",
+    "zh": "视觉语言模型",
+    "category": "AI 开发",
+    "definition": "融合视觉编码器与语言模型、能理解图像内容并回答问题或生成描述的模型。",
+    "points": [
+      "由视觉编码器（如 ViT）与语言模型组合而成",
+      "支持看图问答、OCR、图表与屏幕内容分析",
+      "代表模型：GPT-4o、Qwen2.5-VL、LLaVA、InternVL"
+    ],
+    "usage": "嵌入式开发中用 VLM 识别芯片丝印、阅读示波器截图、把原理图局部截图发问；选型时关注输入分辨率与多图支持；本地部署可运行 Qwen2.5-VL 小尺寸版本做离线识别。",
+    "example": "ollama run qwen2.5vl:7b  # 本地跑 VLM\n# 在 ollama 中用 /image 附加 pcb.jpg，提问\"哪个是 SWD 调试口？\""
+  },
+  {
+    "abbr": "Transformer",
+    "full": "Transformer Architecture",
+    "zh": "Transformer 架构",
+    "category": "AI 开发",
+    "definition": "基于自注意力机制、可并行计算的深度神经网络架构，是现代大模型的基础。",
+    "points": [
+      "2017 年《Attention Is All You Need》提出，取代 RNN/LSTM",
+      "核心组件：多头自注意力 + 前馈网络 + 位置编码",
+      "解码器变体（GPT）用于生成，编码器变体（BERT）用于理解"
+    ],
+    "usage": "理解 Transformer 是学习大模型原理的起点：自注意力决定 token 间关联，位置编码保留顺序信息；选本地部署模型时，decoder-only 架构适合生成任务，架构差异也影响显存与推理速度。",
+    "example": "# 用 transformers 快速体验模型推理（PyTorch）\nfrom transformers import pipeline\ngen = pipeline(\"text-generation\", model=\"Qwen/Qwen2.5-0.5B-Instruct\")\nprint(gen(\"写一段 C 语言 GPIO 初始化代码\", max_new_tokens=200)[0][\"generated_text\"])"
+  },
+  {
+    "abbr": "attention",
+    "full": "Attention Mechanism",
+    "zh": "注意力机制",
+    "category": "AI 开发",
+    "definition": "通过计算序列中元素间的相关权重来聚焦重要信息、建模长距离依赖的机制。",
+    "points": [
+      "核心公式 softmax(QK^T/√d)V，Q/K/V 来自输入投影",
+      "多头注意力并行捕捉不同子空间的特征",
+      "计算复杂度随序列长度平方增长，是长上下文开销主因"
+    ],
+    "usage": "理解注意力有助于调优长文本任务：输入过长时注意力易分散，需截断或分块处理；做性能优化时，FlashAttention、KV Cache 等都是为了加速注意力计算、降低显存占用。",
+    "example": "import torch, torch.nn.functional as F\ndef scaled_dot_product(q, k, v):\n    return F.softmax(q @ k.transpose(-2, -1) / (k.size(-1) ** 0.5), dim=-1) @ v  # 标准缩放点积注意力"
+  },
+  {
+    "abbr": "CoT",
+    "full": "Chain of Thought",
+    "zh": "思维链",
+    "category": "AI 开发",
+    "definition": "提示模型先展示中间推理步骤再给出结论，以提升复杂推理任务准确率的技术。",
+    "points": [
+      "在 prompt 中要求\"逐步思考\"或给出带推理过程的示例",
+      "对数学、逻辑、多步代码排错等任务提升明显",
+      "Few-shot CoT 用带推理过程的示例效果更稳定"
+    ],
+    "usage": "排查嵌入式问题时让模型先列假设再定位：例如分析内核 panic 时要求\"先梳理调用链再下结论\"；R1 类模型自带推理过程直接提问即可；注意推理链会消耗更多 token 与时间。",
+    "example": "prompt = \"请逐步分析：设备树中 pinctrl 配置错误，可能导致什么启动现象？\n\n第一步列出可能原因，第二步排除无关项，第三步给出结论。\""
+  },
+  {
+    "abbr": "ReAct",
+    "full": "Reasoning and Acting",
+    "zh": "推理-行动范式",
+    "category": "AI 开发",
+    "definition": "让模型在推理与调用外部工具之间交替循环，从而解决复杂任务的 Agent 范式。",
+    "points": [
+      "循环模式：思考 → 行动（调用工具）→ 观察结果 → 再思考",
+      "工具包括搜索、代码执行、文件读写、Shell 命令等",
+      "是构建 AI Agent（如自动排障助手）的基础框架"
+    ],
+    "usage": "开发嵌入式 AI 助手时可用 ReAct 让模型自主查手册、执行交叉编译、看编译错误再修代码；实现时给模型提供工具列表与调用格式，并用循环上限防止死循环。",
+    "example": "# ReAct 循环伪代码\nwhile steps < max_steps:\n    thought = llm(history)              # 思考\n    action = parse_action(thought)      # 解析工具调用\n    if action is None: break            # 得到最终答案\n    result = run_tool(action)           # 执行（如查询命令）\n    history.append(f\"观察：{result}\")   # 观察结果后继续"
+  },
+  {
+    "abbr": "fine-tuning",
+    "full": "Fine-tuning",
+    "zh": "微调",
+    "category": "AI 开发",
+    "definition": "在预训练模型基础上，用领域或任务数据继续训练，使其适配特定场景的过程。",
+    "points": [
+      "需组织成指令-回答格式的数据集，通常数百到数万条",
+      "全参微调成本高，常配合 LoRA 等参数高效方法",
+      "适合风格迁移、专有格式输出、领域术语理解"
+    ],
+    "usage": "当提示工程无法满足需求时再考虑微调：例如让模型输出固定格式的 BSP 配置报告；先收集真实对话数据并清洗，再选 LoRA 微调降低显存；微调后仍需用评测集验证效果。",
+    "example": "# 用 LlamaFactory 微调（命令行）\nllamafactory-cli train \\\n  --model_name_or_path Qwen/Qwen2.5-7B-Instruct \\\n  --dataset my_embedded_data \\\n  --template qwen --finetuning_type lora \\\n  --output_dir ./lora_out"
+  },
+  {
+    "abbr": "LoRA",
+    "full": "Low-Rank Adaptation",
+    "zh": "低秩适配",
+    "category": "AI 开发",
+    "definition": "冻结预训练权重、仅训练注入的低秩矩阵来微调模型，大幅降低显存与训练成本的参数高效方法。",
+    "points": [
+      "原权重冻结，新增 A·B 两个低秩矩阵（秩 r 常取 8~64）",
+      "显存占用可降低一个数量级，单卡即可微调",
+      "LoRA 权重可独立保存与合并，便于分发和切换"
+    ],
+    "usage": "个人微调首选 LoRA：在 LlamaFactory、PEFT 中配置 r 与 alpha 即可；训练产物是几 MB 到几十 MB 的 adapter，推理时合并回原模型或动态加载；不同任务的 adapter 可热切换。",
+    "example": "from peft import LoraConfig, get_peft_model\nlora = LoraConfig(r=16, lora_alpha=32, target_modules=[\"q_proj\",\"v_proj\"], task_type=\"CAUSAL_LM\")\nmodel = get_peft_model(base_model, lora)  # 冻结原权重，只训练低秩矩阵"
+  },
+  {
+    "abbr": "quantization",
+    "full": "Quantization",
+    "zh": "量化",
+    "category": "AI 开发",
+    "definition": "将模型权重与激活从高精度浮点压缩为 INT8/INT4 等低比特精度，以减小体积、降低推理开销的技术。",
+    "points": [
+      "常见精度 FP16→INT8→INT4，显存需求约减半再减半",
+      "主流方法：GPTQ、AWQ（离线），GGUF/llama.cpp（本地）",
+      "量化带来少量精度损失，小模型需实测评估"
+    ],
+    "usage": "边缘设备部署大模型几乎必做量化：用 llama.cpp 或 Ollama 下载 GGUF 的 Q4_K_M 版本即可在开发板上运行 7B 模型；量化级别越高体积越小但输出质量下降，需按任务实测取舍。",
+    "example": "# 用 llama.cpp 以 4-bit 量化运行 7B 模型\n./llama-cli -m models/qwen2.5-7b-q4_k_m.gguf -p \"写一段 I2C 读取驱动的 C 代码\" -n 256"
+  },
+  {
+    "abbr": "inference",
+    "full": "Inference",
+    "zh": "推理",
+    "category": "AI 开发",
+    "definition": "使用训练好的模型对新输入进行前向计算、生成预测结果的过程，即模型的实际使用阶段。",
+    "points": [
+      "与训练分离：训练一次、推理无数次，要求低延迟高吞吐",
+      "服务化框架：vLLM、TGI、Ollama、llama.cpp",
+      "性能指标：首 token 延迟、token/s、并发吞吐"
+    ],
+    "usage": "嵌入式场景关注推理的资源占用：用 Ollama/llama.cpp 在受限硬件上跑小模型，用 vLLM 做高并发服务；上线前用真实负载压测 token/s 与内存占用，必要时量化或蒸馏来提速。",
+    "example": "# 用 vLLM 启动 OpenAI 兼容的推理服务\nvllm serve Qwen/Qwen2.5-7B-Instruct --gpu-memory-utilization 0.9 --max-model-len 8192"
+  },
+  {
+    "abbr": "tokenizer",
+    "full": "Tokenizer",
+    "zh": "分词器",
+    "category": "AI 开发",
+    "definition": "将原始文本按词表切分为 token 序列（并支持反向还原）的组件，是模型处理文本的入口。",
+    "points": [
+      "主流算法：BPE、WordPiece、SentencePiece",
+      "词表大小通常 32K~200K，含特殊 token（如 <|endoftext|>）",
+      "加载模型时必须配套同版本分词器，否则输出乱码或错位"
+    ],
+    "usage": "使用 transformers 时通过 AutoTokenizer 与模型配对加载；可定制词表加入领域词汇减少 token 浪费，但需重新训练 embedding；排查乱码输出时优先检查分词器与模型版本是否匹配。",
+    "example": "from transformers import AutoTokenizer\ntok = AutoTokenizer.from_pretrained(\"Qwen/Qwen2.5-7B-Instruct\")\nids = tok.encode(\"设备树 overlay\", add_special_tokens=False)\nprint(ids, tok.decode(ids))  # 切分与还原"
+  },
+  {
+    "abbr": "hallucination",
+    "full": "Hallucination",
+    "zh": "幻觉",
+    "category": "AI 开发",
+    "definition": "模型生成内容看似合理但事实错误或凭空虚构的现象，常见于缺乏依据的知识性回答。",
+    "points": [
+      "由统计生成本质决定，无法完全消除，只能缓解",
+      "缓解手段：检索增强 RAG、强制引用来源、低温度",
+      "寄存器地址、引脚定义等硬事实场景危害大，必须人工核对"
+    ],
+    "usage": "让模型写寄存器配置、引脚定义、内核 API 时要保持警惕，输出后对照芯片手册与源码核实；生产流程可让模型给出出处链接或用 RAG 限定在官方文档内作答；关键代码务必编译验证。",
+    "example": "# 用 RAG 约束回答，降低幻觉\nprompt = f\"仅根据以下官方手册内容回答，禁止编造，无法确定就说不知道：\\n{datasheet_excerpt}\\n\\n问题：STM32F4 的 PA9 默认复用功能是什么？\""
+  },
+  {
+    "abbr": "MCP",
+    "full": "Model Context Protocol",
+    "zh": "模型上下文协议",
+    "category": "AI 开发",
+    "definition": "Anthropic 提出的开放协议，标准化 AI 应用与外部数据源、工具之间的连接方式。",
+    "points": [
+      "采用 JSON-RPC 2.0，核心原语为 tools、resources、prompts 三类能力",
+      "客户端（AI 应用）经 server 访问工具与数据，支持 stdio 与 HTTP+SSE 传输",
+      "生态有官方 SDK（Python/TS）、Claude Desktop 与各类 MCP server 实现"
+    ],
+    "usage": "为 AI 助手扩展能力时，用官方 SDK 实现 MCP server 暴露工具接口，再在客户端配置 server 地址注册；也可直接复用社区现成 server（如文件系统、数据库、GitHub），避免重复造轮子",
+    "example": "// MCP server 配置片段（claude_desktop_config.json）\n{\n  \"mcpServers\": {\n    \"fs\": {\n      \"command\": \"npx\",\n      \"args\": [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"/data\"]\n    }\n  }\n}"
+  },
+  {
+    "abbr": "skill",
+    "full": "Skill",
+    "zh": "AI agent 技能包",
+    "category": "AI 开发",
+    "definition": "封装领域知识、工作流与工具的指令集，让 AI agent 按需加载执行特定任务。",
+    "points": [
+      "通常包含 SKILL.md 指令、脚本与资源，由 agent 动态发现加载",
+      "在 agent 触发匹配场景时才激活，可组合多个 skill 完成复杂任务",
+      "设计要点是触发条件清晰、指令可执行、副作用可预期"
+    ],
+    "usage": "给 AI 编程助手补充专业能力时，把操作手册、工具用法与规范写成 SKILL.md 放进 skills 目录，并在描述中写清触发关键词，让 agent 遇到相关任务时自动加载执行",
+    "example": "# skills/linux-debug/SKILL.md 头部示例\n---\ndescription: 内核日志与设备树调试技能，提到 dmesg、device tree、boot log 时触发\n---\n# 步骤\n1. 用 dmesg 定位报错时间点\n2. 对照设备树节点检查 reg 与 interrupts 配置"
+  },
+  {
+    "abbr": "agent",
+    "full": "AI Agent",
+    "zh": "AI 智能体",
+    "category": "AI 开发",
+    "definition": "以大模型为核心、能自主规划并使用工具完成多步任务的智能程序。",
+    "points": [
+      "循环执行「感知-规划-调用工具-观察结果」直到任务完成",
+      "依赖 function calling 与外部工具、环境反馈形成闭环",
+      "关键权衡是自主性与可控性，常配 max_steps 与人工确认限制"
+    ],
+    "usage": "构建 agent 时先明确工具边界与终止条件，用 ReAct 模式组织推理循环；调试时记录每步 tool 调用与 token 消耗，防止死循环与越权操作，必要时加人工审批节点",
+    "example": "// ReAct 循环伪代码\nwhile not task_done and step < max_steps:\n    thought, action = llm(history)   # 推理下一步\n    result = execute_tool(action)    # 执行工具\n    history.append((action, result)) # 观察结果"
+  },
+  {
+    "abbr": "multi-agent",
+    "full": "Multi-Agent System",
+    "zh": "多智能体",
+    "category": "AI 开发",
+    "definition": "多个各司其职的 AI 智能体协作分工，共同完成单智能体难以胜任的复杂任务。",
+    "points": [
+      "常见拓扑有编排者-工作者、流水线、辩论式等",
+      "角色分离可提升专项能力（如 planner、coder、reviewer）",
+      "难点是上下文共享、消息协议与死锁/冲突协调"
+    ],
+    "usage": "把大任务拆成规划、编码、审查等角色，用框架（如 LangGraph、AutoGen）定义通信图与共享状态；注意控制上下文膨胀，必要时只传摘要而非完整历史",
+    "example": "# LangGraph 节点定义示意\nnodes = [\"planner\", \"coder\", \"reviewer\"]\n# planner 产出任务清单 -> coder 实现 -> reviewer 检查\n# 通过共享 state 传递代码与评审意见，循环至通过"
+  },
+  {
+    "abbr": "prompt",
+    "full": "Prompt",
+    "zh": "提示词",
+    "category": "AI 开发",
+    "definition": "输入给大模型的自然语言指令，用于引导模型生成符合预期的输出。",
+    "points": [
+      "质量决定输出质量，明确角色、任务、格式与约束可显著提升效果",
+      "结构化模板（如 markdown 分节）比长篇口语描述更稳定",
+      "迭代测试是关键，同一任务需多轮调优措辞"
+    ],
+    "usage": "写 prompt 时遵循「角色+任务+输入+输出格式+约束」结构，复杂任务拆成步骤编号；对关键业务场景保留多版本并做回归对比，避免改动后效果回退",
+    "example": "你是嵌入式Linux专家。\n任务：解释下面内核Oops日志的根因。\n要求：分点输出，含嫌疑函数与排查命令。\n日志：\n<在此粘贴 dmesg 输出>"
+  },
+  {
+    "abbr": "prompt engineering",
+    "full": "Prompt Engineering",
+    "zh": "提示词工程",
+    "category": "AI 开发",
+    "definition": "系统化设计、优化提示词以稳定提升大模型输出质量与可靠性的工程方法。",
+    "points": [
+      "常用技巧：few-shot、CoT 思维链、角色设定、输出格式约束",
+      "面向真实任务做评测集回归，用指标驱动而非凭感觉调词",
+      "对复杂任务用 CoT/ReAct 分解，可显著提升推理正确率"
+    ],
+    "usage": "搭建应用时先建 prompt 模板库与评测用例集，改动模板后跑回归对比输出；线上效果波动时结合日志分析，优先调整指令明确性与示例质量，而非盲目堆长度",
+    "example": "# 评测驱动示例\nfor case in eval_set:\n    out = llm(template.format(**case))\n    score = judge(out, case.expected)  # 规则或 LLM 评判\nprint(avg(score))  # 对比模板改版前后得分"
+  },
+  {
+    "abbr": "system prompt",
+    "full": "System Prompt",
+    "zh": "系统提示词",
+    "category": "AI 开发",
+    "definition": "对话开始前注入的系统级指令，定义模型角色、行为边界与全局规则。",
+    "points": [
+      "优先于用户消息生效，用于设定人格、能力范围与安全约束",
+      "常承载工具使用说明、输出格式规范与禁止事项",
+      "OpenAI/DeepSeek 等 API 用 system 角色字段传入，多数模型支持 1 条"
+    ],
+    "usage": "把长期不变的规则（角色、回复风格、工具列表、敏感词拦截）放 system prompt，随请求变化的放用户消息；改动需走版本管理，避免线上行为漂移",
+    "example": "curl https://api.deepseek.com/chat/completions -H \"Authorization: Bearer $KEY\" -d '{\n  \"model\": \"deepseek-chat\",\n  \"messages\": [\n    {\"role\": \"system\", \"content\": \"你是嵌入式开发助手，回答须给出可执行命令，禁止编造寄存器地址。\"},\n    {\"role\": \"user\", \"content\": \"排查 U-Boot 启动卡死\"}\n  ]\n}'"
+  },
+  {
+    "abbr": "few-shot",
+    "full": "Few-Shot Learning",
+    "zh": "少样本示例",
+    "category": "AI 开发",
+    "definition": "在提示词中附少量输入-输出示例，引导模型模仿示例模式完成同类任务。",
+    "points": [
+      "一般 2~5 个高质量示例即可明显提升输出一致性",
+      "示例需覆盖边界情形与期望格式，分布要与真实任务匹配",
+      "相比微调成本低、见效快，但会占用上下文 token"
+    ],
+    "usage": "做数据抽取、格式转换等任务时，从真实样本里挑典型与易错样例放入 prompt 做示范；示例与目标风格差异过大反而干扰输出，需按评测结果迭代",
+    "example": "把内核日志行转为 JSON，示例：\nQ: \"iwlwifi 0000:01:00.0: loaded firmware version 72\"\nA: {\"driver\": \"iwlwifi\", \"bdf\": \"0000:01:00.0\", \"msg\": \"loaded firmware version 72\"}\nQ: \"mmc0: new high speed SDHC card\"\nA: {\"driver\": \"mmc0\", \"msg\": \"new high speed SDHC card\"}"
+  },
+  {
+    "abbr": "zero-shot",
+    "full": "Zero-Shot Learning",
+    "zh": "零样本",
+    "category": "AI 开发",
+    "definition": "不提供任何示例，仅凭指令让模型直接完成从未见过具体样例的任务。",
+    "points": [
+      "依赖模型预训练泛化能力，无需示例即可执行分类、生成等任务",
+      "效果通常弱于 few-shot，但省 token 且上手快",
+      "指令描述越具体，zero-shot 表现越好"
+    ],
+    "usage": "原型验证或低频任务直接用 zero-shot prompt 跑通，效果不达标再加示例或结构化输出约束；批量场景建议先小样本评测再决定是否升级为 few-shot",
+    "example": "// 零样本分类 prompt\nsystem: 你是日志分类器，把内核日志归为 boot/driver/network/other 四类。\nuser: 输出 [\"iwlwifi 0000:01:00.0: firmware error\"] 的类别。\n// 期望输出: [\"driver\"]"
+  },
+  {
+    "abbr": "RAG",
+    "full": "Retrieval-Augmented Generation",
+    "zh": "检索增强生成",
+    "category": "AI 开发",
+    "definition": "先从外部知识库检索相关内容，再拼接进提示词供模型生成的问答技术。",
+    "points": [
+      "流程：文档切块->向量化->检索 top-k->拼接 prompt 生成",
+      "能缓解幻觉与知识过时问题，回答可溯源",
+      "效果取决于切块策略、embedding 质量与检索召回率"
+    ],
+    "usage": "做芯片手册、内核文档问答时，先把资料切块建索引；用户提问后检索 top-k 片段与问题一起送模型，最后附引用来源；检索不到相关内容时应让模型明确拒绝回答",
+    "example": "# 检索+生成核心步骤\nchunks = split(doc, chunk_size=512, overlap=50)\nindex = embed_and_store(chunks)          # 向量库\nhits = index.search(question, top_k=3)   # 召回\nanswer = llm(f\"基于以下资料回答:\\n{hits}\\n问题: {question}\")"
+  },
+  {
+    "abbr": "embedding",
+    "full": "Embedding / Text Embedding",
+    "zh": "嵌入向量",
+    "category": "AI 开发",
+    "definition": "把文本映射为高维稠密向量，使语义相近的文本在向量空间中距离更近。",
+    "points": [
+      "用编码模型（如 BGE、text-embedding-3）把文本转为 768~3072 维向量",
+      "语义相似度常用余弦相似度或内积计算",
+      "向量化后支持语义检索、聚类、去重等下游任务"
+    ],
+    "usage": "搭建语义搜索时统一用同一 embedding 模型处理文档与查询，否则向量空间不一致导致检索失真；中文场景可优先选用中文优化模型（如 BGE-M3）",
+    "example": "python -c \"from sentence_transformers import SentenceTransformer; m = SentenceTransformer('BAAI/bge-m3'); v = m.encode('如何配置 i2c 设备树节点'); print(v.shape)\"  # (1024,)"
+  },
+  {
+    "abbr": "vector database",
+    "full": "Vector Database",
+    "zh": "向量数据库",
+    "category": "AI 开发",
+    "definition": "以向量为数据模型、支持相似度检索的高性能数据库，是 RAG 的核心存储。",
+    "points": [
+      "核心是 ANN 索引（HNSW、IVF）实现亿级向量近似最近邻检索",
+      "主流实现：Milvus、Qdrant、Chroma、pgvector、FAISS",
+      "查询按 top_k 与相似度阈值返回，常配元数据过滤"
+    ],
+    "usage": "小规模用 Chroma/pgvector 起步，数据量大或需高并发再上 Milvus/Qdrant；建库时固定维度与距离度量（常用 cosine），增删改后注意索引重建与一致性",
+    "example": "// Chroma 使用示例\nclient = chromadb.Client()\ncol = client.create_collection(\"kernel-docs\", metadata={\"hnsw:space\": \"cosine\"})\ncol.add(ids=[\"d1\"], embeddings=[vec], documents=[\"设备树 i2c 配置\"])  # 写入\nhits = col.query(query_embeddings=[qvec], n_results=3)  # 检索 top-3"
+  },
+  {
+    "abbr": "function calling",
+    "full": "Function Calling",
+    "zh": "函数调用",
+    "category": "AI 开发",
+    "definition": "模型按声明好的函数结构输出结构化调用参数，由应用侧执行真实函数的机制。",
+    "points": [
+      "开发者声明 functions 列表（名称+参数 JSON Schema），模型返回参数而非执行",
+      "典型流程：声明->模型选函数->应用执行->结果回传模型",
+      "用于查询数据库、调 API、执行命令等外部能力扩展"
+    ],
+    "usage": "把可控性要求高的操作做成 function 供模型调用：先定义带 JSON Schema 的工具，收到模型返回的 tool_calls 后在校验参数、执行并回传结果；对危险操作加白名单或人工确认",
+    "example": "// OpenAI 风格 tools 声明片段\n{\"type\": \"function\", \"function\": {\n  \"name\": \"read_dts\",\n  \"description\": \"读取设备树源文件内容\",\n  \"parameters\": {\"type\": \"object\", \"properties\": {\n    \"path\": {\"type\": \"string\"}\n  }, \"required\": [\"path\"]}\n}}"
+  },
+  {
+    "abbr": "tool calling",
+    "full": "Tool Calling",
+    "zh": "工具调用",
+    "category": "AI 开发",
+    "definition": "模型在推理中按需选择并调用外部工具（函数、API、命令）获取信息或执行动作。",
+    "points": [
+      "是 function calling 的超集，泛指模型调用各类外部工具",
+      "模型只输出工具名与参数，实际执行由宿主完成并回传结果",
+      "Agent 的核心机制，常配 tool 描述与错误处理策略"
+    ],
+    "usage": "实现时给每个工具写清 name、description 与参数 Schema，描述越准模型选得越对；执行失败要把错误信息回传给模型供其修正重试，并设置最大调用次数防死循环",
+    "example": "# 工具列表+调用结果回传\nresult = execute(tool_name, args)     # 宿主执行\nmessages.append({\"role\": \"tool\", \"tool_call_id\": id, \"content\": str(result)})\n# 模型基于结果决定继续调用或给出最终回答"
+  },
+  {
+    "abbr": "workflow",
+    "full": "AI Workflow",
+    "zh": "AI 工作流",
+    "category": "AI 开发",
+    "definition": "把 AI 能力编排进固定步骤流水线，按预定逻辑串接模型调用与业务处理。",
+    "points": [
+      "区别于 agent：流程预定义、确定性高，agent 则自主规划",
+      "常用编排框架：LangChain/LangGraph、n8n、Dify 等",
+      "每步可设条件分支、人工审核与重试，便于追溯与监控"
+    ],
+    "usage": "对流程固定的场景（文档解析->向量化->入库、日志分类->告警）用 workflow 保证稳定与可审计；步骤间传结构化数据而非长文本，关键节点记录日志便于排查",
+    "example": "# 简单工作流伪代码\nraw = parse(upload_file)          # 1 解析\ntexts = chunk(raw, 512)           # 2 切块\nvecs = embed(texts)               # 3 向量化\nstore(vecs)                       # 4 入库\nif failed: notify_alert()         # 失败分支"
+  },
+  {
+    "abbr": "Ollama",
+    "full": "Ollama",
+    "zh": "本地模型运行工具",
+    "category": "AI 开发",
+    "definition": "在本地一键下载并运行开源大模型的命令行工具，提供与 OpenAI 兼容的 REST API。",
+    "points": [
+      "通过 ollama pull 下载模型，支持 Llama/Qwen/DeepSeek 等主流开源模型",
+      "提供 /v1/chat/completions 等 OpenAI 兼容接口，服务默认监听 11434 端口",
+      "常用参数：--num-ctx 控制上下文长度，OLLAMA_HOST 绑定局域网访问地址"
+    ],
+    "usage": "嵌入式开发中用于本地离线跑代码补全或日志分析模型，避免敏感代码上传云端。先用 ollama pull 拉取模型，再 ollama run 交互式试用；应用集成时调用 localhost:11434 的 OpenAI 兼容 API，设置 OLLAMA_HOST=0.0.0.0 可让局域网设备访问。",
+    "example": "ollama pull qwen2.5:7b\nollama run qwen2.5:7b \"为这段驱动代码写注释\"\ncurl http://localhost:11434/v1/chat/completions -d '{\"model\":\"qwen2.5:7b\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"}]}'"
+  },
+  {
+    "abbr": "vLLM",
+    "full": "vLLM",
+    "zh": "高性能推理引擎",
+    "category": "AI 开发",
+    "definition": "基于 PagedAttention 技术的高吞吐大模型推理与服务引擎，支持 OpenAI 兼容接口。",
+    "points": [
+      "PagedAttention 分页管理 KV Cache，显存利用率高、吞吐大幅提升",
+      "支持 continuous batching 动态批处理，适合高并发线上服务场景",
+      "常用参数：--gpu-memory-utilization 控制显存占用、--max-model-len 限制上下文长度"
+    ],
+    "usage": "在有多张 GPU 的服务器上部署公司私有模型时优先选 vLLM。pip install vllm 安装后，用 vllm serve 一条命令起服务并暴露 OpenAI 兼容 API，客户端代码可直接复用；压测调优时通过 --max-num-seqs 与 --gpu-memory-utilization 平衡吞吐与显存。",
+    "example": "pip install vllm\nvllm serve Qwen/Qwen2.5-7B-Instruct --gpu-memory-utilization 0.9 --port 8000\ncurl http://localhost:8000/v1/completions -d '{\"model\":\"Qwen/Qwen2.5-7B-Instruct\",\"prompt\":\"int main() {\"}'"
+  },
+  {
+    "abbr": "LangChain",
+    "full": "LangChain",
+    "zh": "AI 应用开发框架",
+    "category": "AI 开发",
+    "definition": "用于构建大模型应用的 Python/JS 框架，抽象模型调用、提示词、工具与记忆等组件并支持链式编排。",
+    "points": [
+      "核心抽象：LLM、Prompt Template、Tool、Memory、Agent",
+      "支持多种模型供应商与向量库，通过 LCEL 声明式串联处理流程",
+      "常用组合：RetrievalQA 实现 RAG，create_react_agent 构建工具调用 Agent"
+    ],
+    "usage": "适合快速搭建文档问答与 Agent 类应用原型。先用 ChatOpenAI 接入模型（可指向本地 Ollama），再用 ChatPromptTemplate 定义提示词，配合 Chroma 等向量库做 RAG；注意各版本接口变动频繁，建议锁定版本并优先参考官方文档迁移指南。",
+    "example": "from langchain_openai import ChatOpenAI\nfrom langchain_core.prompts import ChatPromptTemplate\nllm = ChatOpenAI(base_url=\"http://localhost:11434/v1\", model=\"qwen2.5:7b\")\nprompt = ChatPromptTemplate.from_template(\"用三句话解释 {topic}\")\nchain = prompt | llm\nprint(chain.invoke({\"topic\": \"设备树\"}))"
+  },
+  {
+    "abbr": "LlamaIndex",
+    "full": "LlamaIndex",
+    "zh": "数据连接框架",
+    "category": "AI 开发",
+    "definition": "专注连接私有数据与大模型的 RAG 框架，提供数据摄取、索引、检索与问答的一整套流程。",
+    "points": [
+      "以 Document/Node 组织数据，支持 PDF、数据库、API 等 30 多种数据源",
+      "提供 VectorStoreIndex 向量索引，可搭配 BM25 做混合检索",
+      "常用 QueryEngine 配 similarity_top_k 控制召回数量，默认 2"
+    ],
+    "usage": "需要基于公司内部文档（芯片手册、代码仓库、PDF）做问答时用 LlamaIndex。用 SimpleDirectoryReader 读取目录，创建 VectorStoreIndex 后调用 query_engine.query 提问；也可以只复用其数据加载与检索部分，把结果交给 LangChain 或自写逻辑拼接提示词。",
+    "example": "from llama_index.core import SimpleDirectoryReader, VectorStoreIndex\ndocuments = SimpleDirectoryReader(\"docs/\").load_data()\nindex = VectorStoreIndex.from_documents(documents)\nq = index.as_query_engine(similarity_top_k=3)\nprint(q.query(\"UART 波特率如何配置？\"))"
+  },
+  {
+    "abbr": "Dify",
+    "full": "Dify",
+    "zh": "开源 LLM 应用平台",
+    "category": "AI 开发",
+    "definition": "开源的 LLM 应用开发平台，通过可视化工作流编排快速构建聊天机器人、Agent 与 RAG 应用。",
+    "points": [
+      "可视化编排：工作流、知识库、Agent、提示词调试一体化",
+      "支持接入 OpenAI/DeepSeek/本地 Ollama 等 100 多种模型供应商",
+      "提供 API 与 Web App 两种发布方式，自带日志与标注反馈"
+    ],
+    "usage": "不想写代码搭建内部工具时用 Dify。docker compose 起服务后，在设置-模型供应商里接入 Ollama 或 DeepSeek，再在知识库上传文档、创建工作流并发布为 API；前端直接调用发布后的 API 即可，适合快速给团队交付问答助手或客服机器人。",
+    "example": "git clone https://github.com/langgenius/dify.git && cd dify/docker\ndocker compose up -d\n# 浏览器打开 http://localhost/install 完成初始化，再接入模型供应商"
+  },
+  {
+    "abbr": "Hugging Face",
+    "full": "Hugging Face",
+    "zh": "模型托管平台",
+    "category": "AI 开发",
+    "definition": "全球最大的开源模型与数据集托管平台，提供模型下载、在线体验与推理 API。",
+    "points": [
+      "托管百万级模型/数据集，通过 Model Hub 搜索筛选下载",
+      "支持 transformers/safetensors 等格式与 Datasets 数据集库",
+      "常用接口：huggingface-cli download 或 huggingface_hub Python 库"
+    ],
+    "usage": "找模型先上 HF。页面右上角搜索框输入关键字（如 qwen2.5），按 Downloads 与任务标签（text-generation）筛选；国内网络可用 hf-mirror.com 镜像加速下载。模型文件默认缓存到 ~/.cache/huggingface，可设 HF_HOME 环境变量改缓存目录。",
+    "example": "export HF_ENDPOINT=https://hf-mirror.com\npip install -U huggingface_hub\nhuggingface-cli download Qwen/Qwen2.5-0.5B-Instruct --local-dir ./qwen05"
+  },
+  {
+    "abbr": "transformers",
+    "full": "Hugging Face Transformers",
+    "zh": "HF 模型库",
+    "category": "AI 开发",
+    "definition": "Hugging Face 官方维护的模型加载与训练库，以统一 API 加载 PyTorch/TensorFlow 预训练模型。",
+    "points": [
+      "统一 API：from_pretrained 加载模型与分词器，pipeline 一行跑推理",
+      "覆盖文本/图像/音频等模态的 10 万+ 预训练模型",
+      "常用参数：device_map 指定设备，torch_dtype 控制精度（float16/int8 量化）"
+    ],
+    "usage": "做模型推理或微调的首选库。from transformers import pipeline 即可快速验证模型效果；在 CPU 或嵌入式边缘设备上运行时设 device_map=\"cpu\"，用 torch_dtype 降精度或加载量化版本控制内存占用。注意与 PyTorch 版本匹配，避免算子不兼容报错。",
+    "example": "from transformers import pipeline\npipe = pipeline(\"text-generation\", model=\"Qwen/Qwen2.5-0.5B-Instruct\", device_map=\"cpu\")\nprint(pipe(\"用C写一个GPIO翻转函数\", max_new_tokens=200)[0][\"generated_text\"])"
+  },
+  {
+    "abbr": "DeepSeek",
+    "full": "DeepSeek",
+    "zh": "DeepSeek 模型/API",
+    "category": "AI 开发",
+    "definition": "深度求索公司推出的开源大模型系列及对应 API 服务，以高性价比的推理与代码能力著称。",
+    "points": [
+      "开源模型含 deepseek-v3、deepseek-r1（推理）、deepseek-coder（代码）",
+      "API 兼容 OpenAI 格式，base_url 为 https://api.deepseek.com，模型名 deepseek-chat/deepseek-reasoner",
+      "按输入/输出 token 计费，上下文缓存命中时价格更低"
+    ],
+    "usage": "国内开发者常用 DeepSeek API 做代码生成与文档处理。到开放平台注册拿 API Key 后，用 openai SDK 把 base_url 指向 api.deepseek.com 即可完成迁移；需要离线部署时可下载开源权重配合 Ollama 或 vLLM 在本地运行，兼顾数据安全。",
+    "example": "pip install openai\nfrom openai import OpenAI\nclient = OpenAI(api_key=\"sk-xxx\", base_url=\"https://api.deepseek.com\")\nprint(client.chat.completions.create(model=\"deepseek-chat\", messages=[{\"role\":\"user\",\"content\":\"解释dts语法\"}]).choices[0].message.content)"
+  },
+  {
+    "abbr": "OpenAI",
+    "full": "OpenAI",
+    "zh": "OpenAI 公司/API",
+    "category": "AI 开发",
+    "definition": "美国 AI 公司及其提供的 GPT 系列模型 API 服务，其接口格式是事实上的 LLM API 标准。",
+    "points": [
+      "提供 gpt-4o、gpt-4o-mini 等模型，采用 /v1/chat/completions 标准格式",
+      "Ollama、vLLM、DeepSeek 等大量工具均兼容其 API 协议",
+      "支持函数调用、结构化输出（JSON Schema）等进阶能力"
+    ],
+    "usage": "学习 LLM 开发从 OpenAI API 入手，其接口格式已成为行业事实标准。用 openai SDK 设置 api_key 与 base_url 即可调用；网络受限时可借助中转服务，或把 base_url 改为本地 Ollama/vLLM 地址，实现客户端零代码切换。",
+    "example": "from openai import OpenAI\nclient = OpenAI(api_key=os.environ[\"OPENAI_API_KEY\"])\nresp = client.chat.completions.create(model=\"gpt-4o-mini\", messages=[{\"role\":\"user\",\"content\":\"为SPI驱动写README\"}])\nprint(resp.choices[0].message.content)"
+  },
+  {
+    "abbr": "Claude",
+    "full": "Claude",
+    "zh": "Claude 模型",
+    "category": "AI 开发",
+    "definition": "Anthropic 公司推出的对话大模型系列，以长上下文、代码与写作能力见长。",
+    "points": [
+      "代表模型 claude-sonnet-4、claude-opus-4，上下文窗口可达 200K+",
+      "API 端点为 https://api.anthropic.com，system 提示词单独传参",
+      "支持 MCP（Model Context Protocol）接入工具与 Artifacts 输出"
+    ],
+    "usage": "长代码文件分析与重构优先考虑 Claude。可在官网直接粘贴代码对话，或通过 API 集成；API 调用时 system 与 user/assistant 消息交替传参，max_tokens 需显式设置。写作润色类任务也可直接在官网完成，注意用量与速率限制。",
+    "example": "pip install anthropic\nimport anthropic\nc = anthropic.Anthropic(api_key=\"sk-ant-xxx\")\nmsg = c.messages.create(model=\"claude-sonnet-4\", max_tokens=1024, system=\"你是嵌入式Linux专家\", messages=[{\"role\":\"user\",\"content\":\"审查这份Makefile\"}])\nprint(msg.content[0].text)"
+  },
+  {
+    "abbr": "Gemini",
+    "full": "Gemini",
+    "zh": "Gemini 模型",
+    "category": "AI 开发",
+    "definition": "Google 推出的多模态大模型系列，原生支持文本、图像、音视频的理解与生成。",
+    "points": [
+      "代表模型 gemini-2.5-flash、gemini-2.5-pro，原生多模态输入",
+      "官方 SDK 为 google-genai，也提供 OpenAI 兼容端点",
+      "上下文窗口可达 100 万 token，支持长文档与视频理解"
+    ],
+    "usage": "需要多模态能力（看原理图、分析波形截图、读芯片数据手册）时用 Gemini。在 Google AI Studio 拿 API Key，用 google-genai SDK 或 OpenAI 兼容端点调用；免费额度内可跑 gemini-2.5-flash 做日常图片问答与代码审查，注意免费层速率限制。",
+    "example": "pip install -U google-genai\nfrom google import genai\nclient = genai.Client(api_key=\"AIza-xxx\")\nresp = client.models.generate_content(model=\"gemini-2.5-flash\", contents=[\"分析这张电路图\", client.files.upload(file=\"board.png\")])\nprint(resp.text)"
+  },
+  {
+    "abbr": "Stable Diffusion",
+    "full": "Stable Diffusion",
+    "zh": "文生图模型",
+    "category": "AI 开发",
+    "definition": "Stability AI 开源的扩散模型，根据文本提示词生成图像，可本地部署与微调。",
+    "points": [
+      "版本演进：SD 1.5、SDXL、SD3，基于 U-Net/DiT 扩散架构",
+      "本地常用 WebUI（AUTOMATIC1111）与 ComfyUI 两种界面",
+      "关键参数：采样步数 steps、CFG Scale、种子 seed 影响生成效果"
+    ],
+    "usage": "需要生成示意图、封面或素材时用 SD。装好 WebUI 后选 checkpoint 模型，正负提示词分开写，步数 20-30、CFG 7 左右出图；追求效率与流程复用可用 ComfyUI 节点化编排。嵌入式技术文档的配图、博客头图也常用它批量生成。",
+    "example": "git clone https://github.com/AUTOMATIC1111/stable-diffusion-webui\ncd stable-diffusion-webui && ./webui.sh --xformers\n# 打开 http://127.0.0.1:7860，提示词示例：\n# \"PCB board with ARM chip, clean schematic style, 8k\" --neg \"blurry, text\""
+  },
+  {
+    "abbr": "GitHub Copilot",
+    "full": "GitHub Copilot",
+    "zh": "AI 编程助手",
+    "category": "AI 开发",
+    "definition": "GitHub 与 OpenAI 合作的 AI 编程助手，在编辑器中提供代码补全与对话式编程支持。",
+    "points": [
+      "基于当前代码库上下文实时补全，Tab 键接受建议",
+      "Chat 模式可解释代码、生成测试与修复报错",
+      "企业版支持代码检索索引，提升私有仓库建议质量"
+    ],
+    "usage": "写驱动与应用的日常助手。装好 VS Code 扩展并登录 GitHub 账号即可使用；Ctrl+I 行内生成、Ctrl+Enter 查看多个候选；选中陌生代码段后问\"解释这段代码\"。生成结果需人工审查，内核代码建议对照内核风格规范后再合入。",
+    "example": "# VS Code 中安装 GitHub Copilot 扩展并登录后生效\n# 输入注释或函数签名触发补全，Tab 接受：\n// 读取 /sys/class/leds/led0/brightness 并返回 0/1\nint read_led_state(void) {"
+  },
+  {
+    "abbr": "Cursor",
+    "full": "Cursor",
+    "zh": "AI 代码编辑器",
+    "category": "AI 开发",
+    "definition": "基于 VS Code 分叉的 AI 优先代码编辑器，内置聊天、Agent 与多文件自动编辑能力。",
+    "points": [
+      "Ctrl+K 行内编辑、Ctrl+L 对话、Tab 自动补全",
+      "Agent 模式可跨文件搜索、修改并执行命令，支持 @ 引用文件与文档",
+      "支持配置自定义模型（OpenAI/Claude/DeepSeek 等）与项目规则文件"
+    ],
+    "usage": "日常开发主力编辑器。写好项目规则文件（.cursor/rules）说明代码风格与禁止事项，Agent 补全会更贴合团队规范；Ctrl+K 直接改选中代码，Ctrl+L 解释报错；用 @file 引用设备树或 Makefile 让模型结合上下文回答，再人工复核改动。",
+    "example": "# .cursor/rules 项目规则示例：\n# 代码风格：Linux kernel coding style，4空格缩进\n# 禁止：直接改硬件寄存器不写注释\n# 每次提交前运行 make check"
+  },
+  {
+    "abbr": "Midjourney",
+    "full": "Midjourney",
+    "zh": "AI 绘图服务",
+    "category": "AI 开发",
+    "definition": "付费 AI 文生图商业服务，通过 Discord 或 Web 界面输入提示词生成高质量艺术图像。",
+    "points": [
+      "基于 Discord 机器人交互，/imagine 命令生成，U/V 按钮放大或变体",
+      "核心参数：--ar 宽高比、--v 版本、--stylize 风格强度、--seed 固定随机种子",
+      "出图审美质量高，适合封面、插画等商业素材"
+    ],
+    "usage": "生成高质量插画与封面时用 MJ。在 Discord 频道输入 /imagine 加画面描述，追加 --ar 16:9 --v 6 等参数控制构图；不满意点 V 出变体，满意点 U 放大下载；商用注意订阅条款。嵌入式技术博客头图、文档封面常用它生成科技风配图。",
+    "example": "/imagine prompt: embedded linux board illustration, circuit traces glowing blue, dark tech style --ar 16:9 --v 6 --stylize 200\n# 生成后在 Discord 中点 U1~U4 放大，V1~V4 生成变体"
   }
 ]
