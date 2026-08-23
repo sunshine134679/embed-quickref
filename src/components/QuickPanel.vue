@@ -264,7 +264,8 @@ async function openDetail() {
   if (panel.value === "terms") {
     const t = selectedTerm.value || termResults.value[0];
     if (!t) return;
-    payload = { kind: "term", abbr: t.abbr };
+    // 带上分类：同缩写多义（如 ping 的 Linux/U-Boot/Windows）主窗口才能定位到正看的这条
+    payload = { kind: "term", abbr: t.abbr, category: t.category || "" };
   } else if (transResult.value) {
     payload = { kind: "translate", text: q.value.trim() };
   }

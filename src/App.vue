@@ -1069,7 +1069,9 @@ async function onQuickOpenDetail(payload) {
     await enterExpanded(payload.kind === "translate" ? "search" : "detail", { skipRestore: true });
   }
   if (payload.kind === "term") {
-    const t = search(payload.abbr || "")[0];
+    // 同缩写多义词条按分类精确匹配（快捷窗里正看的那条），匹配不到再退回第一条
+    const list = search(payload.abbr || "");
+    const t = list.find((x) => (x.category || "") === (payload.category || "")) || list[0];
     if (t) openTab(t);
   } else if (payload.kind === "translate") {
     panel.value = "translate";
