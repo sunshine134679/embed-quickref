@@ -966,7 +966,7 @@ let quickWindowHovered = false;
 let lastQuickHideAt = 0;
 const QUICK_SHOW_DELAY = 120; // 弹出防抖时长：鼠标停留超过才弹
 const QUICK_HIDE_DELAY = 350; // 离开缓冲：留出从圆点/窗口移向对方的时间
-const QUICK_FADE = 140; // 退场动画时长（与 QuickPanel .closing 的 transition 同步）
+const QUICK_FADE = 140; // 退场等待时长：略大于 QuickPanel .closing 的 120ms transition，留余量防动画截断
 const QUICK_FOCUS_COOLDOWN = 1500; // 隐藏后重新弹出不抢焦点的冷却时长
 // AI 跳转（快捷窗 Tab）后失焦缩回屏蔽期：展开瞬间 acrylic 效果异步应用等会产生一次失焦，
 // 用户鼠标不在窗内（pointerInside=false）时会 200ms 缩回——屏蔽跳转后这段时间的失焦缩回

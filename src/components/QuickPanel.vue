@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { emitTo, listen } from "@tauri-apps/api/event";
 import { invoke } from "@tauri-apps/api/core";
@@ -320,27 +320,40 @@ function closeSelf() {
 }
 
 const shellRef = ref(null);
+const unlisteners = []; // 事件反注册函数：组件卸载时清理（主要防开发环境 HMR 重复回调）
 
 onMounted(async () => {
   await initSettings().catch(() => {});
   // 词库与用户词库并行加载（词库独立 chunk，后台拉取）
   await Promise.all([ensureTerms(), initUserTerms()]).catch(() => {});
+  const on = (name, handler) =>
+    listen(name, handler)
+      .then((u) => unlisteners.push(u))
+      .catch(() => {});
   // 主窗口保存设置/写入词库后会广播变更：重载本地快照，保证与主窗口数据一致
-  listen("settings-changed", () => initSettings()).catch(() => {});
-  listen("user-terms-changed", () => initUserTerms()).catch(() => {});
+  on("settings-changed", () => initSettings());
+  on("user-terms-changed", () => initUserTerms());
   // 主窗口收起动画：播放退场（淡出），动画结束窗口才真正隐藏
-  listen("quick-hide", () => shellRef.value?.classList.add("closing")).catch(() => {});
+  on("quick-hide", () => shellRef.value?.classList.add("closing"));
   // 窗口每次显示（hover 弹出/防抖后）：恢复内容可见并聚焦输入框（挂载时窗口隐藏，focus 无效，必须显示后再聚焦）
-  listen("quick-show", () => {
+  on("quick-show", () => {
     shellRef.value?.classList.remove("closing");
     setTimeout(() => document.querySelector(".quick-input")?.focus(), 30);
-  }).catch(() => {});
+  });
   // 窗口失焦（用户点击窗外/切走）：通知主窗口安排收起
   win
     .onFocusChanged(({ payload: focused }) => {
       if (!focused) emitTo("main", "quick-blur").catch(() => {});
     })
+    .then((u) => unlisteners.push(u))
     .catch(() => {});
+});
+
+onUnmounted(() => {
+  clearTimeout(timer);
+  clearTimeout(graceTimer);
+  clearTimeout(focusGuardTimer);
+  unlisteners.forEach((u) => u());
 });
 </script>
 
