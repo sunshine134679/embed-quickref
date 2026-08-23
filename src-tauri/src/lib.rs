@@ -76,10 +76,11 @@ fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String>
     // 否则仅"从隐藏到显示"或"已可见但未聚焦"时抢 OS 键盘焦点（hover 即输）
     let was_visible = quick.is_visible().map_err(|e| e.to_string())?;
     let was_focused = quick.is_focused().map_err(|e| e.to_string())?;
-    quick.show().map_err(|e| e.to_string())?;
-    if focus && (!was_visible || !was_focused) {
-        // 记录焦点"借用"前的 OS 前台窗口（hide_quick 时归还），
-        // 防止快捷窗反复抢走用户正在使用的应用的键盘焦点
+    let steal_focus = focus && (!was_visible || !was_focused);
+    // 借用记录必须在 show() 之前：tao 对普通窗口用 SW_SHOW 显示（本身会激活窗口，
+    // 见 tao window_state.rs），show 之后再取前台句柄可能拿到快捷窗自己，
+    // 归还时 prev == fg 恒不成立、焦点归还静默失效
+    if steal_focus {
         #[cfg(windows)]
         {
             let prev = unsafe { GetForegroundWindow() };
@@ -87,6 +88,9 @@ fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String>
                 *app.state::<QuickFocusState>().0.lock().unwrap() = prev;
             }
         }
+    }
+    quick.show().map_err(|e| e.to_string())?;
+    if steal_focus {
         quick.set_focus().map_err(|e| e.to_string())?;
     }
     Ok(())
