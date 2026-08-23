@@ -1,6 +1,31 @@
 import { ref } from "vue";
 import { load } from "@tauri-apps/plugin-store";
 import { emit } from "@tauri-apps/api/event";
+import { invoke } from "@tauri-apps/api/core";
+import { getCurrentWindow } from "@tauri-apps/api/window";
+
+// 秘密字段落盘前缀：settings.json 里 apiKey 存 "dpapi:<base64>"（Windows DPAPI 当前用户加密），
+// 内存中保持明文供请求使用；旧版明文值首次加载时静默迁移（仅主窗口执行，避免双窗口并发写）
+const KEY_PREFIX = "dpapi:";
+
+async function revealKey(val) {
+  if (typeof val === "string" && val.startsWith(KEY_PREFIX)) {
+    try {
+      return await invoke("secret_reveal", { blob: val.slice(KEY_PREFIX.length) });
+    } catch (e) {
+      return ""; // 解密失败（换机/系统重置）：视为无 Key，用户重新填写
+    }
+  }
+  return typeof val === "string" ? val : "";
+}
+
+async function protectKey(plain) {
+  try {
+    return KEY_PREFIX + (await invoke("secret_protect", { plain }));
+  } catch (e) {
+    return plain; // 加密失败不阻断保存，退化为明文
+  }
+}
 
 export const DEFAULT_SETTINGS = {
   shortcut: "Alt+Q",
@@ -21,12 +46,30 @@ export async function initSettings() {
     if (val !== undefined && val !== null) saved[key] = val;
   }
   settings.value = { ...DEFAULT_SETTINGS, ...saved };
+  // 解密 Disk 上的密文 Key（内存明文；解密失败按空处理）
+  settings.value.apiKey = await revealKey(saved.apiKey);
+  // 静默迁移：旧版明文 Key 首次加载即加密落盘（仅主窗口，避免两 WebView 并发写）
+  if (
+    settings.value.apiKey &&
+    !String(saved.apiKey || "").startsWith(KEY_PREFIX) &&
+    getCurrentWindow().label === "main"
+  ) {
+    try {
+      await store.set("apiKey", await protectKey(settings.value.apiKey));
+      await store.save();
+    } catch (e) {}
+  }
   return settings.value;
 }
 
 export async function saveSettings(next) {
   settings.value = { ...settings.value, ...next };
-  for (const [key, val] of Object.entries(settings.value)) {
+  // 落盘副本：Key 加密，其余字段原样；内存保持明文（请求要用）
+  const disk = { ...settings.value };
+  if (disk.apiKey && !disk.apiKey.startsWith(KEY_PREFIX)) {
+    disk.apiKey = await protectKey(disk.apiKey);
+  }
+  for (const [key, val] of Object.entries(disk)) {
     await store.set(key, val);
   }
   await store.save();

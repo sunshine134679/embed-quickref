@@ -32,7 +32,7 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_http::init())
         .manage(QuickFocusState::default())
-        .invoke_handler(tauri::generate_handler![show_quick, hide_quick])
+        .invoke_handler(tauri::generate_handler![show_quick, hide_quick, secret_protect, secret_reveal])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
@@ -117,4 +117,182 @@ fn hide_quick(app: AppHandle) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+// ---------- 秘密字段本地加密（Windows DPAPI，当前用户作用域） ----------
+// API Key 等经此加密后落盘为 "dpapi:<base64>"，非 Windows 平台直通（本项目仅 Windows）。
+// JS 侧负责前缀判定与迁移，这里只做纯编解码。无新依赖：crypt32/kernel32 为系统库。
+
+fn b64_encode(data: &[u8]) -> String {
+    const T: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = String::with_capacity((data.len() + 2) / 3 * 4);
+    for chunk in data.chunks(3) {
+        let b = [chunk[0], *chunk.get(1).unwrap_or(&0), *chunk.get(2).unwrap_or(&0)];
+        out.push(T[(b[0] >> 2) as usize] as char);
+        out.push(T[(((b[0] & 0x03) << 4) | (b[1] >> 4)) as usize] as char);
+        out.push(if chunk.len() > 1 {
+            T[(((b[1] & 0x0F) << 2) | (b[2] >> 6)) as usize] as char
+        } else {
+            '='
+        });
+        out.push(if chunk.len() > 2 { T[(b[2] & 0x3F) as usize] as char } else { '=' });
+    }
+    out
+}
+
+fn b64_val(c: u8) -> Option<u8> {
+    match c {
+        b'A'..=b'Z' => Some(c - b'A'),
+        b'a'..=b'z' => Some(c - b'a' + 26),
+        b'0'..=b'9' => Some(c - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    }
+}
+
+fn b64_decode(s: &str) -> Option<Vec<u8>> {
+    let mut acc: u32 = 0;
+    let mut bits: u32 = 0;
+    let mut out = Vec::with_capacity(s.len() * 3 / 4);
+    for &c in s.as_bytes() {
+        if c == b'=' {
+            break;
+        }
+        let v = b64_val(c)?;
+        acc = (acc << 6) | v as u32;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            out.push((acc >> bits) as u8);
+        }
+    }
+    Some(out)
+}
+
+#[cfg(windows)]
+mod dpapi {
+    use std::ffi::c_void;
+    use std::ptr;
+
+    #[repr(C)]
+    struct Blob {
+        cb: u32,
+        data: *mut u8,
+    }
+
+    const UI_FORBIDDEN: u32 = 0x1;
+    // 应用专属熵：同用户下只有本应用知道，其他程序即使拿到 blob 也解不开
+    const ENTROPY: &[u8] = b"com.mr.embed-quickref secret v1";
+
+    #[link(name = "crypt32")]
+    extern "system" {
+        fn CryptProtectData(
+            data_in: *const Blob,
+            descr: *const u16,
+            entropy: *const Blob,
+            reserved: *const c_void,
+            prompt: *const c_void,
+            flags: u32,
+            data_out: *mut Blob,
+        ) -> i32;
+        fn CryptUnprotectData(
+            data_in: *const Blob,
+            descr_out: *mut *mut u16,
+            entropy: *const Blob,
+            reserved: *const c_void,
+            prompt: *const c_void,
+            flags: u32,
+            data_out: *mut Blob,
+        ) -> i32;
+    }
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn LocalFree(mem: *mut c_void) -> *mut c_void;
+    }
+
+    fn blob_from_bytes(bytes: &[u8]) -> Blob {
+        Blob {
+            cb: bytes.len() as u32,
+            data: bytes.as_ptr() as *mut u8,
+        }
+    }
+    fn entropy_blob() -> Blob {
+        blob_from_bytes(ENTROPY)
+    }
+    fn take_bytes(b: &mut Blob) -> Vec<u8> {
+        if b.data.is_null() || b.cb == 0 {
+            return Vec::new();
+        }
+        let v = unsafe { std::slice::from_raw_parts(b.data, b.cb as usize) }.to_vec();
+        unsafe { LocalFree(b.data as *mut c_void) };
+        b.data = ptr::null_mut();
+        v
+    }
+
+    pub fn protect(plain: &str) -> Option<String> {
+        let mut out = Blob { cb: 0, data: ptr::null_mut() };
+        let ent = entropy_blob();
+        let ok = unsafe {
+            CryptProtectData(
+                &blob_from_bytes(plain.as_bytes()),
+                ptr::null(),
+                &ent,
+                ptr::null(),
+                ptr::null(),
+                UI_FORBIDDEN,
+                &mut out,
+            )
+        };
+        if ok == 0 {
+            return None;
+        }
+        Some(super::b64_encode(&take_bytes(&mut out)))
+    }
+
+    pub fn reveal(encoded: &str) -> Option<String> {
+        let bytes = super::b64_decode(encoded)?;
+        let mut out = Blob { cb: 0, data: ptr::null_mut() };
+        let ent = entropy_blob();
+        let ok = unsafe {
+            CryptUnprotectData(
+                &blob_from_bytes(&bytes),
+                ptr::null_mut(),
+                &ent,
+                ptr::null(),
+                ptr::null(),
+                UI_FORBIDDEN,
+                &mut out,
+            )
+        };
+        if ok == 0 {
+            return None;
+        }
+        String::from_utf8(take_bytes(&mut out)).ok()
+    }
+}
+
+// API Key 等秘密字段加密/解密命令（Windows DPAPI 当前用户作用域；非 Windows 直通）
+#[tauri::command]
+fn secret_protect(plain: String) -> Result<String, String> {
+    #[cfg(windows)]
+    {
+        dpapi::protect(&plain).ok_or_else(|| "DPAPI 加密失败".to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(plain)
+    }
+}
+
+#[tauri::command]
+fn secret_reveal(blob: String) -> Result<String, String> {
+    #[cfg(windows)]
+    {
+        dpapi::reveal(&blob).ok_or_else(|| "DPAPI 解密失败".to_string())
+    }
+    #[cfg(not(windows))]
+    {
+        Ok(blob)
+    }
 }
