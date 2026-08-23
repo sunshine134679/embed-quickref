@@ -1,17 +1,12 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "quick",
-  "description": "快捷查找窗口能力：本地存储、HTTP 请求（翻译/词典）、事件监听与窗口控制",
+  "description": "快捷查找窗口能力：本地存储、HTTP 请求（翻译/词典）与事件监听；窗口显示/隐藏/聚焦由 Rust 自定义命令 show_quick/hide_quick 完成，不授窗口权限",
   "windows": [
     "quick"
   ],
   "permissions": [
     "core:default",
-    "core:window:allow-show",
-    "core:window:allow-hide",
-    "core:window:allow-set-focus",
-    "core:window:allow-is-focused",
-    "core:window:allow-set-ignore-cursor-events",
     "store:default",
     {
       "identifier": "http:default",
@@ -23,7 +18,6 @@
           "url": "http://**"
         }
       ]
-    },
-    "core:window:allow-set-effects"
+    }
   ]
 }
