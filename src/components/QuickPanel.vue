@@ -137,11 +137,14 @@ const transResult = ref(null);
 let seq = 0;
 let timer = null;
 
-// 未找到/拼写建议：回填建议词并立即查找（快捷窗保持简洁，不做输入联想，仅未找到时给建议）
+// 未找到/拼写建议：回填建议词并查找。赋值经 watch(q)->schedule 防抖触发一次搜索；
+// 同词重复点击时 watch 不触发，手动补一次（避免赋值+手动各搜一次的双重请求）
 function pickSuggestion(word) {
+  if (q.value === word) {
+    doSearch();
+    return;
+  }
   q.value = word;
-  clearTimeout(timer);
-  doSearch();
 }
 
 // AI 词典回复（音标/释义/例句/译文四行）：快捷窗空间有限，只给最有用的中文释义；
