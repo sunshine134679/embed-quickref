@@ -96,6 +96,10 @@ let dotRestorePos = null;
 const dotReady = ref(false);
 // 收起飞行动画样式（CSS transform 缩放+平移，GPU 合成 60fps，替代窗口 resize 动画）
 const animStyle = ref(null);
+// 收起衔接光点：main-view 隐藏后由它完成"收进圆点"的视觉过渡（起点=窗口中心，终点=圆点中心）
+const flyStyle = ref(null);
+const FLY_DOT_SIZE = 26; // 光点直径（逻辑 px），与 .fly-dot 尺寸一致
+const FLY_MS = 190; // 光点飞行时长，与 .fly-dot 的 animation 时长保持一致
 const DOT_SIZE = 64;
 const EXPAND_W = 680;
 const EXPAND_H = 500;
@@ -114,8 +118,9 @@ let shrinkCancel = false;
 // 收起动画进行中标志：动画路径防重复触发（双击收起/热键连按），避免并行飞行任务与圆点提前挂载
 let collapsing = false;
 
-// 收起飞行动画：main-view 用 CSS transform 从展开位置缩放+平移到圆点位置（GPU 合成，帧率远高于逐帧 resize），
-// 动画结束后内容已完全透明，瞬时缩窗无感知；与主界面淡出并行
+// 收起飞行动画：main-view 已在 enterCompact 中整体隐藏（大白板不存在），
+// 由 fly-dot 小光点从窗口中心飞向圆点终点完成"收进圆点"的视觉衔接（GPU 合成 60fps）；
+// 动画结束后瞬时缩窗，光点终点与圆点落点重合、无缝交接
 async function animateShrink() {
   try {
     // 注：acrylic 已在 enterCompact 中提前关闭，此处不再重复
@@ -123,25 +128,24 @@ async function animateShrink() {
     const wPos = await win.outerPosition();
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const s = DOT_SIZE / w; // 缩放比：展开宽 -> 圆点宽
-    // 目标：内容中心移到圆点中心（物理像素 -> 逻辑 px 换算；终点钳制到可见区防越界）
+    // 目标：圆点中心相对当前窗口中心的逻辑偏移（物理像素 -> 逻辑 px 换算；终点钳制到可见区防越界）
     const endPos = (await clampToWorkArea(dotRestorePos || wPos)) || dotRestorePos || wPos;
-    // 物理像素差换算为逻辑 px 后，再叠加"窗口中心 -> 圆点中心"的偏移（DOT_SIZE 与 w/h 同属逻辑像素）
     const dx = (endPos.x - wPos.x) / scale + DOT_SIZE / 2 - w / 2;
     const dy = (endPos.y - wPos.y) / scale + DOT_SIZE / 2 - h / 2;
-    animStyle.value = {
-      transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) scale(${s.toFixed(4)})`,
-      opacity: "0",
-      transition: "transform 220ms cubic-bezier(0.5, 0, 0.75, 0.4), opacity 200ms ease",
-      transformOrigin: "center center",
+    flyStyle.value = {
+      left: `${w / 2 - FLY_DOT_SIZE / 2}px`,
+      top: `${h / 2 - FLY_DOT_SIZE / 2}px`,
+      "--fly-dx": `${dx.toFixed(1)}px`,
+      "--fly-dy": `${dy.toFixed(1)}px`,
     };
-    await new Promise((r) => setTimeout(r, 230));
+    await new Promise((r) => setTimeout(r, FLY_MS + 20));
   } catch (e) {
     console.error("飞行动画计算失败", e);
   } finally {
     // 动画期间若用户已重新展开（热键/托盘），放弃缩窗，仅清理动画样式
     if (!shrinkCancel) await shrinkToDot();
     animStyle.value = null;
+    flyStyle.value = null;
     collapsing = false;
   }
 }
@@ -319,6 +323,9 @@ async function enterCompact(animate = true) {
     dotReady.value = false; // 先卸载圆点，避免在大窗口内淡入
     // 动画期间窗口纯透明且不拦截鼠标（点击穿透到桌面），动画结束由 onMainLeave 恢复
     win.setIgnoreCursorEvents(true).catch(() => {});
+    // 大面板从第一帧就不渲染（收起观感由 fly-dot 光点衔接）：visibility:inline 同帧生效，
+    // Transition 管线照常走完（after-leave/dotReady 时序零改动）
+    animStyle.value = { visibility: "hidden" };
     // 先关闭 acrylic 毛玻璃再启动动画：避免动画期间残留"大边框"与效果切换闪烁
     await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
     form.value = "compact"; // 触发主界面淡出
@@ -1371,6 +1378,8 @@ onUnmounted(() => {
       @mouseenter="showQuickOnHover"
       @mouseleave="hideQuickOnLeave"
     />
+    <!-- 收起衔接光点：main-view 隐藏后从窗口中心飞向圆点终点（fixed 定位不受 shell 圆角裁剪） -->
+    <div v-if="flyStyle" class="fly-dot" :style="flyStyle"></div>
     <Transition name="fade" @after-leave="onMainLeave"><div v-show="form === `expanded`" class="main-view" :style="animStyle">
     <header class="topbar">
       <div class="grip" title="按住拖动窗口" @mousedown.prevent="startDrag">
@@ -1731,6 +1740,38 @@ body {
 /* 收起动画期间允许飞行内容超出圆角范围 */
 .shell.compact {
   overflow: visible;
+}
+
+/* 收起衔接光点：从窗口中心（原大卡片中心）飞向圆点中心，终点缩小渐隐与缩窗瞬间交接。
+   位移量由 flyStyle 以 CSS 变量注入（--fly-dx/--fly-dy），keyframes 里引用 */
+.fly-dot {
+  position: fixed;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: rgba(35, 48, 66, 0.82);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  box-shadow:
+    inset 0 1px 3px rgba(255, 255, 255, 0.25),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.28),
+    0 0 12px rgba(82, 112, 143, 0.45);
+  pointer-events: none;
+  z-index: 60;
+  animation: fly-to-dot 190ms cubic-bezier(0.3, 0.1, 0.5, 1) forwards;
+}
+
+@keyframes fly-to-dot {
+  from {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  to {
+    transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.34);
+    opacity: 0;
+  }
 }
 
 .main-view {
