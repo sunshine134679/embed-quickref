@@ -314,6 +314,9 @@ onMounted(async () => {
   await initSettings().catch(() => {});
   // 词库与用户词库并行加载（词库独立 chunk，后台拉取）
   await Promise.all([ensureTerms(), initUserTerms()]).catch(() => {});
+  // 主窗口保存设置/写入词库后会广播变更：重载本地快照，保证与主窗口数据一致
+  listen("settings-changed", () => initSettings()).catch(() => {});
+  listen("user-terms-changed", () => initUserTerms()).catch(() => {});
   // 主窗口收起动画：播放退场（淡出），动画结束窗口才真正隐藏
   listen("quick-hide", () => shellRef.value?.classList.add("closing")).catch(() => {});
   // 窗口每次显示（hover 弹出/防抖后）：恢复内容可见并聚焦输入框（挂载时窗口隐藏，focus 无效，必须显示后再聚焦）

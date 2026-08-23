@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { load } from "@tauri-apps/plugin-store";
+import { emit } from "@tauri-apps/api/event";
 
 // 词库懒加载：terms.json 约 600KB，拆成独立 chunk 后台预加载，首屏不阻塞
 let builtinTerms = null;
@@ -28,6 +29,12 @@ export async function initUserTerms() {
 
 function invalidateCache() {
   cachedAll = null;
+}
+
+// 词库在各 WebView 是独立内存快照（快捷窗启动时加载一次）：落盘后广播让快捷窗
+// 重新 initUserTerms，否则主窗口 AI 并入/更新词条后快捷窗搜不到
+function notifyTermsChanged() {
+  emit("user-terms-changed").catch(() => {});
 }
 
 function allTerms() {
@@ -71,6 +78,7 @@ export async function addUserTerm(term) {
   invalidateCache();
   await store.set("terms", userTerms.value);
   await store.save();
+  notifyTermsChanged();
   return "added";
 }
 
@@ -87,6 +95,7 @@ export async function updateUserTerm(term) {
   invalidateCache();
   await store.set("terms", userTerms.value);
   await store.save();
+  notifyTermsChanged();
   return true;
 }
 
@@ -108,6 +117,7 @@ export async function appendUserTermPoints(abbr, extra, fallback) {
   invalidateCache();
   await store.set("terms", userTerms.value);
   await store.save();
+  notifyTermsChanged();
   return true;
 }
 

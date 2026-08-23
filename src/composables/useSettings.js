@@ -1,5 +1,6 @@
 import { ref } from "vue";
 import { load } from "@tauri-apps/plugin-store";
+import { emit } from "@tauri-apps/api/event";
 
 export const DEFAULT_SETTINGS = {
   shortcut: "Alt+Q",
@@ -29,6 +30,9 @@ export async function saveSettings(next) {
     await store.set(key, val);
   }
   await store.save();
+  // 设置在各 WebView 是独立内存快照（快捷窗启动时加载一次）：落盘后广播，
+  // 让快捷窗重新 initSettings，否则改 API Key/model 后快捷窗翻译一直用旧值
+  emit("settings-changed", settings.value).catch(() => {});
 }
 
 export function useSettings() {
