@@ -86,7 +86,9 @@ function syncResultDone() {
   if (!hovering.value && leftAt > searchAt) {
     emitTo("main", "quick-hover-out", { busy: false }).catch(() => {});
   } else {
-    emitTo("main", "quick-typing", { typing: inputFocused.value, busy: false }).catch(() => {});
+    // syncOnly：仅同步 busy=false（让此后"移开圆点即收"生效），主窗口不得据此立即收起——
+    // 此刻输入框大概率仍聚焦且内容非空（用户正看结果），立即收起就是"看着看着被收走"
+    emitTo("main", "quick-typing", { typing: inputFocused.value, busy: false, syncOnly: true }).catch(() => {});
   }
 }
 

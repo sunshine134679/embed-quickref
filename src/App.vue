@@ -1055,8 +1055,10 @@ function onQuickTyping(e) {
   if (e?.payload?.busy !== undefined) quickBusy = e?.payload?.busy === true;
   if (quickTyping) clearTimeout(quickHideTimer);
   // busy 从 true 变 false（2s 聚焦保护到期/内容清空）：鼠标已不在圆点也不在快捷窗
-  // → 立即安排收起。否则主窗口侧 quickBusy 停在 true，快速移开圆点（未碰快捷窗）永不收
-  if (prevBusy && !quickBusy && !dotHovered && !quickWindowHovered) {
+  // → 立即安排收起。否则主窗口侧 quickBusy 停在 true，快速移开圆点（未碰快捷窗）永不收。
+  // syncOnly（结果宽限期到期的纯状态同步）除外：用户可能正停在原地看结果，
+  // 立即收起就是"看着看着被收走"——等真正的移开圆点/失焦再收
+  if (!e?.payload?.syncOnly && prevBusy && !quickBusy && !dotHovered && !quickWindowHovered) {
     hideQuickDelayed();
   }
 }
