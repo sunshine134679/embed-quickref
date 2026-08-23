@@ -130,8 +130,10 @@ const error = ref("");
 const termResults = ref([]);
 // 当前查看的术语简介（快捷窗内展示，不跳主界面）；null 时显示列表
 const selectedTerm = ref(null);
-// 本轮搜索是否精确命中（abbr 完全等于输入）：未命中时按 Tab 可直接问 AI
+// 本轮搜索是否精确命中（abbr 完全等于输入）：未命中时按 Tab 可直接问 AI；
+// exactHitQ 记录结论对应的输入——防抖窗口内又改了字时据此判定缓存已过期
 let exactHit = false;
+let exactHitQ = "";
 // 翻译结果（简洁）
 const transResult = ref(null);
 let seq = 0;
@@ -217,6 +219,7 @@ async function doSearch() {
     // 精确命中（abbr 完全等于输入）：单条直接显示简介，一词多义（同缩写不同分类）列列表选择
     const exact = all.filter((t) => (t.abbr || "").trim().toLowerCase() === key);
     exactHit = exact.length > 0; // 未精确命中（仅模糊/无结果）时按 Tab 可问 AI
+    exactHitQ = key;
     selectedTerm.value = exact.length === 1 ? exact[0] : null;
     termResults.value = exact.length === 1 ? [] : (exact.length > 1 ? exact : all).slice(0, 5);
     searching.value = false;
@@ -299,10 +302,14 @@ function onKeydown(e) {
     e.preventDefault();
     invoke("hide_quick").catch(() => {});
   } else if (e.key === "Tab" && !e.shiftKey) {
+    // Tab 保留给 AI 跳转：其余情况一律拦掉默认焦点移动（焦点跑出输入框会误触收起链）
+    e.preventDefault();
+    const text = q.value.trim();
+    // 即时核对输入是否仍与上次搜索一致：防抖窗口内刚改过字时 exactHit 还是上一轮的结论
+    const fresh = !!text && text.toLowerCase() === exactHitQ;
     // 术语未精确命中（仅模糊结果/无结果）：一键跳主窗口用 AI 搜索
-    if (panel.value === "terms" && q.value.trim() && !exactHit) {
-      e.preventDefault();
-      emitTo("main", "quick-ask-ai", { text: q.value.trim() }).catch(() => {});
+    if (panel.value === "terms" && text && !(fresh && exactHit)) {
+      emitTo("main", "quick-ask-ai", { text }).catch(() => {});
       invoke("hide_quick").catch(() => {});
     }
   }
