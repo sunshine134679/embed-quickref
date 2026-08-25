@@ -191,7 +191,7 @@ onUnmounted(() => {
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 17h10"/><path d="m14 4 3 3-3 3M10 14l-3 3 3 3"/><path d="M17 7a5 5 0 0 1 0 10M7 7a5 5 0 0 0 0 10"/></svg>
                 <span><strong>故障转移</strong><small>主模型不可用时按顺序尝试备用模型</small></span>
               </span>
-              <span class="fallback-toggle-side">{{ fallbackSummary }} <span class="fallback-chevron" :class="{ open: fallbackExpanded }">⌄</span></span>
+              <span class="fallback-toggle-side"><span>{{ fallbackSummary }}</span><svg class="fallback-chevron" :class="{ open: fallbackExpanded }" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg></span>
             </button>
             <div v-if="fallbackExpanded" class="fallback-editor">
               <div class="fallback-editor-head"><span>备用模型顺序</span><button type="button" class="add-button" @click="addFallback">添加模型</button></div>
@@ -255,8 +255,8 @@ input,.provider-select { min-width:0; flex:1; height:32px; padding:0 10px; borde
 .fallback-toggle-main span { display:flex; flex-direction:column; gap:3px; min-width:0; }
 .fallback-toggle-main strong { color:#475569; font-size:13px; font-weight:550; }
 .fallback-toggle-main small { color:#a3aebc; font-size:11px; }
-.fallback-toggle-side { display:flex; align-items:center; gap:8px; flex:none; color:#8b9bad; font-size:11px; }
-.fallback-chevron { display:inline-block; font-size:16px; line-height:1; transition:transform .15s ease; } .fallback-chevron.open { transform:rotate(180deg); }
+.fallback-toggle-side { display:flex; flex-direction:row; align-items:center; justify-content:flex-end; gap:7px; flex:none; height:20px; color:#8b9bad; font-size:11px; line-height:1; white-space:nowrap; }
+.fallback-chevron { display:block; width:14px; height:14px; transition:transform .15s ease; } .fallback-chevron.open { transform:rotate(180deg); }
 .fallback-editor { padding:2px 0 12px; }
 .fallback-editor-head { display:flex; align-items:center; justify-content:space-between; margin:2px 0 8px; color:#7890a9; font-size:11px; font-weight:600; }
 .add-button { padding:4px 0; border:0; background:transparent; color:#52708f; font-size:12px; cursor:pointer; } .add-button:hover { color:#334f6b; background:transparent; }
