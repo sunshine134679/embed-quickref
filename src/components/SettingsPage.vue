@@ -14,10 +14,10 @@ const MODES = [
   { value: "pinned", label: "固定", desc: "置顶最前 + 任务栏图标" },
 ];
 const CATEGORIES = [
-  { id: "shortcuts", label: "快捷键", desc: "自定义操作方式", glyph: "⌘" },
-  { id: "api", label: "API 设置", desc: "模型与备用模型", glyph: "◇" },
-  { id: "behavior", label: "界面与行为", desc: "窗口显示方式", glyph: "□" },
-  { id: "audio", label: "发音", desc: "翻译发音偏好", glyph: "◖" },
+  { id: "shortcuts", label: "快捷键", desc: "键盘操作" },
+  { id: "api", label: "模型服务", desc: "API 与备用模型" },
+  { id: "behavior", label: "窗口行为", desc: "显示与交互" },
+  { id: "audio", label: "发音偏好", desc: "翻译语音" },
 ];
 const SHORTCUTS = [
   { key: "shortcut", label: "打开主窗口", hint: "全局唤起或隐藏 EmbedQuickRef" },
@@ -153,7 +153,12 @@ onUnmounted(() => {
     <div class="settings-layout">
       <nav class="settings-nav" aria-label="设置分类">
         <button v-for="category in CATEGORIES" :key="category.id" type="button" class="settings-nav-item" :class="{ active: activeCategory === category.id }" :aria-current="activeCategory === category.id ? 'page' : undefined" @click="activeCategory = category.id">
-          <span class="nav-icon" aria-hidden="true">{{ category.glyph }}</span><span class="nav-copy"><strong>{{ category.label }}</strong><small>{{ category.desc }}</small></span>
+          <span class="nav-icon" aria-hidden="true">
+            <svg v-if="category.id === 'shortcuts'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v5M17 3v5M3 7h5M16 7h5M7 16v5M17 16v5M3 17h5M16 17h5"/><circle cx="12" cy="12" r="3.2"/></svg>
+            <svg v-else-if="category.id === 'api'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5M15 3v5M6 8h12v4a4 4 0 0 1-4 4h-2a4 4 0 0 1-4-4V8Z"/><path d="M12 16v5M9 21h6"/></svg>
+            <svg v-else-if="category.id === 'behavior'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 6.5h.01M10 6.5h.01"/></svg>
+            <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4h3l5 4V6l-5 4H4Z"/><path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a8 8 0 0 1 0 11"/></svg>
+          </span><span class="nav-copy"><strong>{{ category.label }}</strong><small>{{ category.desc }}</small></span>
         </button>
       </nav>
 
@@ -214,11 +219,13 @@ h2,h3 { color:#334155; } h2 { font-size:17px; font-weight:650; } h3 { font-size:
 .settings-header p,.section-title p,.hint,.shortcut-copy span { color:#94a3b8; font-size:12px; } .settings-header p { margin-top:3px; }
 .settings-back { padding:6px 10px; color:#52708f; }
 .settings-layout { display:grid; grid-template-columns:174px minmax(0,1fr); flex:1; min-height:0; gap:22px; padding-top:18px; }
-.settings-nav { display:flex; flex-direction:column; gap:7px; padding:8px; border:1px solid rgba(203,213,225,.8); border-radius:12px; background:rgba(255,255,255,.56); }
-.settings-nav-item { display:grid; grid-template-columns:28px 1fr; align-items:center; gap:8px; min-height:58px; padding:8px 9px; border:1px solid transparent; border-radius:9px; background:transparent; color:#64748b; text-align:left; cursor:pointer; }
-.settings-nav-item .nav-icon { display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:8px; background:#eef2f7; color:#7890a9; font-size:15px; font-weight:700; }
-.settings-nav-item .nav-copy { display:flex; flex-direction:column; gap:3px; min-width:0; } .settings-nav-item strong { font-size:13px; font-weight:650; } .settings-nav-item small { color:#a3aebc; font-size:11px; }
-.settings-nav-item:hover { background:rgba(241,245,249,.95); } .settings-nav-item.active { border-color:rgba(82,112,143,.52); background:rgba(82,112,143,.16); color:#35526e; box-shadow:inset 3px 0 0 #52708f; } .settings-nav-item.active .nav-icon { background:#52708f; color:#fff; } .settings-nav-item.active small { color:#617f9c; }
+.settings-nav { display:flex; flex-direction:column; gap:4px; padding:6px 0; }
+.settings-nav-item { position:relative; display:grid; grid-template-columns:24px 1fr; align-items:center; gap:10px; min-height:56px; padding:8px 12px 8px 16px; border:0; border-radius:0; background:transparent; color:#64748b; text-align:left; cursor:pointer; }
+.settings-nav-item::before { content:""; position:absolute; left:0; top:15px; bottom:15px; width:3px; border-radius:0 2px 2px 0; background:transparent; }
+.settings-nav-item .nav-icon { display:flex; align-items:center; justify-content:center; width:22px; height:22px; color:#8b9bad; }
+.settings-nav-item .nav-icon svg { width:20px; height:20px; }
+.settings-nav-item .nav-copy { display:flex; flex-direction:column; gap:3px; min-width:0; } .settings-nav-item strong { font-size:13px; font-weight:500; } .settings-nav-item small { color:#a3aebc; font-size:11px; }
+.settings-nav-item:hover { background:rgba(241,245,249,.62); } .settings-nav-item.active { background:transparent; color:#334155; } .settings-nav-item.active::before { background:#52708f; } .settings-nav-item.active .nav-icon { color:#334155; } .settings-nav-item.active small { color:#7890a9; }
 .settings-content { min-width:0; overflow-y:auto; padding:18px 20px 6px; border:1px solid rgba(203,213,225,.85); border-radius:12px; background:rgba(255,255,255,.74); box-shadow:0 2px 8px rgba(51,65,85,.04); } .settings-section { padding:0 0 12px; } .section-title { margin-bottom:18px; padding-bottom:13px; border-bottom:1px solid rgba(226,232,240,.8); } .section-title p { margin-top:5px; line-height:1.5; }
 .section-kicker { display:block; margin-bottom:5px; color:#7890a9; font-size:10px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
 .shortcut-list { display:flex; flex-direction:column; gap:10px; } .shortcut-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:10px 12px; border:1px solid #e5eaf0; border-radius:8px; background:rgba(255,255,255,.55); }
