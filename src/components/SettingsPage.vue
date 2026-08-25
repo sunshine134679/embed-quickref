@@ -6,7 +6,7 @@ const props = defineProps({
   settings: { type: Object, required: true },
   mode: { type: String, default: "floating" },
 });
-const emit = defineEmits(["save", "cancel", "update:mode"]);
+const emit = defineEmits(["save", "auto-save-shortcuts", "cancel", "update:mode"]);
 
 const MODES = [
   { value: "floating", label: "悬浮圆点", desc: "桌面小圆点，点击展开，失焦自动缩回" },
@@ -42,6 +42,8 @@ const form = reactive({
 const activeCategory = ref("shortcuts");
 const capturing = ref("");
 const formError = ref("");
+const autoSaved = ref(false);
+let autoSavedTimer = null;
 const providerId = ref("");
 {
   const p = PROVIDERS.find((x) => x.baseUrl === String(form.baseUrl || "").replace(/\/+$/, ""));
@@ -78,6 +80,14 @@ function captureShortcut(e, key) {
   form[key] = value;
   capturing.value = "";
   formError.value = "";
+  autoSaved.value = true;
+  clearTimeout(autoSavedTimer);
+  autoSavedTimer = setTimeout(() => { autoSaved.value = false; }, 1800);
+  emit("auto-save-shortcuts", {
+    shortcut: form.shortcut,
+    detailShortcut: form.detailShortcut,
+    settingsShortcut: form.settingsShortcut,
+  });
 }
 
 function startCapture(key) {
@@ -159,7 +169,7 @@ watch(() => form.fallbacks.map((row) => row.baseUrl), () => {
               <input :value="capturing === item.key ? '请按下组合键…' : form[item.key]" class="shortcut-input" :class="{ recording: capturing === item.key }" readonly :aria-label="`${item.label}快捷键`" @focus="startCapture(item.key)" @click="startCapture(item.key)" @keydown="captureShortcut($event, item.key)" @blur="capturing = ''" />
             </div>
           </div>
-          <p class="shortcut-note">修改后点击“保存”才会注册新快捷键；查看详情快捷键仅在快捷窗口有结果时执行。</p>
+          <p class="shortcut-note">按下组合键后会立即自动保存并生效；查看详情快捷键仅在快捷窗口有结果时执行。</p>
           <p v-if="formError" class="form-error">{{ formError }}</p>
         </div>
 
@@ -196,7 +206,8 @@ watch(() => form.fallbacks.map((row) => row.baseUrl), () => {
         </div>
       </section>
     </div>
-    <footer class="settings-actions"><button type="button" class="primary" @click="saveForm">保存设置</button><button type="button" @click="emit('cancel')">取消</button></footer>
+    <footer v-if="activeCategory !== 'shortcuts'" class="settings-actions"><button type="button" class="primary" @click="saveForm">保存设置</button><button type="button" @click="emit('cancel')">取消</button></footer>
+    <div v-else class="auto-save-status" :class="{ visible: autoSaved }">{{ autoSaved ? "快捷键已自动保存" : "按键后自动保存" }}</div>
   </div>
 </template>
 
@@ -226,4 +237,5 @@ input,.provider-select { min-width:0; flex:1; height:32px; padding:0 10px; borde
 .field { margin-bottom:12px; } .field-label { display:block; margin-bottom:7px; color:#64748b; font-size:13px; } .mode-options { display:flex; flex-direction:column; gap:7px; } .mode-opt { display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid #dbe2ea; border-radius:8px; background:#fff; color:#64748b; font-size:13px; cursor:pointer; text-align:left; } .mode-opt.active { border-color:rgba(143,168,196,.8); background:rgba(82,112,143,.1); color:#52708f; } .mode-name { flex:none; min-width:56px; font-weight:600; } .mode-desc { color:#94a3b8; font-size:12px; }
 .accent-options { display:flex; gap:8px; } .accent-options button { height:32px; padding:0 16px; border:1px solid #dbe2ea; border-radius:8px; background:#fff; color:#64748b; font-size:13px; cursor:pointer; } .accent-options button.active { border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1); color:var(--accent); font-weight:600; }
 .settings-actions { display:flex; gap:10px; padding-top:12px; border-top:1px solid rgba(226,232,240,.8); } button { border:1px solid #dbe2ea; border-radius:6px; background:#fff; color:#475569; font-size:13px; cursor:pointer; } button:hover { background:#f1f5f9; } button.primary { padding:7px 20px; border-color:#52708f; background:#52708f; color:#fff; } button.primary:hover { background:#46617d; }
+.auto-save-status { min-height:31px; padding-top:12px; border-top:1px solid rgba(226,232,240,.8); color:#a3aebc; font-size:12px; text-align:right; } .auto-save-status.visible { color:#6b9e78; }
 </style>

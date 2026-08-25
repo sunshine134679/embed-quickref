@@ -1246,6 +1246,17 @@ async function onSaveSettings(next) {
   focusInput();
 }
 
+// 快捷键页采用按键即保存：串行写入，避免连续改键时后一次保存覆盖前一次注册状态。
+let shortcutSaveTask = Promise.resolve();
+function onAutoSaveShortcuts(next) {
+  shortcutSaveTask = shortcutSaveTask.then(async () => {
+    const prev = { ...settings.value };
+    await saveSettings(next);
+    await applyShortcuts(next, prev);
+  }).catch((e) => console.error("快捷键自动保存失败", e));
+  return shortcutSaveTask;
+}
+
 async function setupTray() {
   // HMR / 刷新时避免重复创建托盘图标
   const existing = await TrayIcon.getById("main-tray").catch(() => null);
@@ -1674,9 +1685,10 @@ onUnmounted(() => {
       <SettingsPanel
         v-else-if="view === 'settings'"
         :settings="settings"
-        :mode="mode"
-        @save="onSaveSettings"
-        @cancel="view = 'search'; focusInput()"
+         :mode="mode"
+         @save="onSaveSettings"
+         @auto-save-shortcuts="onAutoSaveShortcuts"
+         @cancel="view = 'search'; focusInput()"
         @update:mode="onModeChange"
       />
     </main>
