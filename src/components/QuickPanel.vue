@@ -6,6 +6,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { search, initUserTerms, ensureTerms } from "../composables/useSearch";
 import { initSettings, useSettings } from "../composables/useSettings";
 import { translateQuery, isSingleWord, speakEnglish } from "../composables/useTranslate";
+import { hasApiCandidate } from "../utils/apiCandidates";
 import { categoryColor } from "../utils/categories";
 
 const win = getCurrentWindow();
@@ -228,7 +229,7 @@ async function doSearch() {
     notifyResultDone();
     return;
   }
-  if (!settings.value.apiKey) {
+  if (!hasApiCandidate(settings.value)) {
     searching.value = false;
     error.value = "no-api-key";
     return;

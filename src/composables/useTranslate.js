@@ -2,6 +2,7 @@ import { fetch } from "@tauri-apps/plugin-http";
 import { useSettings } from "./useSettings";
 import { endpointFor } from "../data/providers";
 import { assertSafeApiUrl } from "../utils/safeUrl";
+import { hasApiCandidate, withApiFallback } from "../utils/apiCandidates";
 import learningDictionary from "../data/learning-dictionary";
 
 // 本地学习词典：精确命中 + 词形索引（interrupted -> interrupt）
@@ -331,7 +332,7 @@ const NOT_FOUND_RE = /未找到|不存在|拼写错误|不是(一个|个)?(有�
 export async function translateQuery(text, settings, onDelta) {
   const input = (text || "").trim();
   if (!input) return null;
-  if (!settings.apiKey) throw new Error("no-api-key");
+  if (!hasApiCandidate(settings)) throw new Error("no-api-key");
 
   if (isSingleWord(input)) {
     const local = lookupWord(input);
@@ -350,12 +351,15 @@ export async function translateQuery(text, settings, onDelta) {
     const key = "word:" + q;
     let reply = cached(key);
     if (!reply) {
-      reply = await askOnce(
-        [
-          { role: "system", content: WORD_PROMPT },
-          { role: "user", content: input },
-        ],
-        settings
+      reply = await withApiFallback(
+        settings,
+        (candidate) => askOnce(
+          [
+            { role: "system", content: WORD_PROMPT },
+            { role: "user", content: input },
+          ],
+          candidate
+        )
       );
       setCache(key, reply);
     }
@@ -373,13 +377,17 @@ export async function translateQuery(text, settings, onDelta) {
   let translated = cached(key);
   if (!translated) {
     // 长句/中文翻译走 SSE 流式：onDelta 收到的是累计文本，UI 可逐段上屏
-    translated = await askStream(
-      [
-        { role: "system", content: SENTENCE_PROMPT },
-        { role: "user", content: input },
-      ],
+    translated = await withApiFallback(
       settings,
-      onDelta ? (partial) => onDelta(partial, target) : undefined
+      (candidate) => askStream(
+        [
+          { role: "system", content: SENTENCE_PROMPT },
+          { role: "user", content: input },
+        ],
+        candidate,
+        onDelta ? (partial) => onDelta(partial, target) : undefined
+      ),
+      () => onDelta?.("", target)
     );
     setCache(key, translated);
   }

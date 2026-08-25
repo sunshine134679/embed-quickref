@@ -32,6 +32,7 @@ export const DEFAULT_SETTINGS = {
   apiKey: "",
   baseUrl: "https://api.deepseek.com",
   model: "deepseek-chat",
+  fallbacks: [],
   accent: "us", // 发音口音：us(美式) | en(英式)
 };
 
@@ -45,17 +46,40 @@ export async function initSettings() {
     const val = await store.get(key);
     if (val !== undefined && val !== null) saved[key] = val;
   }
-  settings.value = { ...DEFAULT_SETTINGS, ...saved };
+  settings.value = {
+    ...DEFAULT_SETTINGS,
+    ...saved,
+    fallbacks: Array.isArray(saved.fallbacks) ? saved.fallbacks : [],
+  };
   // 解密 Disk 上的密文 Key（内存明文；解密失败按空处理）
   settings.value.apiKey = await revealKey(saved.apiKey);
+  settings.value.fallbacks = await Promise.all(
+    settings.value.fallbacks.map(async (fallback) => ({
+      providerId: String(fallback?.providerId || ""),
+      baseUrl: String(fallback?.baseUrl || ""),
+      model: String(fallback?.model || ""),
+      apiKey: await revealKey(fallback?.apiKey),
+    }))
+  );
   // 静默迁移：旧版明文 Key 首次加载即加密落盘（仅主窗口，避免两 WebView 并发写）
+  const hasPlainFallbackKey = settings.value.fallbacks.some(
+    (fallback, index) => fallback.apiKey && !String(saved.fallbacks?.[index]?.apiKey || "").startsWith(KEY_PREFIX)
+  );
   if (
-    settings.value.apiKey &&
-    !String(saved.apiKey || "").startsWith(KEY_PREFIX) &&
+    ((settings.value.apiKey && !String(saved.apiKey || "").startsWith(KEY_PREFIX)) || hasPlainFallbackKey) &&
     getCurrentWindow().label === "main"
   ) {
     try {
       await store.set("apiKey", await protectKey(settings.value.apiKey));
+      if (settings.value.fallbacks.length) {
+        await store.set(
+          "fallbacks",
+          await Promise.all(settings.value.fallbacks.map(async (fallback) => ({
+            ...fallback,
+            apiKey: fallback.apiKey ? await protectKey(fallback.apiKey) : "",
+          })))
+        );
+      }
       await store.save();
     } catch (e) {}
   }
@@ -69,6 +93,14 @@ export async function saveSettings(next) {
   if (disk.apiKey && !disk.apiKey.startsWith(KEY_PREFIX)) {
     disk.apiKey = await protectKey(disk.apiKey);
   }
+  disk.fallbacks = await Promise.all(
+    (Array.isArray(settings.value.fallbacks) ? settings.value.fallbacks : []).map(async (fallback) => ({
+      providerId: String(fallback?.providerId || ""),
+      baseUrl: String(fallback?.baseUrl || ""),
+      model: String(fallback?.model || ""),
+      apiKey: fallback?.apiKey ? await protectKey(String(fallback.apiKey)) : "",
+    }))
+  );
   for (const [key, val] of Object.entries(disk)) {
     await store.set(key, val);
   }

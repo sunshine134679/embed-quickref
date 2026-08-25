@@ -24,6 +24,7 @@ import { categoryColor } from "./utils/categories";
 import { initUserTerms, search, addUserTerm, updateUserTerm, appendUserTermPoints, loadTermHistory, addTermHistory, clearTermHistory, ensureTerms } from "./composables/useSearch";
 import { askAi, parseAnswer, createSession, restoreSession } from "./composables/useAi";
 import { translateQuery, loadHistory, addHistory, clearHistory } from "./composables/useTranslate";
+import { hasApiCandidate } from "./utils/apiCandidates";
 import { loadFavorites, saveFavorites, toggleFavorite, isFavorite } from "./composables/useFavorites";
 import { load } from "@tauri-apps/plugin-store";
 
@@ -583,7 +584,7 @@ async function runAi(q) {
   if (!text) return;
   // 防重：请求进行中忽略再次触发（连按 Tab/Enter），避免并发请求重置会话
   if (aiStatus.value === "loading" || aiStatus.value === "streaming") return;
-  if (!settings.value.apiKey) {
+  if (!hasApiCandidate(settings.value)) {
     view.value = "settings";
     return;
   }

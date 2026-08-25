@@ -1,6 +1,7 @@
 import { fetch } from "@tauri-apps/plugin-http";
 import { endpointFor } from "../data/providers";
 import { assertSafeApiUrl } from "../utils/safeUrl";
+import { withApiFallback } from "../utils/apiCandidates";
 
 const SYSTEM_PROMPT = `你是嵌入式 Linux 领域的资深专家，专门解释网络协议、总线/通信协议、内核机制、构建工具链、硬件与存储、文件系统相关的术语与缩写。
 用户第一次提问时，根据问题类型选择回答格式：
@@ -68,6 +69,14 @@ const REQUEST_TIMEOUT_MS = 120_000;
 // messages 为完整多轮对话（含 system），追问时把历史一起带上
 // 端点自动判定：gpt-*/grok-* 模型走 OpenAI Responses（/responses），其余走 /chat/completions
 export async function askAi(messages, settings, onDelta) {
+  return withApiFallback(
+    settings,
+    (candidate) => askAiOnce(messages, candidate, onDelta),
+    () => onDelta?.("")
+  );
+}
+
+async function askAiOnce(messages, settings, onDelta) {
   assertSafeApiUrl(settings.baseUrl);
   const endpoint = endpointFor(settings.model);
   // 超时保护：plugin-http 支持 AbortSignal，中止后 Rust 侧请求一并取消

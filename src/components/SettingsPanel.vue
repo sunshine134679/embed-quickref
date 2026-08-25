@@ -1,6 +1,6 @@
 <script setup>
 import { reactive, ref, computed, watch } from "vue";
-import { PROVIDERS, endpointFor } from "../data/providers";
+import { PROVIDERS, endpointFor, providerFor } from "../data/providers";
 
 const props = defineProps({
   settings: { type: Object, required: true },
@@ -14,7 +14,20 @@ const MODES = [
   { value: "pinned", label: "固定", desc: "置顶最前 + 任务栏图标" },
 ];
 
-const form = reactive({ ...props.settings });
+function createFallback(item = {}) {
+  const baseUrl = String(item.baseUrl || "");
+  return {
+    providerId: String(item.providerId || providerFor(baseUrl, item.model)?.id || ""),
+    baseUrl,
+    model: String(item.model || ""),
+    apiKey: String(item.apiKey || ""),
+  };
+}
+
+const form = reactive({
+  ...props.settings,
+  fallbacks: Array.isArray(props.settings.fallbacks) ? props.settings.fallbacks.map(createFallback) : [],
+});
 // 服务商预设：按当前 Base URL 自动匹配（自定义 URL 不选中任何预设）
 const providerId = ref("");
 {
@@ -24,6 +37,42 @@ const providerId = ref("");
 const currentProvider = computed(() => PROVIDERS.find((x) => x.id === providerId.value) || null);
 // 端点自动判定：gpt-*/grok-* 走 OpenAI Responses，其余走 OpenAI 兼容
 const endpoint = computed(() => endpointFor(form.model));
+
+function addFallback() {
+  form.fallbacks.push(createFallback());
+}
+
+function removeFallback(index) {
+  form.fallbacks.splice(index, 1);
+}
+
+function moveFallback(index, offset) {
+  const target = index + offset;
+  if (target < 0 || target >= form.fallbacks.length) return;
+  const [item] = form.fallbacks.splice(index, 1);
+  form.fallbacks.splice(target, 0, item);
+}
+
+function setFallbackProvider(row, id) {
+  row.providerId = id;
+  const p = PROVIDERS.find((x) => x.id === id);
+  if (!p) return;
+  row.baseUrl = p.baseUrl;
+  if (p.models.length) row.model = p.models[0];
+}
+
+function fallbackProvider(row) {
+  return PROVIDERS.find((x) => x.id === row.providerId) || providerFor(row.baseUrl, row.model);
+}
+
+function saveForm() {
+  emit("save", {
+    ...form,
+    fallbacks: form.fallbacks
+      .map((row) => ({ ...row, model: String(row.model || "").trim() }))
+      .filter((row) => row.model),
+  });
+}
 
 // 手动修改 Base URL：若与预设一致则同步高亮
 watch(
@@ -41,6 +90,17 @@ watch(providerId, (id) => {
   form.baseUrl = p.baseUrl;
   if (p.models.length) form.model = p.models[0];
 });
+
+// 备用项手动修改地址后同步服务商选择，避免继续显示旧的模型推荐。
+watch(
+  () => form.fallbacks.map((row) => row.baseUrl),
+  () => {
+    for (const row of form.fallbacks) {
+      const matched = providerFor(row.baseUrl, row.model);
+      row.providerId = matched?.id || "";
+    }
+  }
+);
 </script>
 
 <template>
@@ -84,6 +144,53 @@ watch(providerId, (id) => {
       接口：{{ endpoint === "responses" ? "OpenAI Responses (/responses)" : "OpenAI 兼容 (/chat/completions)" }}
       —— gpt-*/grok-* 模型自动走 /responses
     </p>
+    <section class="fallback-section">
+      <div class="section-header">
+        <div>
+          <div class="field-label">备用模型</div>
+          <p class="hint">主模型请求失败时按顺序自动切换，数量不限；备用项的 API Key 留空会复用主 Key。</p>
+        </div>
+        <button type="button" class="add-button" @click="addFallback">+ 添加备用模型</button>
+      </div>
+      <div v-if="form.fallbacks.length" class="fallback-list">
+        <div v-for="(row, index) in form.fallbacks" :key="row" class="fallback-card">
+          <div class="fallback-card-head">
+            <span>备用 {{ index + 1 }}</span>
+            <div class="fallback-controls">
+              <button type="button" :disabled="index === 0" title="上移" @click="moveFallback(index, -1)">↑</button>
+              <button type="button" :disabled="index === form.fallbacks.length - 1" title="下移" @click="moveFallback(index, 1)">↓</button>
+              <button type="button" class="remove-button" @click="removeFallback(index)">删除</button>
+            </div>
+          </div>
+          <div class="fallback-grid">
+            <select
+              :value="row.providerId"
+              class="provider-select"
+              @change="setFallbackProvider(row, $event.target.value)"
+            >
+              <option value="">自定义</option>
+              <option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.name }}</option>
+            </select>
+            <input v-model="row.model" type="text" spellcheck="false" placeholder="模型名，如 deepseek-chat" />
+            <input v-model="row.baseUrl" type="text" spellcheck="false" placeholder="留空复用主 Base URL" />
+            <input v-model="row.apiKey" type="password" spellcheck="false" placeholder="留空复用主 API Key" />
+          </div>
+          <div v-if="fallbackProvider(row)?.models?.length" class="model-chips fallback-chips">
+            <button
+              v-for="m in fallbackProvider(row).models"
+              :key="m"
+              type="button"
+              class="model-chip"
+              :class="{ active: row.model === m }"
+              @click="row.model = m"
+            >
+              {{ m }}
+            </button>
+          </div>
+        </div>
+      </div>
+      <p v-else class="empty-fallback">尚未添加备用模型，当前只使用主模型。</p>
+    </section>
     <div class="field">
       <label class="field-label">发音口音</label>
       <div class="accent-options">
@@ -108,8 +215,8 @@ watch(providerId, (id) => {
     </div>
     <p class="hint">API Key 只写入本机配置文件，不会出现在代码或 git 仓库中。</p>
     <div class="actions">
-      <button class="primary" @click="emit('save', { ...form })">保存</button>
-      <button @click="emit('cancel')">取消</button>
+      <button type="button" class="primary" @click="saveForm">保存</button>
+      <button type="button" @click="emit('cancel')">取消</button>
     </div>
   </div>
 </template>
@@ -198,6 +305,96 @@ input:focus {
 .hint {
   margin: 8px 0 14px;
   color: #a3aebc;
+  font-size: 12px;
+}
+
+.fallback-section {
+  margin: 4px 0 16px;
+  padding: 12px;
+  border: 1px solid #e5eaf0;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.section-header .hint {
+  margin: 4px 0 10px;
+}
+
+.add-button {
+  flex: none;
+  padding: 5px 10px;
+  color: #52708f;
+  font-size: 12px;
+}
+
+.fallback-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.fallback-card {
+  padding: 9px 10px 8px;
+  border: 1px solid #dbe2ea;
+  border-radius: 7px;
+  background: #ffffff;
+}
+
+.fallback-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 7px;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.fallback-controls {
+  display: flex;
+  gap: 4px;
+}
+
+.fallback-controls button {
+  padding: 2px 7px;
+  font-size: 12px;
+}
+
+.fallback-controls button:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.remove-button {
+  color: #b45353;
+}
+
+.fallback-grid {
+  display: grid;
+  grid-template-columns: 112px 1fr;
+  gap: 7px;
+}
+
+.fallback-grid input,
+.fallback-grid .provider-select {
+  min-width: 0;
+  width: auto;
+}
+
+.fallback-chips {
+  margin: 7px 0 0;
+}
+
+.empty-fallback {
+  margin: 2px 0 0;
+  color: #94a3b8;
   font-size: 12px;
 }
 
