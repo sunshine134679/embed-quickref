@@ -4,11 +4,15 @@ import { endpointFor } from "../data/providers";
 import { assertSafeApiUrl } from "../utils/safeUrl";
 import { hasApiCandidate, withApiFallback } from "../utils/apiCandidates";
 import learningDictionary from "../data/learning-dictionary";
+import developmentDictionary from "../data/development-dictionary";
+
+// 专业词库优先，补充词库只填充缺失词，不覆盖已有的更详细释义。
+const localDictionary = { ...developmentDictionary, ...learningDictionary };
 
 // 本地学习词典：精确命中 + 词形索引（interrupted -> interrupt）
 // 词形索引在模块加载时构建一次，命中后返回原型词条
 const formIndex = new Map();
-for (const [headword, entry] of Object.entries(learningDictionary)) {
+for (const [headword, entry] of Object.entries(localDictionary)) {
   formIndex.set(normalizeWord(headword), headword);
   for (const form of entry.forms || []) formIndex.set(normalizeWord(form), headword);
 }
@@ -30,9 +34,35 @@ export function isSingleWord(text) {
 export function lookupWord(text) {
   const key = normalizeWord(text);
   if (!key) return null;
-  const headword = formIndex.get(key);
+  const headword = deriveLemmaCandidates(key).map((candidate) => formIndex.get(candidate)).find(Boolean);
   if (!headword) return null;
-  return { word: headword, entry: learningDictionary[headword] };
+  return { word: headword, entry: localDictionary[headword] };
+}
+
+// 对没有显式登记的常见词形做保守词干推导；只有推导结果已存在于本地词库时才命中。
+function deriveLemmaCandidates(word) {
+  const out = [word];
+  const add = (value) => {
+    if (value && value.length >= 2 && !out.includes(value)) out.push(value);
+  };
+  if (word.endsWith("ies") && word.length > 4) add(word.slice(0, -3) + "y");
+  if (word.endsWith("ied") && word.length > 4) add(word.slice(0, -3) + "y");
+  if (word.endsWith("ing") && word.length > 5) {
+    const stem = word.slice(0, -3);
+    add(stem);
+    add(stem + "e");
+    if (/(.)\1$/.test(stem)) add(stem.slice(0, -1));
+  }
+  if (word.endsWith("ed") && word.length > 4) {
+    const stem = word.slice(0, -2);
+    add(stem);
+    add(stem + "e");
+    if (/(.)\1$/.test(stem)) add(stem.slice(0, -1));
+  }
+  if (word.endsWith("es") && word.length > 4) add(word.slice(0, -2));
+  if (word.endsWith("s") && word.length > 3) add(word.slice(0, -1));
+  if (word.endsWith("ly") && word.length > 4) add(word.slice(0, -2));
+  return out;
 }
 
 // 单个英文单词的词典式 AI 提示词（未命中本地词典时用）
@@ -42,7 +72,7 @@ const WORD_PROMPT = `你是专业的英语学习词典。用户输入一个英�
 释义: <词性.> <中文释义，列出主要含义>
 例句: <一个体现该词用法的英文例句>
 译文: <例句的中文翻译>
-如果输入的不是真实存在的英文单词（拼写错误、不完整、乱码），不要编造解释，第一行直接输出：未找到: <可能的正确拼写，没有则留空>`;
+如果输入是正常的英文单词，即使本地词库没有收录，也必须给出词典式解释；不要因为它和另一个更长的单词相似就判定为未找到。只有明确的拼写错误、不完整输入或乱码才输出第一行：未找到: <可能的正确拼写，没有则留空>`;
 
 // 中英互译提示词：按输入语言自动选择目标语言
 const SENTENCE_PROMPT = `你是专业的中英互译引擎。把用户输入的文本翻译成目标语言：
@@ -252,7 +282,7 @@ async function ensureWordIndex() {
       if (/^[a-z]+$/i.test(part)) add(part.toLowerCase(), t.zh);
     }
   }
-  for (const [hw, entry] of Object.entries(learningDictionary)) {
+  for (const [hw, entry] of Object.entries(localDictionary)) {
     add(hw, entry.primary);
     for (const f of entry.forms || []) add(f, entry.primary);
   }
@@ -324,8 +354,8 @@ const NOT_FOUND_RE = /未找到|不存在|拼写错误|不是(一个|个)?(有�
 
 // 主入口：根据输入类型返回结果
 // - 英文单词命中本地学习词典 -> { kind: "word", word, entry }（零网络）
-// - 英文单词未命中且疑似拼写错误/不完整 -> { kind: "word-not-found", text, suggestions }（本地建议）
-// - 英文单词未命中且无本地近似 -> { kind: "word-ai", text, reply }（AI 词典式解释，AI 会识别乱词）
+// - 英文单词经 AI 判定为拼写错误/不完整 -> { kind: "word-not-found", text, suggestions }
+// - 本地词库未收录但属于正常单词 -> { kind: "word-ai", text, reply }（AI 词典式解释）
 // - 句子/中文 -> { kind: "sentence", text, source, target, translated }（SSE 流式，onDelta 逐段回调）
 // onDelta(partialText, target)：句子流式翻译时随内容增长回调（快捷窗不传则静默等最终结果）
 // 返回 Promise；无 apiKey 时抛错提示去设置
@@ -341,14 +371,9 @@ export async function translateQuery(text, settings, onDelta) {
     // 严格模式：词表精确命中（echo 等有效命令词）视为有效，不判错
     const q = normalizeWord(input);
     const sugg = await suggestWords(input, { includeExact: false });
-    if (sugg.length) {
-      const top = sugg[0];
-      if (top.dist <= 1 || (q.length >= 3 && top.word.startsWith(q))) {
-        return { kind: "word-not-found", text: input, suggestions: sugg.slice(0, 3) };
-      }
-    }
-    // AI 词典式解释（提示词要求拼写错误明说）；单次短回复，非流式 + 缓存
-    const key = "word:" + q;
+    // AI 词典式解释：建议只作为辅助，不再因“本地没有收录”而拦截正常单词。
+    // v2 用于淘汰旧逻辑缓存的误判结果。
+    const key = "word:v2:" + q;
     let reply = cached(key);
     if (!reply) {
       reply = await withApiFallback(
@@ -363,11 +388,12 @@ export async function translateQuery(text, settings, onDelta) {
       );
       setCache(key, reply);
     }
-    // AI 判定拼写错误/不存在：转为"未找到"（含 AI 给出的可能拼写）
+    // AI 判定拼写错误/不存在：转为“未找到”，并合并本地建议。
     if (NOT_FOUND_RE.test(reply)) {
       const m = String(reply).match(/未找到\s*[:：]?\s*(.+)?/);
       const aiSugg = m && m[1] && m[1].trim() ? [{ word: m[1].trim().split(/\s*[、,，/]\s*/)[0], zh: "", dist: 1 }] : [];
-      return { kind: "word-not-found", text: input, suggestions: aiSugg };
+      const allSuggestions = [...aiSugg, ...sugg.filter((item) => !aiSugg.some((ai) => ai.word === item.word))];
+      return { kind: "word-not-found", text: input, suggestions: allSuggestions.slice(0, 3) };
     }
     return { kind: "word-ai", text: input, reply };
   }
