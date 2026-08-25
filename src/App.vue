@@ -93,12 +93,17 @@ const mode = ref("floating");
 const dotPosition = ref(null);
 // 展开前的圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
 let dotRestorePos = null;
+// 圆点相对展开主窗口左上角的物理像素偏移，保证右侧/底部圆点也能原路收回
+let dotAnchorOffset = { x: 0, y: 0 };
+// 原生 setPosition 触发的延迟 onMoved 不应覆盖真实圆点锚点
+let ignoreWindowMoveUntil = 0;
 // 圆点挂载时机：原生窗口边界动画完成前不挂载，避免圆点在大窗口内淡入后跳变
 const dotReady = ref(false);
 // 主界面动画期间的视觉隐藏样式
 const animStyle = ref(null);
 // 展开时的起点圆点代理，主面板完成 CSS 展开后卸载
 const expandProxy = ref(false);
+const expandProxyStyle = ref(null);
 // 收起时在固定的大窗口内播放 CSS 飞行动画，完成后再一次性切换原生窗口边界
 const flyStyle = ref(null);
 const DOT_SIZE = 64;
@@ -212,9 +217,13 @@ async function restoreExpandedBounds() {
   const current = await readWindowBounds();
   const target = { width: EXPAND_W, height: EXPAND_H };
   const monitor = await currentMonitor().catch(() => null);
-  // 保持原有行为：主窗口和圆点使用同一个左上角锚点，展开/收起可以原路返回。
+  // 主窗口尽量沿用圆点位置；若大窗口靠近屏幕边缘，则只移动窗口本身，保留圆点偏移作为动画原点。
   const targetPosition = await clampWindowPosition(current.position, target, current.scale, monitor);
-  return { current, target, targetPosition };
+  const origin = {
+    x: (current.position.x - targetPosition.x) / current.scale + DOT_SIZE / 2,
+    y: (current.position.y - targetPosition.y) / current.scale + DOT_SIZE / 2,
+  };
+  return { current, target, targetPosition, origin };
 }
 
 // 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
@@ -374,7 +383,10 @@ async function enterCompact(animate = true) {
     await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
     const current = await readWindowBounds();
     const targetPosition = await clampWindowPosition(
-      dotRestorePos || current.position,
+      dotRestorePos || {
+        x: current.position.x + dotAnchorOffset.x,
+        y: current.position.y + dotAnchorOffset.y,
+      },
       { width: DOT_SIZE, height: DOT_SIZE },
       current.scale,
     );
@@ -398,12 +410,14 @@ async function enterCompact(animate = true) {
     ).then(() => true);
     if (!completed || !isCurrentWindowAnimation(token)) return;
 
+    ignoreWindowMoveUntil = Date.now() + 500;
     flyStyle.value = null;
     form.value = "compact";
     await nextTick();
     animStyle.value = null;
     dotReady.value = true;
     dotRestorePos = null;
+    dotAnchorOffset = { x: 0, y: 0 };
     await win.setIgnoreCursorEvents(false).catch(() => {});
   } catch (e) {
     if (isCurrentWindowAnimation(token)) console.error("缩回圆点失败", e);
@@ -426,6 +440,7 @@ async function enterExpanded(initialView = "search", opts = {}) {
   dotReady.value = false;
   expandProxy.value = true;
   flyStyle.value = null;
+  expandProxyStyle.value = null;
   animStyle.value = {
     transformOrigin: `${DOT_SIZE / 2}px ${DOT_SIZE / 2}px`,
     transform: "scale(0.08)",
@@ -439,24 +454,41 @@ async function enterExpanded(initialView = "search", opts = {}) {
 
   try {
     if (!isCurrentWindowAnimation(token)) return;
-    const { target, targetPosition } = await restoreExpandedBounds();
+    const { current, target, targetPosition, origin } = await restoreExpandedBounds();
     if (!isCurrentWindowAnimation(token)) return;
-    // 若圆点位于工作区边缘，先把圆点和主窗口统一到同一个可见位置，避免往返终点漂移。
+    // 保存圆点相对主窗口的真实偏移：右侧圆点可能位于展开窗口的右侧区域。
+    dotRestorePos = { x: current.position.x, y: current.position.y };
+    dotAnchorOffset = {
+      x: current.position.x - targetPosition.x,
+      y: current.position.y - targetPosition.y,
+    };
+    expandProxyStyle.value = {
+      left: `${origin.x.toFixed(1)}px`,
+      top: `${origin.y.toFixed(1)}px`,
+    };
+    animStyle.value = {
+      transformOrigin: `${origin.x.toFixed(1)}px ${origin.y.toFixed(1)}px`,
+      transform: "scale(0.08)",
+      opacity: 0,
+      transition: "none",
+    };
+    // 若圆点位于工作区边缘，原生窗口可以向左/上移动，但视觉起点仍保持在真实圆点上。
     await queueWindowBounds({ width: DOT_SIZE, height: DOT_SIZE }, targetPosition);
     if (!isCurrentWindowAnimation(token)) return;
-    dotRestorePos = { x: targetPosition.x, y: targetPosition.y };
     await queueWindowBounds(target, targetPosition);
     if (!isCurrentWindowAnimation(token)) return;
+    ignoreWindowMoveUntil = Date.now() + 500;
     await win.setMinSize(new LogicalSize(520, 300));
     if (!isCurrentWindowAnimation(token)) return;
 
     form.value = "expanded";
     expandProxy.value = false;
+    expandProxyStyle.value = null;
     await nextTick();
     await new Promise((resolve) => requestAnimationFrame(resolve));
     if (!isCurrentWindowAnimation(token)) return;
     animStyle.value = {
-      transformOrigin: `${DOT_SIZE / 2}px ${DOT_SIZE / 2}px`,
+      transformOrigin: `${origin.x.toFixed(1)}px ${origin.y.toFixed(1)}px`,
       transform: "scale(1)",
       opacity: 1,
       transition: `transform ${WINDOW_ANIMATION_MS}ms cubic-bezier(0.22, 1, 0.36, 1), opacity 160ms ease-out`,
@@ -1462,8 +1494,14 @@ onMounted(async () => {
   await win.onMoved(async ({ payload: pos }) => {
     // 动画自身会连续触发 onMoved；不让这些中间坐标覆盖圆点还原位置或触发吸附。
     if (transitionPhase.value !== "idle") return;
+    if (Date.now() < ignoreWindowMoveUntil) return;
     // 展开态拖动窗口：立即同步圆点还原位置（收起时圆点跟随窗口当前位置，不等待防抖）
-    if (form.value === "expanded") dotRestorePos = { x: pos.x, y: pos.y };
+    if (form.value === "expanded") {
+      dotRestorePos = {
+        x: pos.x + dotAnchorOffset.x,
+        y: pos.y + dotAnchorOffset.y,
+      };
+    }
     clearTimeout(moveTimer);
     moveTimer = setTimeout(async () => {
       // 钳制到可见区再保存：最小化等异常移动不会把圆点位置存到屏幕外
@@ -1522,7 +1560,7 @@ onUnmounted(() => {
       @mouseleave="hideQuickOnLeave"
     />
     <!-- 展开时的起点圆点；收起时的飞行圆点保持在固定大窗口内，保证 CSS 动画高帧率 -->
-    <div v-if="expandProxy" class="window-transition-dot"></div>
+    <div v-if="expandProxy" class="window-transition-dot" :style="expandProxyStyle"></div>
     <div v-if="flyStyle" class="fly-dot" :style="flyStyle"></div>
     <Transition name="fade"><div v-show="form === `expanded`" class="main-view" :style="animStyle">
     <header v-if="view !== 'settings'" class="topbar">
