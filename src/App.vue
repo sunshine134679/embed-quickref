@@ -93,17 +93,18 @@ const mode = ref("floating");
 const dotPosition = ref(null);
 // 展开前的圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移
 let dotRestorePos = null;
-// 圆点挂载时机：动画路径下缩窗完成前不挂载，避免圆点在大窗口内淡入后跳变
+// 圆点挂载时机：原生窗口边界动画完成前不挂载，避免圆点在大窗口内淡入后跳变
 const dotReady = ref(false);
-// 收起飞行动画样式（CSS transform 缩放+平移，GPU 合成 60fps，替代窗口 resize 动画）
+// 主界面动画期间的视觉隐藏样式
 const animStyle = ref(null);
-// 收起衔接光点：main-view 隐藏后由它完成"收进圆点"的视觉过渡（起点=窗口中心，终点=圆点中心）
-const flyStyle = ref(null);
-const FLY_DOT_SIZE = 26; // 光点直径（逻辑 px），与 .fly-dot 尺寸一致
-const FLY_MS = 190; // 光点飞行时长，与 .fly-dot 的 animation 时长保持一致
+// 原生边界动画期间显示的代理圆点，避免 WebView 内容在调整尺寸时重排闪烁
+const collapseProxy = ref(false);
+const expandProxy = ref(false);
 const DOT_SIZE = 64;
 const EXPAND_W = 680;
 const EXPAND_H = 500;
+const WINDOW_ANIMATION_MS = 240;
+const WINDOW_FRAME_MS = 16;
 // 最近一次搜索内容：展开主窗口时恢复输入框（自动全选，方便直接输入搜索）
 const LAST_QUERY_KEY = "embed-quickref-last-query";
 function loadLastQuery() {
@@ -113,66 +114,133 @@ function loadLastQuery() {
     return "";
   }
 }
-// 进行中的平滑缩窗任务与取消标志（动画路径：淡出与缩窗并行）
-let shrinkTask = null;
-let shrinkCancel = false;
-// 收起动画进行中标志：动画路径防重复触发（双击收起/热键连按），避免并行飞行任务与圆点提前挂载
-let collapsing = false;
+// 当前窗口边界动画。每次新动画都会取消旧令牌，旧异步任务即使晚返回也不能提交状态。
+let windowAnimationSeq = 0;
+let activeWindowAnimation = null;
+// 原生窗口调用按帧串行，避免旧帧和新帧同时到达 Windows 后出现尺寸/位置倒序。
+let windowBoundsQueue = Promise.resolve();
+const transitionPhase = ref("idle"); // idle | expanding | collapsing
 
-// 收起飞行动画：main-view 已在 enterCompact 中整体隐藏（大白板不存在），
-// 由 fly-dot 小光点从窗口中心飞向圆点终点完成"收进圆点"的视觉衔接（GPU 合成 60fps）；
-// 动画结束后瞬时缩窗，光点终点与圆点落点重合、无缝交接
-async function animateShrink() {
+function beginWindowAnimation() {
+  if (activeWindowAnimation) activeWindowAnimation.cancelled = true;
+  const token = { id: ++windowAnimationSeq, cancelled: false };
+  activeWindowAnimation = token;
+  return token;
+}
+
+function isCurrentWindowAnimation(token) {
+  return activeWindowAnimation === token && !token.cancelled && token.id === windowAnimationSeq;
+}
+
+function cancelWindowAnimation() {
+  windowAnimationSeq += 1;
+  if (activeWindowAnimation) activeWindowAnimation.cancelled = true;
+  activeWindowAnimation = null;
+}
+
+function finishWindowAnimation(token) {
+  if (activeWindowAnimation === token) activeWindowAnimation = null;
+}
+
+function easeInOutCubic(t) {
+  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function waitForNextWindowFrame() {
+  return new Promise((resolve) => setTimeout(resolve, WINDOW_FRAME_MS));
+}
+
+function queueWindowBounds(size, position) {
+  const run = () => Promise.all([
+    win.setSize(new LogicalSize(Math.max(1, Math.round(size.width)), Math.max(1, Math.round(size.height)))),
+    win.setPosition(new PhysicalPosition(Math.round(position.x), Math.round(position.y))),
+  ]);
+  const task = windowBoundsQueue.then(run, run);
+  windowBoundsQueue = task.catch(() => {});
+  return task;
+}
+
+async function readWindowBounds() {
+  const [scale, position, size] = await Promise.all([
+    win.scaleFactor(),
+    win.outerPosition(),
+    win.outerSize(),
+  ]);
+  return {
+    scale,
+    position: { x: position.x, y: position.y },
+    size: {
+      width: Math.max(DOT_SIZE, size.width / scale),
+      height: Math.max(DOT_SIZE, size.height / scale),
+    },
+  };
+}
+
+async function clampWindowPosition(pos, size, scale, monitor = null) {
   try {
-    // 注：acrylic 已在 enterCompact 中提前关闭，此处不再重复
-    const scale = await win.scaleFactor();
-    const wPos = await win.outerPosition();
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    // 目标：圆点中心相对当前窗口中心的逻辑偏移（物理像素 -> 逻辑 px 换算；终点钳制到可见区防越界）
-    const endPos = (await clampToWorkArea(dotRestorePos || wPos)) || dotRestorePos || wPos;
-    const dx = (endPos.x - wPos.x) / scale + DOT_SIZE / 2 - w / 2;
-    const dy = (endPos.y - wPos.y) / scale + DOT_SIZE / 2 - h / 2;
-    flyStyle.value = {
-      left: `${w / 2 - FLY_DOT_SIZE / 2}px`,
-      top: `${h / 2 - FLY_DOT_SIZE / 2}px`,
-      "--fly-dx": `${dx.toFixed(1)}px`,
-      "--fly-dy": `${dy.toFixed(1)}px`,
+    const mon = monitor || await currentMonitor();
+    if (!mon || !pos) return pos;
+    const area = mon.workArea || { position: mon.position, size: mon.size };
+    const ax = area.position.x;
+    const ay = area.position.y;
+    const aw = area.size.width;
+    const ah = area.size.height;
+    const widthPx = Math.round(size.width * scale);
+    const heightPx = Math.round(size.height * scale);
+    return {
+      x: Math.min(Math.max(pos.x, ax), ax + Math.max(0, aw - widthPx)),
+      y: Math.min(Math.max(pos.y, ay), ay + Math.max(0, ah - heightPx)),
     };
-    await new Promise((r) => setTimeout(r, FLY_MS + 20));
-  } catch (e) {
-    console.error("飞行动画计算失败", e);
-  } finally {
-    // 动画期间若用户已重新展开（热键/托盘），放弃缩窗，仅清理动画样式
-    if (!shrinkCancel) await shrinkToDot();
-    animStyle.value = null;
-    flyStyle.value = null;
-    collapsing = false;
+  } catch {
+    return pos;
   }
 }
 
-// 窗口缩为 64×64 并还原到圆点位置（setMinSize 必须先于 setSize，之后缩放与移动并行）
-async function shrinkToDot() {
-  try {
-    await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
-    await Promise.all([
-      win.setSize(new LogicalSize(DOT_SIZE, DOT_SIZE)),
-      dotRestorePos
-        ? win.setPosition(new PhysicalPosition(dotRestorePos.x, dotRestorePos.y))
-        : Promise.resolve(),
-    ]);
-  } catch (e) {
-    console.error("缩回圆点失败", e);
+async function animateWindowBounds(token, targetSize, targetPosition) {
+  const start = await readWindowBounds();
+  if (!isCurrentWindowAnimation(token)) return false;
+  const monitor = await currentMonitor().catch(() => null);
+  const endPosition = await clampWindowPosition(targetPosition, targetSize, start.scale, monitor);
+  const startedAt = performance.now();
+
+  while (isCurrentWindowAnimation(token)) {
+    const progress = Math.min(1, (performance.now() - startedAt) / WINDOW_ANIMATION_MS);
+    const eased = easeInOutCubic(progress);
+    const size = {
+      width: start.size.width + (targetSize.width - start.size.width) * eased,
+      height: start.size.height + (targetSize.height - start.size.height) * eased,
+    };
+    const position = {
+      x: start.position.x + (endPosition.x - start.position.x) * eased,
+      y: start.position.y + (endPosition.y - start.position.y) * eased,
+    };
+    try {
+      await queueWindowBounds(size, position);
+    } catch (e) {
+      if (isCurrentWindowAnimation(token)) console.error("窗口边界动画失败", e);
+      return false;
+    }
+    if (progress >= 1) return true;
+    await waitForNextWindowFrame();
   }
-  dotRestorePos = null;
+  return false;
 }
 
-// 主界面淡出完成（Transition after-leave）：等待并行的平滑缩窗完成后挂载圆点
-async function onMainLeave() {
-  if (form.value !== "compact") return;
-  if (shrinkTask) await shrinkTask; // 淡出与缩窗并行，此处等缩窗收尾
-  await win.setIgnoreCursorEvents(false).catch(() => {}); // 动画结束恢复鼠标事件
-  dotReady.value = true; // 缩窗完成后才挂载圆点并淡入
+async function restoreExpandedBounds() {
+  await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
+  const current = await readWindowBounds();
+  const target = { width: EXPAND_W, height: EXPAND_H };
+  const monitor = await currentMonitor().catch(() => null);
+  // 以圆点中心作为展开原点，避免窗口从圆点左上角向右下角生长。
+  const dotCenter = {
+    x: current.position.x + Math.round((DOT_SIZE * current.scale) / 2),
+    y: current.position.y + Math.round((DOT_SIZE * current.scale) / 2),
+  };
+  const targetPosition = await clampWindowPosition({
+    x: dotCenter.x - Math.round((target.width * current.scale) / 2),
+    y: dotCenter.y - Math.round((target.height * current.scale) / 2),
+  }, target, current.scale, monitor);
+  return { target, targetPosition };
 }
 
 // 固定模式：不随失焦隐藏，显示任务栏图标，可从任务栏切回
@@ -316,30 +384,46 @@ function switchPanel(p) {
 
 // 缩回圆点态：64×64 小窗
 async function enterCompact(animate = true) {
-  // 收起动画进行中：忽略重复触发（双击收起/热键连按），避免并行飞行任务与圆点提前挂载
-  if (collapsing) return;
-  // 动画路径：切圆点态触发淡出的同时并行平滑缩窗，消除"淡出完才瞬跳"的卡顿
-  if (animate && form.value === "expanded") {
-    collapsing = true;
-    dotReady.value = false; // 先卸载圆点，避免在大窗口内淡入
-    // 动画期间窗口纯透明且不拦截鼠标（点击穿透到桌面），动画结束由 onMainLeave 恢复
-    win.setIgnoreCursorEvents(true).catch(() => {});
-    // 大面板从第一帧就不渲染（收起观感由 fly-dot 光点衔接）：visibility:inline 同帧生效，
-    // Transition 管线照常走完（after-leave/dotReady 时序零改动）
-    animStyle.value = { visibility: "hidden" };
-    // 先关闭 acrylic 毛玻璃再启动动画：避免动画期间残留"大边框"与效果切换闪烁
+  if (transitionPhase.value === "collapsing") return;
+  const token = beginWindowAnimation();
+  transitionPhase.value = "collapsing";
+  dotReady.value = false;
+  expandProxy.value = false;
+  collapseProxy.value = animate && form.value === "expanded";
+  animStyle.value = animate && form.value === "expanded" ? { visibility: "hidden" } : null;
+  await win.setIgnoreCursorEvents(true).catch(() => {});
+
+  try {
     await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
-    form.value = "compact"; // 触发主界面淡出
-    shrinkCancel = false;
-    shrinkTask = animateShrink(); // 并行开始平滑缩窗（不等待）
-    return;
+    if (!isCurrentWindowAnimation(token)) return;
+
+    await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
+    const current = await readWindowBounds();
+    const targetPosition = await clampWindowPosition(
+      dotRestorePos || current.position,
+      { width: DOT_SIZE, height: DOT_SIZE },
+      current.scale,
+    );
+    const completed = animate && form.value === "expanded"
+      ? await animateWindowBounds(token, { width: DOT_SIZE, height: DOT_SIZE }, targetPosition)
+      : await queueWindowBounds({ width: DOT_SIZE, height: DOT_SIZE }, targetPosition).then(() => true);
+    if (!completed || !isCurrentWindowAnimation(token)) return;
+
+    form.value = "compact";
+    await nextTick();
+    animStyle.value = null;
+    collapseProxy.value = false;
+    dotReady.value = true;
+    dotRestorePos = null;
+    await win.setIgnoreCursorEvents(false).catch(() => {});
+  } catch (e) {
+    if (isCurrentWindowAnimation(token)) console.error("缩回圆点失败", e);
+  } finally {
+    if (isCurrentWindowAnimation(token)) {
+      transitionPhase.value = "idle";
+      finishWindowAnimation(token);
+    }
   }
-  shrinkCancel = false;
-  // 圆点态：关闭毛玻璃背景，保持纯透明（圆点由 CSS 绘制）
-  await win.clearEffects().catch(() => {});
-  await shrinkToDot();
-  form.value = "compact";
-  dotReady.value = true;
 }
 
 // 展开主界面：680×500，就地展开并纠正到可见区
@@ -347,43 +431,47 @@ async function enterCompact(animate = true) {
 // 该场景马上要设置自己的 query/打开详情，恢复会触发 watch 把详情视图覆盖回搜索
 // opts.noFocus：跳转后不聚焦搜索框（AI 跳转场景，聚焦会触发 onSearchFocus 把 AI 视图覆盖回搜索）
 async function enterExpanded(initialView = "search", opts = {}) {
-  // 展开主窗口时隐藏快捷查找窗：避免小窗叠在大窗口上（quick 窗口只服务圆点态 hover）
-  invoke("hide_quick").catch(() => {});
-  clearTimeout(quickHideTimer);
-  // 中断进行中的收起动画（若用户在动画期间展开）：标记取消并清除飞行动画样式
-  shrinkCancel = true;
-  shrinkTask = null;
+  if (transitionPhase.value === "expanding") return;
+  const token = beginWindowAnimation();
+  transitionPhase.value = "expanding";
+  dotReady.value = false;
+  collapseProxy.value = false;
+  expandProxy.value = true;
   animStyle.value = null;
-  collapsing = false; // 动画被中断：解除重复触发守卫
-  win.setIgnoreCursorEvents(false).catch(() => {}); // 恢复鼠标事件（动画期间已穿透）
+  // 展开主窗口时隐藏快捷查找窗：避免小窗叠在大窗口上（quick 窗口只服务圆点态 hover）
+  await invoke("hide_quick").catch(() => {});
+  clearTimeout(quickHideTimer);
+  await win.setIgnoreCursorEvents(false).catch(() => {});
   // 展开态：恢复 acrylic 毛玻璃背景
   await win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e));
-  // 记录圆点位置：收起时精确还原，避免缩放锚点导致的位置漂移（钳制到可见区，
-  // 最小化/异常状态下 outerPosition 可能返回 -32000）
-  if (form.value === "compact") {
-    try {
-      const pos = await win.outerPosition();
-      dotRestorePos = await clampToWorkArea(pos);
-    } catch (e) {
-      console.error("记录圆点位置失败", e);
+
+  try {
+    if (!isCurrentWindowAnimation(token)) return;
+    const { target, targetPosition } = await restoreExpandedBounds();
+    if (!isCurrentWindowAnimation(token)) return;
+    const completed = await animateWindowBounds(token, target, targetPosition);
+    if (!completed || !isCurrentWindowAnimation(token)) return;
+    await win.setMinSize(new LogicalSize(520, 300));
+    if (!isCurrentWindowAnimation(token)) return;
+
+    form.value = "expanded";
+    expandProxy.value = false;
+    view.value = initialView;
+    // 有上次搜索内容时优先回搜索态并恢复输入框（自动聚焦+全选，方便直接输入）；设置视图除外
+    const savedQuery = loadLastQuery();
+    if (!opts.skipRestore && savedQuery && initialView !== "settings") {
+      view.value = "search";
+      query.value = savedQuery;
+    }
+    if (!opts.noFocus && view.value === "search") focusInput();
+  } catch (e) {
+    if (isCurrentWindowAnimation(token)) console.error("展开失败", e);
+  } finally {
+    if (isCurrentWindowAnimation(token)) {
+      transitionPhase.value = "idle";
+      finishWindowAnimation(token);
     }
   }
-  try {
-    await win.setMinSize(new LogicalSize(520, 300));
-    await win.setSize(new LogicalSize(EXPAND_W, EXPAND_H));
-    await clampToVisible();
-  } catch (e) {
-    console.error("展开失败", e);
-  }
-  form.value = "expanded";
-  view.value = initialView;
-  // 有上次搜索内容时优先回搜索态并恢复输入框（自动聚焦+全选，方便直接输入）；设置视图除外
-  const savedQuery = loadLastQuery();
-  if (!opts.skipRestore && savedQuery && initialView !== "settings") {
-    view.value = "search";
-    query.value = savedQuery;
-  }
-  if (!opts.noFocus && view.value === "search") focusInput();
 }
 
 // 窗口位置纠正到当前显示器可见范围（完整可见 clamp，物理像素）
@@ -393,10 +481,11 @@ async function clampToVisible() {
     if (!mon) return;
     const p = await win.outerPosition();
     const s = await win.outerSize();
-    const maxX = Math.max(0, mon.size.width - s.width);
-    const maxY = Math.max(0, mon.size.height - s.height);
-    const x = Math.min(Math.max(p.x, 0), maxX);
-    const y = Math.min(Math.max(p.y, 0), maxY);
+    const area = mon.workArea || { position: mon.position, size: mon.size };
+    const maxX = area.position.x + Math.max(0, area.size.width - s.width);
+    const maxY = area.position.y + Math.max(0, area.size.height - s.height);
+    const x = Math.min(Math.max(p.x, area.position.x), maxX);
+    const y = Math.min(Math.max(p.y, area.position.y), maxY);
     if (x !== p.x || y !== p.y) {
       await win.setPosition(new PhysicalPosition(x, y));
     }
@@ -411,15 +500,7 @@ async function clampToWorkArea(pos, size = DOT_SIZE) {
   try {
     const mon = await currentMonitor();
     if (!mon || !pos) return pos;
-    const s = mon.scaleFactor || 1;
-    const dotPx = Math.round(size * s);
-    const ax = mon.position.x;
-    const ay = mon.position.y;
-    const aw = mon.size.width;
-    const ah = mon.size.height;
-    const x = Math.min(Math.max(pos.x, ax), ax + aw - dotPx);
-    const y = Math.min(Math.max(pos.y, ay), ay + ah - dotPx);
-    return { x, y };
+    return clampWindowPosition(pos, { width: size, height: size }, mon.scaleFactor || 1, mon);
   } catch {
     return pos;
   }
@@ -1329,6 +1410,11 @@ onMounted(async () => {
     console.error("托盘创建失败", e);
   }
   await win.onFocusChanged(({ payload: focused }) => {
+    // 原生边界动画期间忽略中间态焦点变化，避免失焦定时器重新触发另一条动画。
+    if (transitionPhase.value !== "idle") {
+      clearTimeout(hideTimer);
+      return;
+    }
     if (focused) {
       clearTimeout(hideTimer);
       // 悬浮/弹窗模式：从"最小化到任务栏"还原后恢复无任务栏图标（dismissWindow 最小化时临时显示）
@@ -1365,6 +1451,8 @@ onMounted(async () => {
   // 悬浮模式：窗口移动后防抖保存位置 + 水平边缘吸附（80px 内贴边）
   let moveTimer = null;
   await win.onMoved(async ({ payload: pos }) => {
+    // 动画自身会连续触发 onMoved；不让这些中间坐标覆盖圆点还原位置或触发吸附。
+    if (transitionPhase.value !== "idle") return;
     // 展开态拖动窗口：立即同步圆点还原位置（收起时圆点跟随窗口当前位置，不等待防抖）
     if (form.value === "expanded") dotRestorePos = { x: pos.x, y: pos.y };
     clearTimeout(moveTimer);
@@ -1405,6 +1493,7 @@ onMounted(async () => {
 
 // 组件卸载时清理全局监听器（单实例常驻下主要在 HMR/开发环境触发）
 onUnmounted(() => {
+  cancelWindowAnimation();
   window.removeEventListener("keydown", onKeydown);
   document.removeEventListener("mouseenter", onPointerEnter);
   document.removeEventListener("mouseleave", onPointerLeave);
@@ -1423,9 +1512,9 @@ onUnmounted(() => {
       @mouseenter="showQuickOnHover"
       @mouseleave="hideQuickOnLeave"
     />
-    <!-- 收起衔接光点：main-view 隐藏后从窗口中心飞向圆点终点（fixed 定位不受 shell 圆角裁剪） -->
-    <div v-if="flyStyle" class="fly-dot" :style="flyStyle"></div>
-    <Transition name="fade" @after-leave="onMainLeave"><div v-show="form === `expanded`" class="main-view" :style="animStyle">
+    <!-- 原生窗口边界动画期间，代理圆点始终位于当前窗口中心，避免 WebView 内容重排闪烁 -->
+    <div v-if="collapseProxy || expandProxy" class="window-transition-dot"></div>
+    <Transition name="fade"><div v-show="form === `expanded`" class="main-view" :style="animStyle">
     <header v-if="view !== 'settings'" class="topbar">
       <div class="grip" title="按住拖动窗口" @mousedown.prevent="startDrag">
         <svg viewBox="0 0 24 24" fill="currentColor">
@@ -1792,17 +1881,18 @@ body {
   overflow: hidden;
 }
 
-/* 收起动画期间允许飞行内容超出圆角范围 */
+/* 原生窗口边界动画期间代理圆点不受内容布局影响 */
 .shell.compact {
   overflow: visible;
 }
 
-/* 收起衔接光点：从窗口中心（原大卡片中心）飞向圆点中心，终点缩小渐隐与缩窗瞬间交接。
-   位移量由 flyStyle 以 CSS 变量注入（--fly-dx/--fly-dy），keyframes 里引用 */
-.fly-dot {
+/* 原生窗口边界动画期间的代理圆点：窗口本身负责移动和缩放，代理只保持中心位置 */
+.window-transition-dot {
   position: fixed;
-  width: 26px;
-  height: 26px;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: rgba(35, 48, 66, 0.82);
   border: 1px solid rgba(255, 255, 255, 0.35);
@@ -1810,23 +1900,15 @@ body {
     inset 0 1px 3px rgba(255, 255, 255, 0.25),
     inset 0 -2px 6px rgba(0, 0, 0, 0.28),
     0 0 12px rgba(82, 112, 143, 0.45);
+  transform: translate(-50%, -50%);
   pointer-events: none;
   z-index: 60;
-  animation: fly-to-dot 190ms cubic-bezier(0.3, 0.1, 0.5, 1) forwards;
+  animation: transition-dot-in 120ms ease-out both;
 }
 
-@keyframes fly-to-dot {
-  from {
-    transform: translate(0, 0) scale(1);
-    opacity: 1;
-  }
-  70% {
-    opacity: 1;
-  }
-  to {
-    transform: translate(var(--fly-dx), var(--fly-dy)) scale(0.34);
-    opacity: 0;
-  }
+@keyframes transition-dot-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
 }
 
 .main-view {
