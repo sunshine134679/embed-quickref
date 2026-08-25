@@ -968,9 +968,17 @@ function closeApp() {
 function cancelQuit() {
   confirmQuit.value = false;
 }
+async function quitApplication() {
+  try {
+    // 必须退出整个 Tauri 应用，而不是只销毁 main 窗口；quick 窗口和托盘仍会保持进程运行。
+    await invoke("exit_app");
+  } catch (error) {
+    console.error("退出应用失败", error);
+  }
+}
 async function doQuit() {
   confirmQuit.value = false;
-  await win.destroy();
+  await quitApplication();
 }
 
 // 拖动手柄 / 空白栏按下即拖动窗口
@@ -1445,7 +1453,7 @@ async function setupTray() {
           await openSettingsView();
         },
       },
-      { id: "quit", text: "退出", action: () => win.destroy() },
+      { id: "quit", text: "退出", action: quitApplication },
     ],
   });
   await TrayIcon.new({

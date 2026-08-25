@@ -32,9 +32,16 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_http::init())
         .manage(QuickFocusState::default())
-        .invoke_handler(tauri::generate_handler![show_quick, hide_quick, secret_protect, secret_reveal])
+        .invoke_handler(tauri::generate_handler![show_quick, hide_quick, secret_protect, secret_reveal, exit_app])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+// 退出整个应用，而不是只销毁当前窗口；托盘图标和 quick 窗口也必须随应用一并结束。
+#[tauri::command]
+fn exit_app(app: AppHandle) -> Result<(), String> {
+    app.exit(0);
+    Ok(())
 }
 
 // 快捷查找窗口：显示在悬浮圆点旁（默认右侧，越界翻到左侧/上移），物理像素定位
