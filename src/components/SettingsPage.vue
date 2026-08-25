@@ -43,6 +43,7 @@ const activeCategory = ref("shortcuts");
 const capturing = ref("");
 const formError = ref("");
 const autoSaved = ref(false);
+const fallbackExpanded = ref(false);
 let autoSavedTimer = null;
 let autoSaveTimer = null;
 const providerId = ref("");
@@ -52,6 +53,7 @@ const providerId = ref("");
 }
 const currentProvider = computed(() => PROVIDERS.find((x) => x.id === providerId.value) || null);
 const endpoint = computed(() => endpointFor(form.model));
+const fallbackSummary = computed(() => form.fallbacks.length ? `${form.fallbacks.length} 个已配置` : "未配置");
 
 function shortcutFromEvent(e) {
   if (["Control", "Alt", "Shift", "Meta"].includes(e.key)) return "";
@@ -183,16 +185,25 @@ onUnmounted(() => {
           <label class="form-row"><span>模型名</span><input v-model="form.model" type="text" spellcheck="false" placeholder="deepseek-chat" /></label>
           <div v-if="currentProvider?.models?.length" class="model-chips"><button v-for="m in currentProvider.models" :key="m" type="button" class="model-chip" :class="{ active: form.model === m }" @click="form.model = m">{{ m }}</button></div>
           <p class="hint">接口：{{ endpoint === "responses" ? "OpenAI Responses (/responses)" : "OpenAI 兼容 (/chat/completions)" }} —— gpt-*/grok-* 模型自动走 /responses</p>
-          <section class="fallback-section">
-            <div class="section-header"><div><div class="field-label">备用模型</div><p class="hint">主模型请求失败时按顺序自动切换，数量不限；备用项留空会复用主 Key 和 Base URL。</p></div><button type="button" class="add-button" @click="addFallback">+ 添加备用模型</button></div>
-            <div v-if="form.fallbacks.length" class="fallback-list">
-              <div v-for="(row, index) in form.fallbacks" :key="index" class="fallback-card">
-                <div class="fallback-card-head"><span>备用 {{ index + 1 }}</span><div class="fallback-controls"><button type="button" :disabled="index === 0" title="上移" @click="moveFallback(index, -1)">↑</button><button type="button" :disabled="index === form.fallbacks.length - 1" title="下移" @click="moveFallback(index, 1)">↓</button><button type="button" class="remove-button" @click="removeFallback(index)">删除</button></div></div>
-                <div class="fallback-grid"><select :value="row.providerId" class="provider-select" @change="setFallbackProvider(row, $event.target.value)"><option value="">自定义</option><option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.name }}</option></select><input v-model="row.model" type="text" spellcheck="false" placeholder="模型名，如 deepseek-chat" /><input v-model="row.baseUrl" type="text" spellcheck="false" placeholder="留空复用主 Base URL" /><input v-model="row.apiKey" type="password" spellcheck="false" placeholder="留空复用主 API Key" /></div>
-                <div v-if="fallbackProvider(row)?.models?.length" class="model-chips fallback-chips"><button v-for="m in fallbackProvider(row).models" :key="m" type="button" class="model-chip" :class="{ active: row.model === m }" @click="row.model = m">{{ m }}</button></div>
+          <section class="fallback-settings">
+            <button type="button" class="fallback-toggle" :aria-expanded="fallbackExpanded" @click="fallbackExpanded = !fallbackExpanded">
+              <span class="fallback-toggle-main">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M7 7h10M7 17h10"/><path d="m14 4 3 3-3 3M10 14l-3 3 3 3"/><path d="M17 7a5 5 0 0 1 0 10M7 7a5 5 0 0 0 0 10"/></svg>
+                <span><strong>故障转移</strong><small>主模型不可用时按顺序尝试备用模型</small></span>
+              </span>
+              <span class="fallback-toggle-side">{{ fallbackSummary }} <span class="fallback-chevron" :class="{ open: fallbackExpanded }">⌄</span></span>
+            </button>
+            <div v-if="fallbackExpanded" class="fallback-editor">
+              <div class="fallback-editor-head"><span>备用模型顺序</span><button type="button" class="add-button" @click="addFallback">添加模型</button></div>
+              <div v-if="form.fallbacks.length" class="fallback-list">
+                <div v-for="(row, index) in form.fallbacks" :key="index" class="fallback-card">
+                  <div class="fallback-card-head"><span>备用 {{ index + 1 }}</span><div class="fallback-controls"><button type="button" :disabled="index === 0" title="上移" @click="moveFallback(index, -1)">↑</button><button type="button" :disabled="index === form.fallbacks.length - 1" title="下移" @click="moveFallback(index, 1)">↓</button><button type="button" class="remove-button" @click="removeFallback(index)">删除</button></div></div>
+                  <div class="fallback-grid"><select :value="row.providerId" class="provider-select" @change="setFallbackProvider(row, $event.target.value)"><option value="">自定义</option><option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.name }}</option></select><input v-model="row.model" type="text" spellcheck="false" placeholder="模型名，如 deepseek-chat" /><input v-model="row.baseUrl" type="text" spellcheck="false" placeholder="留空复用主 Base URL" /><input v-model="row.apiKey" type="password" spellcheck="false" placeholder="留空复用主 API Key" /></div>
+                  <div v-if="fallbackProvider(row)?.models?.length" class="model-chips fallback-chips"><button v-for="m in fallbackProvider(row).models" :key="m" type="button" class="model-chip" :class="{ active: row.model === m }" @click="row.model = m">{{ m }}</button></div>
+                </div>
               </div>
+              <p v-else class="empty-fallback">暂未添加。添加后，主模型失败会按顺序继续尝试。</p>
             </div>
-            <p v-else class="empty-fallback">尚未添加备用模型，当前只使用主模型。</p>
           </section>
           <p class="hint">API Key 只写入本机配置文件，不会出现在代码或 git 仓库中。</p>
         </div>
@@ -235,9 +246,21 @@ h2,h3 { color:#334155; } h2 { font-size:17px; font-weight:650; } h3 { font-size:
 .form-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; } .form-row>span { flex:none; width:70px; color:#64748b; font-size:13px; }
 input,.provider-select { min-width:0; flex:1; height:32px; padding:0 10px; border:1px solid #dbe2ea; border-radius:6px; outline:none; background:#fff; color:#1f2937; font-size:13px; } input:focus,.provider-select:focus { border-color:#8fa8c4; } .provider-select { padding:0 8px; cursor:pointer; }
 .model-chips { display:flex; flex-wrap:wrap; gap:6px; margin:-2px 0 10px 82px; } .model-chip { padding:3px 10px; border:1px solid #dbe2ea; border-radius:999px; background:#fff; color:#64748b; font-size:12px; cursor:pointer; } .model-chip.active { border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1); color:var(--accent); font-weight:600; }
-.hint { margin:8px 0 14px; line-height:1.5; } .fallback-section { margin:4px 0 16px; padding:12px; border:1px solid #e5eaf0; border-radius:8px; background:#f8fafc; }
-.section-header { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; } .section-header .hint { margin:4px 0 10px; } .add-button { flex:none; padding:5px 10px; color:#52708f; font-size:12px; }
-.fallback-list { display:flex; flex-direction:column; gap:8px; } .fallback-card { padding:9px 10px 8px; border:1px solid #dbe2ea; border-radius:7px; background:#fff; } .fallback-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; color:#64748b; font-size:12px; font-weight:600; } .fallback-controls { display:flex; gap:4px; } .fallback-controls button { padding:2px 7px; font-size:12px; } .fallback-controls button:disabled { cursor:default; opacity:.35; } .remove-button { color:#b45353; }
+.hint { margin:8px 0 14px; line-height:1.5; }
+.fallback-settings { margin:18px 0 14px; border-top:1px solid #e5eaf0; border-bottom:1px solid #e5eaf0; }
+.fallback-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:58px; padding:8px 2px; border:0; border-radius:0; background:transparent; color:#64748b; text-align:left; cursor:pointer; }
+.fallback-toggle:hover { background:rgba(241,245,249,.55); }
+.fallback-toggle-main { display:flex; align-items:center; gap:10px; min-width:0; }
+.fallback-toggle-main svg { flex:none; width:20px; height:20px; color:#7890a9; }
+.fallback-toggle-main span { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.fallback-toggle-main strong { color:#475569; font-size:13px; font-weight:550; }
+.fallback-toggle-main small { color:#a3aebc; font-size:11px; }
+.fallback-toggle-side { display:flex; align-items:center; gap:8px; flex:none; color:#8b9bad; font-size:11px; }
+.fallback-chevron { display:inline-block; font-size:16px; line-height:1; transition:transform .15s ease; } .fallback-chevron.open { transform:rotate(180deg); }
+.fallback-editor { padding:2px 0 12px; }
+.fallback-editor-head { display:flex; align-items:center; justify-content:space-between; margin:2px 0 8px; color:#7890a9; font-size:11px; font-weight:600; }
+.add-button { padding:4px 0; border:0; background:transparent; color:#52708f; font-size:12px; cursor:pointer; } .add-button:hover { color:#334f6b; background:transparent; }
+.fallback-list { display:flex; flex-direction:column; gap:8px; } .fallback-card { padding:9px 10px 8px; border:1px solid #e5eaf0; border-radius:7px; background:#fbfcfe; } .fallback-card-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; color:#64748b; font-size:12px; font-weight:600; } .fallback-controls { display:flex; gap:4px; } .fallback-controls button { padding:2px 7px; font-size:12px; } .fallback-controls button:disabled { cursor:default; opacity:.35; } .remove-button { color:#b45353; }
 .fallback-grid { display:grid; grid-template-columns:112px 1fr; gap:7px; } .fallback-grid input,.fallback-grid .provider-select { width:auto; } .fallback-chips { margin:7px 0 0; } .empty-fallback { margin:2px 0 0; color:#94a3b8; font-size:12px; }
 .field { margin-bottom:12px; } .field-label { display:block; margin-bottom:7px; color:#64748b; font-size:13px; } .mode-options { display:flex; flex-direction:column; gap:7px; } .mode-opt { display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid #dbe2ea; border-radius:8px; background:#fff; color:#64748b; font-size:13px; cursor:pointer; text-align:left; } .mode-opt.active { border-color:rgba(143,168,196,.8); background:rgba(82,112,143,.1); color:#52708f; } .mode-name { flex:none; min-width:56px; font-weight:600; } .mode-desc { color:#94a3b8; font-size:12px; }
 .accent-options { display:flex; gap:8px; } .accent-options button { height:32px; padding:0 16px; border:1px solid #dbe2ea; border-radius:8px; background:#fff; color:#64748b; font-size:13px; cursor:pointer; } .accent-options button.active { border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1); color:var(--accent); font-weight:600; }
