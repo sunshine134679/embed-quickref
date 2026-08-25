@@ -95,8 +95,11 @@ const dotPosition = ref(null);
 let dotRestorePos = null;
 // 圆点相对展开主窗口左上角的物理像素偏移，保证右侧/底部圆点也能原路收回
 let dotAnchorOffset = { x: 0, y: 0 };
-// 原生 setPosition 触发的延迟 onMoved 不应覆盖真实圆点锚点
-let ignoreWindowMoveUntil = 0;
+// 原生 setPosition 触发的延迟 onMoved：只忽略与最近一次程序化目标完全相同的事件
+let expectedProgrammaticPosition = null;
+// 动画期间收到的最后一次焦点状态，动画结束后重新核对，避免直接丢弃失焦事件
+let pendingFocus = null;
+let focusReconcileTimer = null;
 // 圆点挂载时机：原生窗口边界动画完成前不挂载，避免圆点在大窗口内淡入后跳变
 const dotReady = ref(false);
 // 主界面动画期间的视觉隐藏样式
@@ -123,12 +126,17 @@ function loadLastQuery() {
 // 当前窗口边界动画。每次新动画都会取消旧令牌，旧异步任务即使晚返回也不能提交状态。
 let windowAnimationSeq = 0;
 let activeWindowAnimation = null;
-// 原生窗口调用按帧串行，避免旧帧和新帧同时到达 Windows 后出现尺寸/位置倒序。
+// 原生窗口边界调用串行，避免尺寸/位置操作在 Windows 侧倒序到达。
 let windowBoundsQueue = Promise.resolve();
+// Acrylic 切换也串行，避免旧收起的 clearEffects 覆盖新展开的 setEffects。
+let windowEffectsQueue = Promise.resolve();
 const transitionPhase = ref("idle"); // idle | expanding | collapsing
 
 function beginWindowAnimation() {
   if (activeWindowAnimation) activeWindowAnimation.cancelled = true;
+  clearTimeout(focusReconcileTimer);
+  focusReconcileTimer = null;
+  pendingFocus = null;
   const token = { id: ++windowAnimationSeq, cancelled: false };
   activeWindowAnimation = token;
   return token;
@@ -141,6 +149,9 @@ function isCurrentWindowAnimation(token) {
 function cancelWindowAnimation() {
   windowAnimationSeq += 1;
   if (activeWindowAnimation) activeWindowAnimation.cancelled = true;
+  clearTimeout(focusReconcileTimer);
+  focusReconcileTimer = null;
+  pendingFocus = null;
   activeWindowAnimation = null;
 }
 
@@ -156,6 +167,23 @@ function queueWindowBounds(size, position) {
   const task = windowBoundsQueue.then(run, run);
   windowBoundsQueue = task.catch(() => {});
   return task;
+}
+
+function queueWindowEffects(run) {
+  const task = windowEffectsQueue.then(run, run);
+  windowEffectsQueue = task.catch(() => {});
+  return task;
+}
+
+function markProgrammaticPosition(position) {
+  expectedProgrammaticPosition = position ? { x: position.x, y: position.y } : null;
+}
+
+function consumeProgrammaticPosition(position) {
+  if (!expectedProgrammaticPosition) return false;
+  const expected = expectedProgrammaticPosition;
+  expectedProgrammaticPosition = null;
+  return Math.abs(position.x - expected.x) <= 2 && Math.abs(position.y - expected.y) <= 2;
 }
 
 function waitForAnimation(token, duration = WINDOW_ANIMATION_MS) {
@@ -377,8 +405,9 @@ async function enterCompact(animate = true) {
   await win.setIgnoreCursorEvents(true).catch(() => {});
 
   try {
-    await win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e));
-    if (!isCurrentWindowAnimation(token)) return;
+    const clearEffectsTask = queueWindowEffects(() =>
+      win.clearEffects().catch((e) => console.error("关闭窗口效果失败", e)),
+    );
 
     await win.setMinSize(new LogicalSize(DOT_SIZE, DOT_SIZE));
     const current = await readWindowBounds();
@@ -402,15 +431,22 @@ async function enterCompact(animate = true) {
         "--fly-dx": `${dx.toFixed(1)}px`,
         "--fly-dy": `${dy.toFixed(1)}px`,
       };
-      if (!await waitForAnimation(token)) return;
+      const [effectsCleared, animationFinished] = await Promise.all([
+        clearEffectsTask.then(() => true),
+        waitForAnimation(token),
+      ]);
+      if (!effectsCleared || !animationFinished || !isCurrentWindowAnimation(token)) return;
+    } else {
+      await clearEffectsTask;
+      if (!isCurrentWindowAnimation(token)) return;
     }
+    markProgrammaticPosition(targetPosition);
     const completed = await queueWindowBounds(
       { width: DOT_SIZE, height: DOT_SIZE },
       targetPosition,
     ).then(() => true);
     if (!completed || !isCurrentWindowAnimation(token)) return;
 
-    ignoreWindowMoveUntil = Date.now() + 500;
     flyStyle.value = null;
     form.value = "compact";
     await nextTick();
@@ -425,6 +461,7 @@ async function enterCompact(animate = true) {
     if (isCurrentWindowAnimation(token)) {
       transitionPhase.value = "idle";
       finishWindowAnimation(token);
+      if (form.value === "expanded") scheduleFocusReconcile();
     }
   }
 }
@@ -472,12 +509,19 @@ async function enterExpanded(initialView = "search", opts = {}) {
       opacity: 0,
       transition: "none",
     };
+    // 先准备最终页面内容；动画期间主面板不可见，避免动画结束后突然换页。
+    view.value = initialView;
+    const savedQuery = loadLastQuery();
+    if (!opts.skipRestore && savedQuery && initialView !== "settings") {
+      view.value = "search";
+      query.value = savedQuery;
+    }
     // 若圆点位于工作区边缘，原生窗口可以向左/上移动，但视觉起点仍保持在真实圆点上。
+    markProgrammaticPosition(targetPosition);
     await queueWindowBounds({ width: DOT_SIZE, height: DOT_SIZE }, targetPosition);
     if (!isCurrentWindowAnimation(token)) return;
     await queueWindowBounds(target, targetPosition);
     if (!isCurrentWindowAnimation(token)) return;
-    ignoreWindowMoveUntil = Date.now() + 500;
     await win.setMinSize(new LogicalSize(520, 300));
     if (!isCurrentWindowAnimation(token)) return;
 
@@ -496,14 +540,10 @@ async function enterExpanded(initialView = "search", opts = {}) {
     if (!await waitForAnimation(token)) return;
     animStyle.value = null;
     // 等主面板完成 CSS 展开后再恢复 Acrylic，避免原生效果先把整块大窗口瞬间铺出来。
-    await win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e));
-    view.value = initialView;
-    // 有上次搜索内容时优先回搜索态并恢复输入框（自动聚焦+全选，方便直接输入）；设置视图除外
-    const savedQuery = loadLastQuery();
-    if (!opts.skipRestore && savedQuery && initialView !== "settings") {
-      view.value = "search";
-      query.value = savedQuery;
-    }
+    await queueWindowEffects(() =>
+      win.setEffects({ effects: ["acrylic"] }).catch((e) => console.error("恢复窗口效果失败", e)),
+    );
+    if (!isCurrentWindowAnimation(token)) return;
     if (!opts.noFocus && view.value === "search") focusInput();
   } catch (e) {
     if (isCurrentWindowAnimation(token)) console.error("展开失败", e);
@@ -1079,6 +1119,18 @@ async function focusInput() {
   searchBox.value?.focus();
 }
 
+function scheduleFocusReconcile() {
+  clearTimeout(focusReconcileTimer);
+  focusReconcileTimer = setTimeout(async () => {
+    focusReconcileTimer = null;
+    const wasBlurredDuringTransition = pendingFocus === false;
+    pendingFocus = null;
+    if (!wasBlurredDuringTransition || transitionPhase.value !== "idle" || form.value !== "expanded") return;
+    if (pointerInside || await win.isFocused().catch(() => true) || await win.isMinimized().catch(() => false)) return;
+    await enterCompact();
+  }, 120);
+}
+
 // ---------- 快捷查找窗口（quick）：圆点 hover 弹出 / 详情跳转回主窗口 ----------
 
 let quickShowTimer = null; // 弹出防抖：鼠标快速划过圆点不弹窗（避免闪烁与残留）
@@ -1451,12 +1503,14 @@ onMounted(async () => {
     console.error("托盘创建失败", e);
   }
   await win.onFocusChanged(({ payload: focused }) => {
-    // 原生边界动画期间忽略中间态焦点变化，避免失焦定时器重新触发另一条动画。
+    // 原生边界动画期间记录焦点变化，动画完成后再按实际 OS 焦点状态处理。
     if (transitionPhase.value !== "idle") {
+      pendingFocus = focused;
       clearTimeout(hideTimer);
       return;
     }
     if (focused) {
+      pendingFocus = true;
       clearTimeout(hideTimer);
       // 悬浮/弹窗模式：从"最小化到任务栏"还原后恢复无任务栏图标（dismissWindow 最小化时临时显示）
       if (!pinned.value && mode.value !== "pinned") {
@@ -1464,6 +1518,7 @@ onMounted(async () => {
       }
       return;
     }
+    pendingFocus = false;
     // 固定（图钉按钮 pinned 或固定模式）：不随失焦收起为圆点 / 隐藏窗口
     if (pinned.value || mode.value === "pinned") return;
     if (mode.value === "floating") {
@@ -1494,18 +1549,16 @@ onMounted(async () => {
   await win.onMoved(async ({ payload: pos }) => {
     // 动画自身会连续触发 onMoved；不让这些中间坐标覆盖圆点还原位置或触发吸附。
     if (transitionPhase.value !== "idle") return;
-    if (Date.now() < ignoreWindowMoveUntil) return;
-    // 展开态拖动窗口：立即同步圆点还原位置（收起时圆点跟随窗口当前位置，不等待防抖）
-    if (form.value === "expanded") {
-      dotRestorePos = {
-        x: pos.x + dotAnchorOffset.x,
-        y: pos.y + dotAnchorOffset.y,
-      };
-    }
+    if (consumeProgrammaticPosition(pos)) return;
+    // 展开态拖动窗口：保持圆点相对主窗口的偏移，收起时仍回到真实聚焦点。
+    const anchorPos = form.value === "expanded"
+      ? { x: pos.x + dotAnchorOffset.x, y: pos.y + dotAnchorOffset.y }
+      : { x: pos.x, y: pos.y };
+    if (form.value === "expanded") dotRestorePos = anchorPos;
     clearTimeout(moveTimer);
     moveTimer = setTimeout(async () => {
       // 钳制到可见区再保存：最小化等异常移动不会把圆点位置存到屏幕外
-      dotPosition.value = (await clampToWorkArea({ x: pos.x, y: pos.y })) || { x: pos.x, y: pos.y };
+      dotPosition.value = (await clampToWorkArea(anchorPos)) || anchorPos;
       if (stateStore) {
         await stateStore.set("dotPosition", dotPosition.value);
         await stateStore.save();
@@ -1516,10 +1569,21 @@ onMounted(async () => {
         if (!mon) return;
         const scale = mon.scaleFactor || 1;
         const dotPx = Math.round(DOT_SIZE * scale);
-        let nx = pos.x;
-        if (pos.x < 80 * scale) nx = 0;
-        else if (mon.size.width - pos.x - dotPx < 80 * scale) nx = mon.size.width - dotPx;
-        if (nx !== pos.x) await win.setPosition(new PhysicalPosition(nx, pos.y));
+        const area = mon.workArea || { position: mon.position, size: mon.size };
+        let nx = anchorPos.x;
+        if (anchorPos.x - area.position.x < 80 * scale) nx = area.position.x;
+        else if (area.position.x + area.size.width - anchorPos.x - dotPx < 80 * scale) {
+          nx = area.position.x + area.size.width - dotPx;
+        }
+        if (nx !== anchorPos.x) {
+          markProgrammaticPosition({ x: nx, y: anchorPos.y });
+          await win.setPosition(new PhysicalPosition(nx, anchorPos.y));
+          dotPosition.value = { x: nx, y: anchorPos.y };
+          if (stateStore) {
+            await stateStore.set("dotPosition", dotPosition.value);
+            await stateStore.save();
+          }
+        }
       } catch (e) {
         console.error("吸附失败", e);
       }
