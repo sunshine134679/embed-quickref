@@ -1246,9 +1246,9 @@ async function onSaveSettings(next) {
   focusInput();
 }
 
-// 快捷键页采用按键即保存：串行写入，避免连续改键时后一次保存覆盖前一次注册状态。
+// 设置页采用修改即保存：串行写入，避免连续改动时后一次保存覆盖前一次注册状态。
 let shortcutSaveTask = Promise.resolve();
-function onAutoSaveShortcuts(next) {
+function onAutoSaveSettings(next) {
   shortcutSaveTask = shortcutSaveTask.then(async () => {
     const prev = { ...settings.value };
     await saveSettings(next);
@@ -1426,7 +1426,7 @@ onUnmounted(() => {
     <!-- 收起衔接光点：main-view 隐藏后从窗口中心飞向圆点终点（fixed 定位不受 shell 圆角裁剪） -->
     <div v-if="flyStyle" class="fly-dot" :style="flyStyle"></div>
     <Transition name="fade" @after-leave="onMainLeave"><div v-show="form === `expanded`" class="main-view" :style="animStyle">
-    <header class="topbar">
+    <header v-if="view !== 'settings'" class="topbar">
       <div class="grip" title="按住拖动窗口" @mousedown.prevent="startDrag">
         <svg viewBox="0 0 24 24" fill="currentColor">
           <circle cx="9" cy="6" r="1.4" /><circle cx="15" cy="6" r="1.4" />
@@ -1534,7 +1534,16 @@ onUnmounted(() => {
         </svg>
       </button>
     </header>
-    <nav v-if="tabs.length" class="tabbar">
+    <header v-else class="settings-topbar" @mousedown.self="startDrag">
+      <div class="grip" title="按住拖动窗口" @mousedown.prevent="startDrag">
+        <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4" /><circle cx="15" cy="6" r="1.4" /><circle cx="9" cy="12" r="1.4" /><circle cx="15" cy="12" r="1.4" /><circle cx="9" cy="18" r="1.4" /><circle cx="15" cy="18" r="1.4" /></svg>
+      </div>
+      <span class="settings-topbar-title">设置</span>
+      <button class="icon-btn settings-topbar-close" title="返回主界面" @click="view = 'search'; focusInput()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 6l12 12M18 6L6 18" /></svg>
+      </button>
+    </header>
+    <nav v-if="tabs.length && view !== 'settings'" class="tabbar">
       <button
         v-for="t in tabs"
         :key="t.abbr"
@@ -1687,7 +1696,7 @@ onUnmounted(() => {
         :settings="settings"
          :mode="mode"
          @save="onSaveSettings"
-         @auto-save-shortcuts="onAutoSaveShortcuts"
+         @auto-save="onAutoSaveSettings"
          @cancel="view = 'search'; focusInput()"
         @update:mode="onModeChange"
       />
@@ -1705,7 +1714,7 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <footer class="statusbar" title="按住拖动窗口" @mousedown.self="startDrag">
+    <footer v-if="view !== 'settings'" class="statusbar" title="按住拖动窗口" @mousedown.self="startDrag">
       <template v-if="panel === 'terms'">
         <span><kbd>↑↓</kbd> 选择</span>
         <span><kbd>Enter</kbd> 打开标签</span>
@@ -1848,6 +1857,26 @@ body {
   padding: 12px 14px;
   background: rgba(255, 255, 255, 0.42);
   border-bottom: 1px solid rgba(226, 232, 240, 0.55);
+}
+
+.settings-topbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.58);
+  border-bottom: 1px solid rgba(203, 213, 225, 0.8);
+}
+
+.settings-topbar-title {
+  color: var(--text-2);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.settings-topbar-close {
+  margin-left: auto;
 }
 
 .grip {
