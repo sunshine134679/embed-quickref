@@ -225,7 +225,7 @@ async function saveWordToDict() {
         <button
           class="speak-btn"
           title="播放英语读音"
-          @click="speakEnglish(result.word)"
+          @click="speakEnglish(result.spokenText || result.word)"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
             <path d="M4 9v6h4l5 4V5L8 9H4z" />

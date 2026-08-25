@@ -366,7 +366,7 @@ export async function translateQuery(text, settings, onDelta) {
 
   if (isSingleWord(input)) {
     const local = lookupWord(input);
-    if (local) return { kind: "word", word: local.word, entry: local.entry };
+    if (local) return { kind: "word", word: local.word, spokenText: input, entry: local.entry };
     // 拼写建议：不完整（前缀补全）或高置信近似（编辑距离 1）直接给建议，不调 AI 硬编
     // 严格模式：词表精确命中（echo 等有效命令词）视为有效，不判错
     const q = normalizeWord(input);
@@ -420,16 +420,193 @@ export async function translateQuery(text, settings, onDelta) {
   return { kind: "sentence", text: input, target, translated };
 }
 
-// 用 WebView2 的 speechSynthesis 朗读英文（不新增 Rust 命令，失败静默）
-// 口音跟随设置（accent：us 美式 / en 英式），默认美式
-export function speakEnglish(text) {
-  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") return;
-  const { settings } = useSettings();
-  window.speechSynthesis.cancel();
+// 发音资源：词典真人音频优先，Web Speech 本机语音兜底。
+// 音频只缓存短词的 data URL，避免每次重复下载，也不把大量 MP3 打进安装包。
+const PRONUNCIATION_CACHE_KEY = "embed-quickref-pronunciation-cache-v1";
+const PRONUNCIATION_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
+const PRONUNCIATION_CACHE_LIMIT = 64;
+const PRONUNCIATION_MAX_BYTES = 512 * 1024;
+const pronunciationCache = new Map();
+let activeAudio = null;
+let speechRequestId = 0;
+
+try {
+  const saved = JSON.parse(localStorage.getItem(PRONUNCIATION_CACHE_KEY) || "[]");
+  const now = Date.now();
+  for (const [key, dataUrl, savedAt] of saved) {
+    if (typeof key === "string" && typeof dataUrl === "string" && Number.isFinite(savedAt) && now - savedAt < PRONUNCIATION_CACHE_TTL_MS) {
+      pronunciationCache.set(key, { dataUrl, savedAt });
+    }
+  }
+} catch {
+  /* 音频缓存损坏时静默清空 */
+}
+
+function persistPronunciationCache() {
+  try {
+    const entries = [...pronunciationCache.entries()]
+      .slice(-PRONUNCIATION_CACHE_LIMIT)
+      .map(([key, entry]) => [key, entry.dataUrl, entry.savedAt]);
+    localStorage.setItem(PRONUNCIATION_CACHE_KEY, JSON.stringify(entries));
+  } catch {
+    /* localStorage 空间不足时不影响播放 */
+  }
+}
+
+function pronunciationCacheKey(word, accent) {
+  return `${normalizeWord(word)}:${accent === "en" ? "uk" : "us"}`;
+}
+
+function readCachedPronunciation(key) {
+  const entry = pronunciationCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.savedAt >= PRONUNCIATION_CACHE_TTL_MS) {
+    pronunciationCache.delete(key);
+    persistPronunciationCache();
+    return null;
+  }
+  return entry.dataUrl;
+}
+
+function writeCachedPronunciation(key, dataUrl) {
+  pronunciationCache.delete(key);
+  pronunciationCache.set(key, { dataUrl, savedAt: Date.now() });
+  while (pronunciationCache.size > PRONUNCIATION_CACHE_LIMIT) pronunciationCache.delete(pronunciationCache.keys().next().value);
+  persistPronunciationCache();
+}
+
+function getSpeechVoices() {
+  if (typeof window === "undefined" || !window.speechSynthesis) return [];
+  return window.speechSynthesis.getVoices().filter((voice) => /^en(?:-|$)/i.test(voice.lang || ""));
+}
+
+export function listSpeechVoices() {
+  return getSpeechVoices();
+}
+
+export function subscribeSpeechVoices(callback) {
+  if (typeof window === "undefined" || !window.speechSynthesis || typeof callback !== "function") return () => {};
+  const refresh = () => callback(getSpeechVoices());
+  window.speechSynthesis.addEventListener?.("voiceschanged", refresh);
+  refresh();
+  return () => window.speechSynthesis.removeEventListener?.("voiceschanged", refresh);
+}
+
+function getLocalAudioUrl(entry) {
+  if (typeof entry?.audio === "string") return entry.audio;
+  if (entry?.audio && typeof entry.audio === "object") return entry.audio.us || entry.audio.uk || "";
+  return "";
+}
+
+function normalizeAudioUrl(url) {
+  return String(url || "").startsWith("//") ? `https:${url}` : String(url || "");
+}
+
+function arrayBufferToDataUrl(buffer, contentType) {
+  const bytes = new Uint8Array(buffer);
+  if (!bytes.length || bytes.length > PRONUNCIATION_MAX_BYTES) return "";
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 0x8000, bytes.length)));
+  }
+  return `data:${contentType || "audio/mpeg"};base64,${btoa(binary)}`;
+}
+
+async function downloadAudio(url) {
+  const endpoint = normalizeAudioUrl(url);
+  if (!endpoint) return "";
+  const response = await fetch(endpoint, { method: "GET" });
+  if (!response.ok) throw new Error(`音频请求失败 (${response.status})`);
+  return arrayBufferToDataUrl(await response.arrayBuffer(), response.headers.get("content-type"));
+}
+
+async function findOnlinePronunciation(word, accent, localEntry) {
+  const key = pronunciationCacheKey(word, accent);
+  const cachedAudio = readCachedPronunciation(key);
+  if (cachedAudio) return cachedAudio;
+
+  const localAudio = getLocalAudioUrl(localEntry);
+  if (localAudio) {
+    try {
+      const dataUrl = await downloadAudio(localAudio);
+      if (dataUrl) {
+        writeCachedPronunciation(key, dataUrl);
+        return dataUrl;
+      }
+    } catch {
+      /* 本地词条音频失效时继续查在线词典 */
+    }
+  }
+
+  const wordUrl = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
+  const response = await fetch(wordUrl, { method: "GET" });
+  if (!response.ok) return "";
+  const entries = await response.json();
+  const phonetics = (Array.isArray(entries) ? entries : []).flatMap((entry) => entry?.phonetics || []);
+  const preferred = phonetics.find((item) => item?.audio && (accent === "en" ? /uk|gb/i.test(item.audio) : /us|en-us/i.test(item.audio)))
+    || phonetics.find((item) => item?.audio);
+  if (!preferred?.audio) return "";
+  const dataUrl = await downloadAudio(preferred.audio);
+  if (dataUrl) writeCachedPronunciation(key, dataUrl);
+  return dataUrl;
+}
+
+function stopActiveAudio() {
+  if (!activeAudio) return;
+  activeAudio.pause();
+  activeAudio.currentTime = 0;
+  activeAudio = null;
+}
+
+async function playPronunciation(dataUrl, requestId) {
+  if (!dataUrl || requestId !== speechRequestId) return false;
+  const audio = new Audio(dataUrl);
+  activeAudio = audio;
+  audio.addEventListener("ended", () => {
+    if (activeAudio === audio) activeAudio = null;
+  }, { once: true });
+  try {
+    await audio.play();
+    return true;
+  } catch {
+    if (activeAudio === audio) activeAudio = null;
+    return false;
+  }
+}
+
+function speakWithSystemVoice(text, settings) {
+  if (typeof window === "undefined" || !window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") return;
+  const accent = settings.accent === "en" ? "en-GB" : "en-US";
+  const voices = getSpeechVoices();
+  const selected = settings.voiceName ? voices.find((voice) => voice.name === settings.voiceName) : null;
+  const exact = voices.find((voice) => voice.lang?.toLowerCase() === accent.toLowerCase());
+  const regional = voices.find((voice) => voice.lang?.toLowerCase().startsWith(accent.slice(0, 2).toLowerCase()));
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = settings.value.accent === "en" ? "en-GB" : "en-US";
+  utterance.voice = selected || exact || regional || null;
+  utterance.lang = utterance.voice?.lang || accent;
   utterance.rate = 0.85;
   window.speechSynthesis.speak(utterance);
+}
+
+// 在线词典音频失败、无网络或输入不是单词时，始终回落到本机语音。
+export async function speakEnglish(text) {
+  const input = String(text || "").trim();
+  if (!input) return;
+  const { settings } = useSettings();
+  const requestId = ++speechRequestId;
+  stopActiveAudio();
+  window.speechSynthesis?.cancel();
+
+  if (settings.value.pronunciationSource !== "system" && isSingleWord(input)) {
+    try {
+      const local = lookupWord(input);
+      const dataUrl = await findOnlinePronunciation(input, settings.value.accent, local?.entry);
+      if (await playPronunciation(dataUrl, requestId)) return;
+    } catch {
+      /* 在线音频不可用时静默回落本机语音 */
+    }
+  }
+  if (requestId === speechRequestId) speakWithSystemVoice(input, settings.value);
 }
 
 // ---------- 翻译历史：每次成功翻译写入，空态下快捷回看 ----------

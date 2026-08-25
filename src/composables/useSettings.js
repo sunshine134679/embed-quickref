@@ -36,6 +36,8 @@ export const DEFAULT_SETTINGS = {
   model: "deepseek-chat",
   fallbacks: [],
   accent: "us", // 发音口音：us(美式) | en(英式)
+  voiceName: "", // 留空时按口音自动选择本机英语语音
+  pronunciationSource: "auto", // auto(在线词典音频优先) | system(仅本机语音)
 };
 
 const settings = ref({ ...DEFAULT_SETTINGS });

@@ -1,6 +1,7 @@
 <script setup>
-import { reactive, ref, computed, watch, onUnmounted } from "vue";
+import { reactive, ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { PROVIDERS, endpointFor, providerFor } from "../data/providers";
+import { listSpeechVoices, subscribeSpeechVoices } from "../composables/useTranslate";
 
 const props = defineProps({
   settings: { type: Object, required: true },
@@ -47,6 +48,8 @@ const fallbackExpanded = ref(false);
 let autoSavedTimer = null;
 let autoSaveTimer = null;
 const providerId = ref("");
+const speechVoices = ref([]);
+let stopSpeechVoices = () => {};
 {
   const p = PROVIDERS.find((x) => x.baseUrl === String(form.baseUrl || "").replace(/\/+$/, ""));
   if (p) providerId.value = p.id;
@@ -139,9 +142,16 @@ watch(() => form.fallbacks.map((row) => row.baseUrl), () => {
   for (const row of form.fallbacks) row.providerId = providerFor(row.baseUrl, row.model)?.id || "";
 });
 watch(form, () => scheduleAutoSave(), { deep: true });
+onMounted(() => {
+  speechVoices.value = listSpeechVoices();
+  stopSpeechVoices = subscribeSpeechVoices((voices) => {
+    speechVoices.value = voices;
+  });
+});
 onUnmounted(() => {
   clearTimeout(autoSaveTimer);
   clearTimeout(autoSavedTimer);
+  stopSpeechVoices();
 });
 </script>
 
@@ -214,8 +224,10 @@ onUnmounted(() => {
         </div>
 
         <div v-else class="settings-section">
-          <div class="section-title"><span class="section-kicker">翻译体验</span><h3>发音</h3><p>选择翻译结果播放时使用的英语口音。</p></div>
+          <div class="section-title"><span class="section-kicker">翻译体验</span><h3>发音</h3><p>优先使用词典音频，无法获取时自动回退到本机英语语音。</p></div>
           <div class="field"><label class="field-label">发音口音</label><div class="accent-options"><button type="button" :class="{ active: form.accent !== 'en' }" @click="form.accent = 'us'">美式英语</button><button type="button" :class="{ active: form.accent === 'en' }" @click="form.accent = 'en'">英式英语</button></div></div>
+          <div class="field"><label class="field-label" for="pronunciation-source">音频资源</label><select id="pronunciation-source" v-model="form.pronunciationSource" class="speech-select"><option value="auto">自动：词典音频优先</option><option value="system">仅使用本机语音</option></select><p class="field-hint">在线音频只针对单词查询，失败时不会影响朗读。</p></div>
+          <div class="field"><label class="field-label" for="speech-voice">本机语音</label><select id="speech-voice" v-model="form.voiceName" class="speech-select"><option value="">按口音自动选择</option><option v-for="voice in speechVoices" :key="`${voice.name}:${voice.lang}`" :value="voice.name">{{ voice.name }} · {{ voice.lang }}</option></select><p v-if="!speechVoices.length" class="field-hint">暂未发现英语语音，将使用系统默认语音。</p><p v-else class="field-hint">留空会根据上面的英式/美式设置自动选择。</p></div>
         </div>
       </section>
     </div>
@@ -264,5 +276,6 @@ input,.provider-select { min-width:0; flex:1; height:32px; padding:0 10px; borde
 .fallback-grid { display:grid; grid-template-columns:112px 1fr; gap:7px; } .fallback-grid input,.fallback-grid .provider-select { width:auto; } .fallback-chips { margin:7px 0 0; } .empty-fallback { margin:2px 0 0; color:#94a3b8; font-size:12px; }
 .field { margin-bottom:12px; } .field-label { display:block; margin-bottom:7px; color:#64748b; font-size:13px; } .mode-options { display:flex; flex-direction:column; gap:7px; } .mode-opt { display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid #dbe2ea; border-radius:8px; background:#fff; color:#64748b; font-size:13px; cursor:pointer; text-align:left; } .mode-opt.active { border-color:rgba(143,168,196,.8); background:rgba(82,112,143,.1); color:#52708f; } .mode-name { flex:none; min-width:56px; font-weight:600; } .mode-desc { color:#94a3b8; font-size:12px; }
 .accent-options { display:flex; gap:8px; } .accent-options button { height:32px; padding:0 16px; border:1px solid #dbe2ea; border-radius:8px; background:#fff; color:#64748b; font-size:13px; cursor:pointer; } .accent-options button.active { border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1); color:var(--accent); font-weight:600; }
+.speech-select { width:100%; height:34px; padding:0 10px; border:1px solid #dbe2ea; border-radius:7px; outline:none; background:#fff; color:#475569; font-size:13px; } .speech-select:focus { border-color:#8fa8c4; } .field-hint { margin-top:5px; color:#a3aebc; font-size:11px; line-height:1.45; }
 .auto-save-status { min-height:31px; padding-top:12px; border-top:1px solid rgba(203,213,225,.8); color:#a3aebc; font-size:12px; text-align:right; } .auto-save-status.visible { color:#6b9e78; }
 </style>

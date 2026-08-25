@@ -291,7 +291,7 @@ function pickTerm(t) {
 function speak() {
   const r = transResult.value;
   if (!r) return;
-  if (r.kind === "word") speakEnglish(r.word);
+  if (r.kind === "word") speakEnglish(r.spokenText || r.word);
   else if (r.kind === "word-ai") speakEnglish(r.text);
   else speakEnglish(r.target === "zh" ? r.text : r.translated);
 }
