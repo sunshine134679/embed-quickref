@@ -48,27 +48,37 @@ fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String>
     let quick = app.get_webview_window("quick").ok_or("no quick window")?;
     let main = app.get_webview_window("main").ok_or("no main window")?;
     // 主窗口可能仍处于展开态（hover 触发时圆点刚挂载），以传入的圆点位置为准
-    let scale = main.scale_factor().map_err(|e| e.to_string())?;
     let monitor = main
         .current_monitor()
         .map_err(|e| e.to_string())?
         .ok_or("no monitor")?;
+    // 使用目标显示器的缩放比例。主窗口刚跨屏移动时，main.scale_factor() 可能仍是旧屏幕比例，
+    // 会导致快捷窗的物理尺寸和定位偏移，表现为与圆点重叠或部分出屏。
+    let scale = monitor.scale_factor();
     let area = monitor.work_area();
     let area_x = area.position.x as f64;
     let area_y = area.position.y as f64;
     let area_w = area.size.width as f64;
     let area_h = area.size.height as f64;
 
+    let dot = DOT_W * scale;
+    let gap = GAP * scale;
     let qw = QUICK_W * scale;
     let qh = QUICK_H * scale;
-    let mut qx = x + (DOT_W + GAP) * scale;
-    if qx + qw > area_x + area_w {
-        qx = x - (QUICK_W + GAP) * scale; // 右侧放不下，翻到左侧
-    }
-    let mut qy = y;
-    if qy + qh > area_y + area_h {
-        qy = area_y + area_h - qh;
-    }
+    let right_x = x + dot + gap;
+    let left_x = x - qw - gap;
+    let max_x = (area_x + area_w - qw).max(area_x);
+    let qx = if right_x + qw <= area_x + area_w {
+        right_x
+    } else if left_x >= area_x {
+        left_x
+    } else {
+        // 两侧都放不下时居中，保证快捷窗完整可见，不覆盖圆点作为唯一 fallback。
+        (area_x + (area_w - qw) / 2.0).clamp(area_x, max_x)
+    };
+    // 垂直方向以圆点中心对齐，再按工作区钳制；比顶边对齐更不容易遮住原应用关键区域。
+    let max_y = (area_y + area_h - qh).max(area_y);
+    let qy = (y + (dot - qh) / 2.0).clamp(area_y, max_y);
     quick
         .set_position(PhysicalPosition::new(qx.max(area_x), qy.max(area_y)))
         .map_err(|e| e.to_string())?;

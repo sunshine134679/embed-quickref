@@ -962,6 +962,7 @@ async function focusInput() {
 let quickShowTimer = null; // 弹出防抖：鼠标快速划过圆点不弹窗（避免闪烁与残留）
 let quickHideTimer = null; // 收起缓冲：离开后留出移动到快捷窗的时间
 let quickGen = 0; // 显示代次：退场动画期间重新显示则取消隐藏
+let quickShowTicket = 0; // 异步定位/显示令牌：鼠标已离开圆点时丢弃过期的显示请求
 // 快捷窗输入状态：聚焦期间不自动隐藏（鼠标移出窗口也不收）
 let quickTyping = false;
 // 正在输入且内容非空：真正的"使用中"，此时移出圆点/窗口都不收
@@ -987,13 +988,17 @@ function showQuickOnHover() {
   clearTimeout(quickHideTimer);
   if (form.value !== "compact" || !dotReady.value) return;
   dotHovered = true;
+  const ticket = ++quickShowTicket;
   quickGen++; // 预约显示：取消一切进行中的隐藏（含退场动画）
-  quickShowTimer = setTimeout(doShowQuick, QUICK_SHOW_DELAY);
+  quickShowTimer = setTimeout(() => doShowQuick(ticket), QUICK_SHOW_DELAY);
 }
 
-async function doShowQuick() {
+async function doShowQuick(ticket) {
   try {
+    if (ticket !== quickShowTicket || !dotHovered || form.value !== "compact" || !dotReady.value) return;
     const pos = await win.outerPosition();
+    // outerPosition 是异步读取；期间鼠标可能已经离开圆点，避免迟到的弹窗覆盖当前应用。
+    if (ticket !== quickShowTicket || !dotHovered || form.value !== "compact" || !dotReady.value) return;
     // 刚隐藏过（用户刚用完移开、鼠标又路过圆点）→ 重新弹出不抢焦点，避免反复打断
     const focus = Date.now() - lastQuickHideAt > QUICK_FOCUS_COOLDOWN;
     await invoke("show_quick", { x: pos.x, y: pos.y, focus });
@@ -1031,6 +1036,7 @@ function hideQuickDelayed() {
 // 鼠标离开圆点：快速划过时防抖已取消弹出；已弹出则延迟隐藏（快捷窗口内 hover/输入会取消）
 function hideQuickOnLeave() {
   dotHovered = false;
+  quickShowTicket++; // 使尚未完成的异步显示失效
   if (quickBusy) return; // 正在输入且有内容：不自动隐藏
   hideQuickDelayed();
 }

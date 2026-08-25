@@ -46,7 +46,7 @@ async function onContextMenu(e) {
 <template>
   <div
     class="floating-dot"
-    title="EmbedQuickRef · 点击展开"
+    aria-label="EmbedQuickRef，点击展开"
     @mousedown="onDotDown"
     @mousemove="onDotMove"
     @mouseup="onDotUp"
