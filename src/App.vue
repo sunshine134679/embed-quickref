@@ -16,7 +16,7 @@ import QuickPanel from "./components/QuickPanel.vue";
 // 非首屏组件异步加载：首屏只打包搜索/详情/FloatingDot，其余视图按需拉取
 const AiAnswer = defineAsyncComponent(() => import("./components/AiAnswer.vue"));
 const HistoryPanel = defineAsyncComponent(() => import("./components/HistoryPanel.vue"));
-const SettingsPanel = defineAsyncComponent(() => import("./components/SettingsPanel.vue"));
+const SettingsPanel = defineAsyncComponent(() => import("./components/SettingsPage.vue"));
 const TranslatePanel = defineAsyncComponent(() => import("./components/TranslatePanel.vue"));
 import { initSettings, useSettings } from "./composables/useSettings";
 import { fmtWhen } from "./utils/format";
@@ -1174,17 +1174,48 @@ async function toggleWindow() {
   }
 }
 
-async function applyShortcut(shortcut, prevShortcut = null) {
-  // 先注册新热键，成功后再注销旧的：注册失败时旧热键继续可用，避免热键静默丢失
+async function openSettingsView() {
+  if (form.value === "compact") {
+    await win.show();
+    await enterExpanded("settings");
+  } else {
+    if (await win.isMinimized().catch(() => false)) await win.unminimize().catch(() => {});
+    view.value = "settings";
+    await win.show();
+  }
+  await win.setFocus().catch(() => {});
+}
+
+// 快捷窗有结果时由“查看详情”全局热键触发；没有结果时 QuickPanel 会安全忽略。
+function triggerQuickDetail() {
+  emitTo("quick", "quick-open-detail-shortcut").catch(() => {});
+}
+
+const shortcutActions = [
+  { key: "shortcut", run: () => toggleWindow() },
+  { key: "detailShortcut", run: () => triggerQuickDetail() },
+  { key: "settingsShortcut", run: () => openSettingsView() },
+];
+
+async function applyShortcuts(next, previous = {}) {
+  // 先注册新热键，全部成功后再注销旧热键，避免改键失败时旧热键一起丢失。
+  const registered = [];
   try {
-    await register(shortcut, (event) => {
-      if (event.state === "Pressed") toggleWindow();
-    });
-    if (prevShortcut && prevShortcut !== shortcut) {
-      await unregister(prevShortcut).catch(() => {});
+    for (const action of shortcutActions) {
+      const shortcut = String(next?.[action.key] || "").trim();
+      const oldShortcut = String(previous?.[action.key] || "").trim();
+      if (!shortcut || shortcut === oldShortcut) continue;
+      await register(shortcut, (event) => {
+        if (event.state === "Pressed") action.run();
+      });
+      registered.push({ shortcut, oldShortcut });
+    }
+    for (const { oldShortcut, shortcut } of registered) {
+      if (oldShortcut && oldShortcut !== shortcut) await unregister(oldShortcut).catch(() => {});
     }
   } catch (e) {
-    console.error("热键注册失败", e);
+    for (const { shortcut } of registered) await unregister(shortcut).catch(() => {});
+    console.error("快捷键注册失败", e);
   }
 }
 
@@ -1208,11 +1239,9 @@ async function onModeChange(m) {
 }
 
 async function onSaveSettings(next) {
-  const prev = settings.value.shortcut;
+  const prev = { ...settings.value };
   await saveSettings(next);
-  if (next.shortcut !== prev) {
-    await applyShortcut(next.shortcut, prev);
-  }
+  await applyShortcuts(next, prev);
   view.value = "search";
   focusInput();
 }
@@ -1228,9 +1257,7 @@ async function setupTray() {
         id: "settings",
         text: "设置",
         action: async () => {
-          view.value = "settings";
-          await win.show();
-          await win.setFocus();
+          await openSettingsView();
         },
       },
       { id: "quit", text: "退出", action: () => win.destroy() },
@@ -1281,7 +1308,7 @@ onMounted(async () => {
     console.error("AI 历史加载失败", e);
   }
   try {
-    await applyShortcut(settings.value.shortcut);
+    await applyShortcuts(settings.value);
   } catch (e) {
     console.error("热键注册失败", e);
   }

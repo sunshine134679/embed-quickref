@@ -29,6 +29,8 @@ async function protectKey(plain) {
 
 export const DEFAULT_SETTINGS = {
   shortcut: "Alt+Q",
+  detailShortcut: "Alt+Shift+D",
+  settingsShortcut: "Alt+Shift+S",
   apiKey: "",
   baseUrl: "https://api.deepseek.com",
   model: "deepseek-chat",

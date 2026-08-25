@@ -336,6 +336,7 @@ onMounted(async () => {
     setTimeout(() => document.querySelector(".quick-input")?.focus(), 30);
   });
   on("quick-hide", () => shellRef.value?.classList.add("closing"));
+  on("quick-open-detail-shortcut", openDetail);
   win
     .onFocusChanged(({ payload: focused }) => {
       if (!focused) emitTo("main", "quick-blur").catch(() => {});
@@ -418,7 +419,7 @@ onUnmounted(() => {
           </div>
           <div class="qtd-actions">
             <button v-if="termResults.length" class="q-mini-btn" @click="selectedTerm = null">返回列表</button>
-            <button class="q-detail-btn" @click="openDetail">查看详情 ›</button>
+            <button class="q-detail-btn" @click="openDetail">查看详情 <kbd class="q-action-key">{{ settings.detailShortcut }}</kbd> ›</button>
           </div>
         </div>
         <!-- 列表：一词多义（同缩写不同分类）或普通匹配，点击后在快捷窗内看简介 -->
@@ -431,7 +432,7 @@ onUnmounted(() => {
             </span>
             <span class="tag" :style="catStyle(t.category)">{{ t.category }}</span>
           </button>
-          <button class="q-detail-btn" @click="openDetail">查看「{{ termResults[0].abbr }}」详情 ›</button>
+          <button class="q-detail-btn" @click="openDetail">查看「{{ termResults[0].abbr }}」详情 <kbd class="q-action-key">{{ settings.detailShortcut }}</kbd> ›</button>
           <!-- 未精确命中（仅模糊匹配）：提示可直接按 Tab 问 AI -->
           <p v-if="!exactHit" class="q-tab-hint">
             没有完全匹配「{{ q.trim() }}」· 按 <kbd>Tab</kbd> 用 AI 搜索
@@ -490,7 +491,7 @@ onUnmounted(() => {
               </svg>
               发音
             </button>
-            <button class="q-detail-btn" @click="openDetail">查看详情 ›</button>
+            <button class="q-detail-btn" @click="openDetail">查看详情 <kbd class="q-action-key">{{ settings.detailShortcut }}</kbd> ›</button>
           </div>
         </div>
         <div v-else-if="q.trim()" class="q-hint">按 Enter 翻译</div>
@@ -984,6 +985,15 @@ onUnmounted(() => {
 
 .q-detail-btn:hover {
   background: rgba(var(--accent-rgb), 0.18);
+}
+
+.q-action-key {
+  padding: 1px 4px;
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.55);
+  color: var(--accent);
+  font: 10px "Segoe UI", "Microsoft YaHei", sans-serif;
 }
 
 .q-empty,
