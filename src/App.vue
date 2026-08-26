@@ -1822,7 +1822,7 @@ onUnmounted(() => {
                 :title="h.kind ? '点击回填并重新翻译' : '回填搜索并选中结果'"
                 @click="h.kind ? replayHistory(h) : openTermFromHistory(h)"
               >
-                <!-- 翻译记录：输入 + 译文摘要 + 类型标记 -->
+                <!-- 两类记录统一为：类型标记 + 两行内容 + 可选分类标签，避免混排时首列错位 -->
                 <template v-if="h.kind">
                   <span class="ri-kind">{{ h.kind === "sentence" ? "译" : "词" }}</span>
                   <span class="ri-body">
@@ -1830,12 +1830,12 @@ onUnmounted(() => {
                     <span class="ri-sum">{{ transSummaryLine(h.summary) }}</span>
                   </span>
                 </template>
-                <!-- 术语记录：缩写 + 中文名/全称 + 分类 -->
+                <!-- 术语记录：也使用固定类型标记，不再把缩写直接占据首列 -->
                 <template v-else>
-                  <span class="ri-abbr">{{ h.abbr }}</span>
+                  <span class="ri-kind">术</span>
                   <span class="ri-body">
-                    <span v-if="h.zh" class="ri-zh">{{ h.zh }}</span>
-                    <span v-if="h.full" class="ri-full">{{ h.full }}</span>
+                    <span class="ri-input">{{ h.abbr }}</span>
+                    <span v-if="h.zh || h.full" class="ri-sum">{{ [h.zh, h.full].filter(Boolean).join(" · ") }}</span>
                   </span>
                   <span v-if="h.category" class="tag" :style="catStyle(h.category)">{{ h.category }}</span>
                 </template>
@@ -2506,6 +2506,7 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   padding: 7px 10px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -2565,6 +2566,11 @@ body {
   color: var(--accent);
   font-size: 11px;
   font-weight: 700;
+}
+
+.recent-item .ri-kind {
+  width: 24px;
+  height: 24px;
 }
 
 .ri-input {
