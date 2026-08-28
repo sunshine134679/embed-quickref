@@ -55,6 +55,7 @@ const translateError = ref("");
 const translateHistory = ref(loadHistory());
 let translateTimer = null;
 let translateSeq = 0;
+let termSearchTimer = null;
 const aiQuery = ref("");
 const aiMessages = ref([]); // 含 system 的完整多轮会话
 const aiStatus = ref("idle"); // idle | loading | streaming | done | error
@@ -311,7 +312,14 @@ async function restoreState() {
   }
 }
 
+function searchTermsNow(q) {
+  results.value = search(q);
+  selectedIndex.value = 0;
+  if (view.value !== "search") view.value = "search";
+}
+
 watch(query, (q) => {
+  clearTimeout(termSearchTimer);
   // 记忆最近一次搜索内容：展开主窗口时恢复（术语/翻译共用）
   try {
     localStorage.setItem(LAST_QUERY_KEY, q);
@@ -324,16 +332,17 @@ watch(query, (q) => {
     translateError.value = "";
     return;
   }
-  results.value = search(q);
-  selectedIndex.value = 0;
-  if (view.value !== "search") view.value = "search";
+  clearTimeout(termSearchTimer);
+  termSearchTimer = setTimeout(() => {
+    termSearchTimer = null;
+    if (panel.value === "terms" && query.value === q) searchTermsNow(q);
+  }, 40);
 });
 
 // 词库懒加载完成后若搜索框已有内容则重新搜索（避免加载完成前输入得到空结果）
 ensureTerms().then(() => {
   if (query.value.trim() && panel.value === "terms") {
-    results.value = search(query.value);
-    selectedIndex.value = 0;
+    searchTermsNow(query.value);
   }
 });
 
@@ -1103,6 +1112,8 @@ function onKeydown(e) {
         (selectedIndex.value - 1 + results.value.length) % results.value.length;
   } else if (e.key === "Enter") {
     e.preventDefault();
+    clearTimeout(termSearchTimer);
+    searchTermsNow(query.value);
     if (results.value.length) openTab(results.value[selectedIndex.value]);
     else if (query.value.trim()) runAi(query.value);
   } else if (e.key === "Tab") {

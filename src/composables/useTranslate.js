@@ -370,12 +370,13 @@ export async function translateQuery(text, settings, onDelta) {
     // 拼写建议：不完整（前缀补全）或高置信近似（编辑距离 1）直接给建议，不调 AI 硬编
     // 严格模式：词表精确命中（echo 等有效命令词）视为有效，不判错
     const q = normalizeWord(input);
-    const sugg = await suggestWords(input, { includeExact: false });
     // AI 词典式解释：建议只作为辅助，不再因“本地没有收录”而拦截正常单词。
     // v2 用于淘汰旧逻辑缓存的误判结果。
     const key = "word:v2:" + q;
     let reply = cached(key);
+    let sugg = [];
     if (!reply) {
+      sugg = await suggestWords(input, { includeExact: false });
       reply = await withApiFallback(
         settings,
         (candidate) => askOnce(
@@ -387,6 +388,9 @@ export async function translateQuery(text, settings, onDelta) {
         )
       );
       setCache(key, reply);
+    } else if (NOT_FOUND_RE.test(reply)) {
+      // 仅未找到结果需要补充本地建议；正常缓存命中直接返回，避免重复扫描词表。
+      sugg = await suggestWords(input, { includeExact: false });
     }
     // AI 判定拼写错误/不存在：转为“未找到”，并合并本地建议。
     if (NOT_FOUND_RE.test(reply)) {

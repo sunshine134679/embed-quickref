@@ -235,7 +235,12 @@ async function doSearch() {
     return;
   }
   try {
-    const r = await translateQuery(text, settings.value);
+    const r = await translateQuery(text, settings.value, (partial, target) => {
+      if (my !== seq) return;
+      transResult.value = partial
+        ? { kind: "sentence", text, target, translated: partial }
+        : null;
+    });
     if (my !== seq) return;
     transResult.value = r;
     notifyResultDone();
@@ -394,7 +399,7 @@ onUnmounted(() => {
 
     <main class="quick-body">
       <!-- 等待 -->
-      <div v-if="searching" class="qdots"><i></i><i></i><i></i></div>
+      <div v-if="searching && !transResult" class="qdots"><i></i><i></i><i></i></div>
 
       <!-- 错误 -->
       <p v-else-if="error" class="q-error">
