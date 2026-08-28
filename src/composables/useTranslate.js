@@ -9,6 +9,7 @@ import {
   PRONUNCIATION_LOOKUP_TIMEOUT_MS,
   isAudioResponse,
 } from "../utils/pronunciationAudio";
+import { prepareSpeechSynthesis } from "../utils/speechSynthesis";
 import learningDictionary from "../data/learning-dictionary";
 import developmentDictionary from "../data/development-dictionary";
 
@@ -629,13 +630,16 @@ async function playPronunciation(dataUrl, requestId) {
 }
 
 function speakWithSystemVoice(text, settings) {
-  if (typeof window === "undefined" || !window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") return;
+  if (typeof window === "undefined" || !window.speechSynthesis) return;
+  const Utterance = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance;
+  if (typeof Utterance !== "function") return;
+  prepareSpeechSynthesis(window.speechSynthesis);
   const accent = settings.accent === "en" ? "en-GB" : "en-US";
   const voices = getSpeechVoices();
   const selected = settings.voiceName ? voices.find((voice) => voice.name === settings.voiceName) : null;
   const exact = voices.find((voice) => voice.lang?.toLowerCase() === accent.toLowerCase());
   const regional = voices.find((voice) => voice.lang?.toLowerCase().startsWith(accent.slice(0, 2).toLowerCase()));
-  const utterance = new SpeechSynthesisUtterance(text);
+  const utterance = new Utterance(text);
   utterance.voice = selected || exact || regional || null;
   utterance.lang = utterance.voice?.lang || accent;
   utterance.rate = 0.85;
