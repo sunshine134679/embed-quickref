@@ -1,4 +1,5 @@
 use tauri::{AppHandle, Manager, PhysicalPosition};
+use std::process::Command;
 use std::sync::Mutex;
 
 // Windows 前台窗口 FFI：快捷窗弹出时"借用"焦点（记录原前台窗口），收起时归还，
@@ -32,9 +33,64 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .plugin(tauri_plugin_http::init())
         .manage(QuickFocusState::default())
-        .invoke_handler(tauri::generate_handler![show_quick, hide_quick, secret_protect, secret_reveal, exit_app])
+        .manage(NativeSpeechState::default())
+        .invoke_handler(tauri::generate_handler![show_quick, hide_quick, secret_protect, secret_reveal, speak_native, exit_app])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+fn powershell_single_quote(value: &str) -> String {
+    format!("'{}'", value.replace('\'', "''"))
+}
+
+#[tauri::command]
+fn speak_native(app: AppHandle, text: String, accent: String) -> Result<(), String> {
+    let text = text.trim();
+    if text.is_empty() {
+        return Ok(());
+    }
+    #[cfg(windows)]
+    {
+        let locale = if accent == "en" { "en-GB" } else { "en-US" };
+        let mut script = String::from(
+            "Add-Type -AssemblyName System.Speech; $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; ",
+        );
+        script.push_str("$culture = New-Object System.Globalization.CultureInfo(");
+        script.push_str(&powershell_single_quote(locale));
+        script.push_str("); try { $synth.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::NotSet, [System.Speech.Synthesis.VoiceAge]::NotSet, 0, $culture) } catch {}; $synth.Speak(");
+        script.push_str(&powershell_single_quote(text));
+        script.push_str("); $synth.Dispose();");
+
+        let mut utf16le = Vec::with_capacity(script.len() * 2);
+        for unit in script.encode_utf16() {
+            utf16le.extend_from_slice(&unit.to_le_bytes());
+        }
+        let encoded = b64_encode(&utf16le);
+        let state = app.state::<NativeSpeechState>();
+        let mut active = state.0.lock().map_err(|_| "语音状态锁定失败".to_string())?;
+        if let Some(mut child) = active.take() {
+            let _ = child.kill();
+            let _ = child.wait();
+        }
+        let child = Command::new("powershell.exe")
+            .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", &encoded])
+            .spawn()
+            .map_err(|e| format!("启动 Windows 语音失败: {e}"))?;
+        *active = Some(child);
+        Ok(())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, accent);
+        Err("当前平台不支持 Windows 原生语音".to_string())
+    }
+}
+
+struct NativeSpeechState(Mutex<Option<std::process::Child>>);
+impl Default for NativeSpeechState {
+    fn default() -> Self {
+        Self(Mutex::new(None))
+    }
 }
 
 // 退出整个应用，而不是只销毁当前窗口；托盘图标和 quick 窗口也必须随应用一并结束。

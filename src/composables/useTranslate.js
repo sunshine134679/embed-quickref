@@ -1,4 +1,5 @@
 import { fetch } from "@tauri-apps/plugin-http";
+import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "./useSettings";
 import { endpointFor } from "../data/providers";
 import { assertSafeApiUrl } from "../utils/safeUrl";
@@ -9,7 +10,7 @@ import {
   PRONUNCIATION_LOOKUP_TIMEOUT_MS,
   isAudioResponse,
 } from "../utils/pronunciationAudio";
-import { prepareSpeechSynthesis } from "../utils/speechSynthesis";
+import { invokeNativeSpeech, prepareSpeechSynthesis } from "../utils/speechSynthesis";
 import learningDictionary from "../data/learning-dictionary";
 import developmentDictionary from "../data/development-dictionary";
 
@@ -668,7 +669,11 @@ export async function speakEnglish(text) {
       clearTimeout(lookupTimer);
     }
   }
-  if (requestId === speechRequestId) speakWithSystemVoice(input, settings.value);
+  if (requestId === speechRequestId) {
+    // WebView2 的 SpeechSynthesis 在部分系统上会静默失败，原生 Windows SAPI 作为确定性兜底。
+    const nativeStarted = await invokeNativeSpeech(invoke, input, settings.value.accent);
+    if (!nativeStarted) speakWithSystemVoice(input, settings.value);
+  }
 }
 
 // ---------- 翻译历史：每次成功翻译写入，空态下快捷回看 ----------
