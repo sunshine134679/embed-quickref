@@ -2,6 +2,9 @@ use tauri::{AppHandle, Manager, PhysicalPosition};
 use std::process::Command;
 use std::sync::Mutex;
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 // Windows 前台窗口 FFI：快捷窗弹出时"借用"焦点（记录原前台窗口），收起时归还，
 // 避免快捷窗反复抢走用户正在使用的应用（如编辑器/播放器）的键盘焦点
 #[cfg(windows)]
@@ -74,6 +77,7 @@ fn speak_native(app: AppHandle, text: String, accent: String) -> Result<(), Stri
         }
         let child = Command::new("powershell.exe")
             .args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", &encoded])
+            .creation_flags(0x08000000)
             .spawn()
             .map_err(|e| format!("启动 Windows 语音失败: {e}"))?;
         *active = Some(child);
