@@ -3,6 +3,12 @@ import { useSettings } from "./useSettings";
 import { endpointFor } from "../data/providers";
 import { assertSafeApiUrl } from "../utils/safeUrl";
 import { hasApiCandidate, withApiFallback } from "../utils/apiCandidates";
+import {
+  AUDIO_PLAY_TIMEOUT_MS,
+  AUDIO_REQUEST_TIMEOUT_MS,
+  PRONUNCIATION_LOOKUP_TIMEOUT_MS,
+  isAudioResponse,
+} from "../utils/pronunciationAudio";
 import learningDictionary from "../data/learning-dictionary";
 import developmentDictionary from "../data/development-dictionary";
 
@@ -516,15 +522,38 @@ function arrayBufferToDataUrl(buffer, contentType) {
   return `data:${contentType || "audio/mpeg"};base64,${btoa(binary)}`;
 }
 
-async function downloadAudio(url) {
-  const endpoint = normalizeAudioUrl(url);
-  if (!endpoint) return "";
-  const response = await fetch(endpoint, { method: "GET" });
-  if (!response.ok) throw new Error(`音频请求失败 (${response.status})`);
-  return arrayBufferToDataUrl(await response.arrayBuffer(), response.headers.get("content-type"));
+function createAudioRequestSignal(parentSignal) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AUDIO_REQUEST_TIMEOUT_MS);
+  const abortFromParent = () => controller.abort();
+  if (parentSignal) {
+    if (parentSignal.aborted) controller.abort();
+    else parentSignal.addEventListener("abort", abortFromParent, { once: true });
+  }
+  return {
+    signal: controller.signal,
+    dispose() {
+      clearTimeout(timer);
+      parentSignal?.removeEventListener("abort", abortFromParent);
+    },
+  };
 }
 
-async function findOnlinePronunciation(word, accent, localEntry) {
+async function downloadAudio(url, parentSignal) {
+  const endpoint = normalizeAudioUrl(url);
+  if (!endpoint) return "";
+  const request = createAudioRequestSignal(parentSignal);
+  try {
+    const response = await fetch(endpoint, { method: "GET", signal: request.signal });
+    if (!response.ok) throw new Error(`音频请求失败 (${response.status})`);
+    if (!isAudioResponse(response)) throw new Error("音频响应类型无效");
+    return arrayBufferToDataUrl(await response.arrayBuffer(), response.headers.get("content-type"));
+  } finally {
+    request.dispose();
+  }
+}
+
+async function findOnlinePronunciation(word, accent, localEntry, signal) {
   const key = pronunciationCacheKey(word, accent);
   const cachedAudio = readCachedPronunciation(key);
   if (cachedAudio) return cachedAudio;
@@ -532,7 +561,7 @@ async function findOnlinePronunciation(word, accent, localEntry) {
   const localAudio = getLocalAudioUrl(localEntry);
   if (localAudio) {
     try {
-      const dataUrl = await downloadAudio(localAudio);
+      const dataUrl = await downloadAudio(localAudio, signal);
       if (dataUrl) {
         writeCachedPronunciation(key, dataUrl);
         return dataUrl;
@@ -543,14 +572,20 @@ async function findOnlinePronunciation(word, accent, localEntry) {
   }
 
   const wordUrl = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
-  const response = await fetch(wordUrl, { method: "GET" });
+  const request = createAudioRequestSignal(signal);
+  let response;
+  try {
+    response = await fetch(wordUrl, { method: "GET", signal: request.signal });
+  } finally {
+    request.dispose();
+  }
   if (!response.ok) return "";
   const entries = await response.json();
   const phonetics = (Array.isArray(entries) ? entries : []).flatMap((entry) => entry?.phonetics || []);
   const preferred = phonetics.find((item) => item?.audio && (accent === "en" ? /uk|gb/i.test(item.audio) : /us|en-us/i.test(item.audio)))
     || phonetics.find((item) => item?.audio);
   if (!preferred?.audio) return "";
-  const dataUrl = await downloadAudio(preferred.audio);
+  const dataUrl = await downloadAudio(preferred.audio, signal);
   if (dataUrl) writeCachedPronunciation(key, dataUrl);
   return dataUrl;
 }
@@ -566,15 +601,30 @@ async function playPronunciation(dataUrl, requestId) {
   if (!dataUrl || requestId !== speechRequestId) return false;
   const audio = new Audio(dataUrl);
   activeAudio = audio;
+  audio.preload = "auto";
   audio.addEventListener("ended", () => {
     if (activeAudio === audio) activeAudio = null;
   }, { once: true });
+  let timeoutId;
   try {
-    await audio.play();
+    const started = await Promise.race([
+      Promise.resolve().then(() => audio.play()).then(() => true).catch(() => false),
+      new Promise((resolve) => {
+        timeoutId = setTimeout(() => resolve(false), AUDIO_PLAY_TIMEOUT_MS);
+      }),
+    ]);
+    if (!started || requestId !== speechRequestId) {
+      audio.pause();
+      audio.currentTime = 0;
+      if (activeAudio === audio) activeAudio = null;
+      return false;
+    }
     return true;
   } catch {
     if (activeAudio === audio) activeAudio = null;
     return false;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
@@ -602,12 +652,16 @@ export async function speakEnglish(text) {
   window.speechSynthesis?.cancel();
 
   if (settings.value.pronunciationSource !== "system" && isSingleWord(input)) {
+    const lookupController = new AbortController();
+    const lookupTimer = setTimeout(() => lookupController.abort(), PRONUNCIATION_LOOKUP_TIMEOUT_MS);
     try {
       const local = lookupWord(input);
-      const dataUrl = await findOnlinePronunciation(input, settings.value.accent, local?.entry);
+      const dataUrl = await findOnlinePronunciation(input, settings.value.accent, local?.entry, lookupController.signal);
       if (await playPronunciation(dataUrl, requestId)) return;
     } catch {
       /* 在线音频不可用时静默回落本机语音 */
+    } finally {
+      clearTimeout(lookupTimer);
     }
   }
   if (requestId === speechRequestId) speakWithSystemVoice(input, settings.value);
