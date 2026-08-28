@@ -8,6 +8,7 @@ import { initSettings, useSettings } from "../composables/useSettings";
 import { translateQuery, isSingleWord, speakEnglish } from "../composables/useTranslate";
 import { hasApiCandidate } from "../utils/apiCandidates";
 import { categoryColor } from "../utils/categories";
+import { focusAndSelectInput } from "../utils/focusAndSelectInput";
 
 const win = getCurrentWindow();
 const { settings } = useSettings();
@@ -328,6 +329,7 @@ function closeSelf() {
 }
 
 const shellRef = ref(null);
+const inputRef = ref(null);
 const unlisteners = []; // 事件反注册函数：组件卸载时清理（主要防开发环境 HMR 重复回调）
 
 onMounted(async () => {
@@ -338,7 +340,7 @@ onMounted(async () => {
   // 先注册显示/焦点事件，再等待词库和设置异步加载，避免启动早期首次弹出丢失 quick-show。
   on("quick-show", () => {
     shellRef.value?.classList.remove("closing");
-    setTimeout(() => document.querySelector(".quick-input")?.focus(), 30);
+    setTimeout(() => focusAndSelectInput(inputRef.value), 30);
   });
   on("quick-hide", () => shellRef.value?.classList.add("closing"));
   on("quick-open-detail-shortcut", openDetail);
@@ -381,6 +383,7 @@ onUnmounted(() => {
 
     <div class="quick-input-row">
       <input
+        ref="inputRef"
         class="quick-input"
         v-model="q"
         :placeholder="panel === 'terms' ? '查术语：I2C、DTS…' : '翻译：单词或句子…'"
