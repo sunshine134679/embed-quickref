@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 
 import { invokeNativeSpeech, prepareSpeechSynthesis } from "./speechSynthesis.js";
 
@@ -23,4 +24,9 @@ test("本机语音兜底优先调用原生 Windows 语音", async () => {
 test("原生语音调用失败时允许继续使用 Web Speech", async () => {
   const started = await invokeNativeSpeech(async () => { throw new Error("unavailable"); }, "free", "us");
   assert.equal(started, false);
+});
+
+test("发音入口不再请求在线词典或下载音频", () => {
+  const source = readFileSync(new URL("../composables/useTranslate.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /findOnlinePronunciation|downloadAudio|api\.dictionaryapi\.dev/);
 });

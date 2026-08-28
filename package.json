@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test src/utils/termSearchIndex.test.mjs src/utils/translationPerformance.test.mjs src/utils/pronunciationAudio.test.mjs src/utils/speechSynthesis.test.mjs",
+    "test": "node --test src/utils/termSearchIndex.test.mjs src/utils/translationPerformance.test.mjs src/utils/speechSynthesis.test.mjs",
     "preview": "vite preview",
     "tauri": "tauri"
   },

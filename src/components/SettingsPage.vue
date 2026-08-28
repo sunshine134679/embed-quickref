@@ -226,7 +226,6 @@ onUnmounted(() => {
         <div v-else class="settings-section">
           <div class="section-title"><span class="section-kicker">翻译体验</span><h3>发音</h3><p>优先使用词典音频，无法获取时自动回退到本机英语语音。</p></div>
           <div class="field"><label class="field-label">发音口音</label><div class="accent-options"><button type="button" :class="{ active: form.accent !== 'en' }" @click="form.accent = 'us'">美式英语</button><button type="button" :class="{ active: form.accent === 'en' }" @click="form.accent = 'en'">英式英语</button></div></div>
-          <div class="field"><label class="field-label" for="pronunciation-source">音频资源</label><select id="pronunciation-source" v-model="form.pronunciationSource" class="speech-select"><option value="auto">自动：词典音频优先</option><option value="system">仅使用本机语音</option></select><p class="field-hint">在线音频只针对单词查询，失败时不会影响朗读。</p></div>
           <div class="field"><label class="field-label" for="speech-voice">本机语音</label><select id="speech-voice" v-model="form.voiceName" class="speech-select"><option value="">按口音自动选择</option><option v-for="voice in speechVoices" :key="`${voice.name}:${voice.lang}`" :value="voice.name">{{ voice.name }} · {{ voice.lang }}</option></select><p v-if="!speechVoices.length" class="field-hint">暂未发现英语语音，将使用系统默认语音。</p><p v-else class="field-hint">留空会根据上面的英式/美式设置自动选择。</p></div>
         </div>
       </section>

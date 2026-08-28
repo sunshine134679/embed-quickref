@@ -4,12 +4,6 @@ import { useSettings } from "./useSettings";
 import { endpointFor } from "../data/providers";
 import { assertSafeApiUrl } from "../utils/safeUrl";
 import { hasApiCandidate, withApiFallback } from "../utils/apiCandidates";
-import {
-  AUDIO_PLAY_TIMEOUT_MS,
-  AUDIO_REQUEST_TIMEOUT_MS,
-  PRONUNCIATION_LOOKUP_TIMEOUT_MS,
-  isAudioResponse,
-} from "../utils/pronunciationAudio";
 import { invokeNativeSpeech, prepareSpeechSynthesis } from "../utils/speechSynthesis";
 import learningDictionary from "../data/learning-dictionary";
 import developmentDictionary from "../data/development-dictionary";
@@ -101,7 +95,7 @@ try {
   for (const [key, value, savedAt] of entries) {
     if (typeof key === "string" && typeof value === "string" && Number.isFinite(savedAt) && now - savedAt < CACHE_TTL_MS) {
       translateCache.set(key, { value, savedAt });
-    }
+  }
   }
 } catch {
   /* 缓存损坏则忽略 */
@@ -432,61 +426,7 @@ export async function translateQuery(text, settings, onDelta) {
   return { kind: "sentence", text: input, target, translated };
 }
 
-// 发音资源：词典真人音频优先，Web Speech 本机语音兜底。
-// 音频只缓存短词的 data URL，避免每次重复下载，也不把大量 MP3 打进安装包。
-const PRONUNCIATION_CACHE_KEY = "embed-quickref-pronunciation-cache-v1";
-const PRONUNCIATION_CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
-const PRONUNCIATION_CACHE_LIMIT = 64;
-const PRONUNCIATION_MAX_BYTES = 512 * 1024;
-const pronunciationCache = new Map();
-let activeAudio = null;
-let speechRequestId = 0;
-
-try {
-  const saved = JSON.parse(localStorage.getItem(PRONUNCIATION_CACHE_KEY) || "[]");
-  const now = Date.now();
-  for (const [key, dataUrl, savedAt] of saved) {
-    if (typeof key === "string" && typeof dataUrl === "string" && Number.isFinite(savedAt) && now - savedAt < PRONUNCIATION_CACHE_TTL_MS) {
-      pronunciationCache.set(key, { dataUrl, savedAt });
-    }
-  }
-} catch {
-  /* 音频缓存损坏时静默清空 */
-}
-
-function persistPronunciationCache() {
-  try {
-    const entries = [...pronunciationCache.entries()]
-      .slice(-PRONUNCIATION_CACHE_LIMIT)
-      .map(([key, entry]) => [key, entry.dataUrl, entry.savedAt]);
-    localStorage.setItem(PRONUNCIATION_CACHE_KEY, JSON.stringify(entries));
-  } catch {
-    /* localStorage 空间不足时不影响播放 */
-  }
-}
-
-function pronunciationCacheKey(word, accent) {
-  return `${normalizeWord(word)}:${accent === "en" ? "uk" : "us"}`;
-}
-
-function readCachedPronunciation(key) {
-  const entry = pronunciationCache.get(key);
-  if (!entry) return null;
-  if (Date.now() - entry.savedAt >= PRONUNCIATION_CACHE_TTL_MS) {
-    pronunciationCache.delete(key);
-    persistPronunciationCache();
-    return null;
-  }
-  return entry.dataUrl;
-}
-
-function writeCachedPronunciation(key, dataUrl) {
-  pronunciationCache.delete(key);
-  pronunciationCache.set(key, { dataUrl, savedAt: Date.now() });
-  while (pronunciationCache.size > PRONUNCIATION_CACHE_LIMIT) pronunciationCache.delete(pronunciationCache.keys().next().value);
-  persistPronunciationCache();
-}
-
+// 发音统一使用本机语音，不访问在线词典或下载音频。
 function getSpeechVoices() {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];
   return window.speechSynthesis.getVoices().filter((voice) => /^en(?:-|$)/i.test(voice.lang || ""));
@@ -502,132 +442,6 @@ export function subscribeSpeechVoices(callback) {
   window.speechSynthesis.addEventListener?.("voiceschanged", refresh);
   refresh();
   return () => window.speechSynthesis.removeEventListener?.("voiceschanged", refresh);
-}
-
-function getLocalAudioUrl(entry) {
-  if (typeof entry?.audio === "string") return entry.audio;
-  if (entry?.audio && typeof entry.audio === "object") return entry.audio.us || entry.audio.uk || "";
-  return "";
-}
-
-function normalizeAudioUrl(url) {
-  return String(url || "").startsWith("//") ? `https:${url}` : String(url || "");
-}
-
-function arrayBufferToDataUrl(buffer, contentType) {
-  const bytes = new Uint8Array(buffer);
-  if (!bytes.length || bytes.length > PRONUNCIATION_MAX_BYTES) return "";
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(i, Math.min(i + 0x8000, bytes.length)));
-  }
-  return `data:${contentType || "audio/mpeg"};base64,${btoa(binary)}`;
-}
-
-function createAudioRequestSignal(parentSignal) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AUDIO_REQUEST_TIMEOUT_MS);
-  const abortFromParent = () => controller.abort();
-  if (parentSignal) {
-    if (parentSignal.aborted) controller.abort();
-    else parentSignal.addEventListener("abort", abortFromParent, { once: true });
-  }
-  return {
-    signal: controller.signal,
-    dispose() {
-      clearTimeout(timer);
-      parentSignal?.removeEventListener("abort", abortFromParent);
-    },
-  };
-}
-
-async function downloadAudio(url, parentSignal) {
-  const endpoint = normalizeAudioUrl(url);
-  if (!endpoint) return "";
-  const request = createAudioRequestSignal(parentSignal);
-  try {
-    const response = await fetch(endpoint, { method: "GET", signal: request.signal });
-    if (!response.ok) throw new Error(`音频请求失败 (${response.status})`);
-    if (!isAudioResponse(response)) throw new Error("音频响应类型无效");
-    return arrayBufferToDataUrl(await response.arrayBuffer(), response.headers.get("content-type"));
-  } finally {
-    request.dispose();
-  }
-}
-
-async function findOnlinePronunciation(word, accent, localEntry, signal) {
-  const key = pronunciationCacheKey(word, accent);
-  const cachedAudio = readCachedPronunciation(key);
-  if (cachedAudio) return cachedAudio;
-
-  const localAudio = getLocalAudioUrl(localEntry);
-  if (localAudio) {
-    try {
-      const dataUrl = await downloadAudio(localAudio, signal);
-      if (dataUrl) {
-        writeCachedPronunciation(key, dataUrl);
-        return dataUrl;
-      }
-    } catch {
-      /* 本地词条音频失效时继续查在线词典 */
-    }
-  }
-
-  const wordUrl = `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`;
-  const request = createAudioRequestSignal(signal);
-  let response;
-  try {
-    response = await fetch(wordUrl, { method: "GET", signal: request.signal });
-  } finally {
-    request.dispose();
-  }
-  if (!response.ok) return "";
-  const entries = await response.json();
-  const phonetics = (Array.isArray(entries) ? entries : []).flatMap((entry) => entry?.phonetics || []);
-  const preferred = phonetics.find((item) => item?.audio && (accent === "en" ? /uk|gb/i.test(item.audio) : /us|en-us/i.test(item.audio)))
-    || phonetics.find((item) => item?.audio);
-  if (!preferred?.audio) return "";
-  const dataUrl = await downloadAudio(preferred.audio, signal);
-  if (dataUrl) writeCachedPronunciation(key, dataUrl);
-  return dataUrl;
-}
-
-function stopActiveAudio() {
-  if (!activeAudio) return;
-  activeAudio.pause();
-  activeAudio.currentTime = 0;
-  activeAudio = null;
-}
-
-async function playPronunciation(dataUrl, requestId) {
-  if (!dataUrl || requestId !== speechRequestId) return false;
-  const audio = new Audio(dataUrl);
-  activeAudio = audio;
-  audio.preload = "auto";
-  audio.addEventListener("ended", () => {
-    if (activeAudio === audio) activeAudio = null;
-  }, { once: true });
-  let timeoutId;
-  try {
-    const started = await Promise.race([
-      Promise.resolve().then(() => audio.play()).then(() => true).catch(() => false),
-      new Promise((resolve) => {
-        timeoutId = setTimeout(() => resolve(false), AUDIO_PLAY_TIMEOUT_MS);
-      }),
-    ]);
-    if (!started || requestId !== speechRequestId) {
-      audio.pause();
-      audio.currentTime = 0;
-      if (activeAudio === audio) activeAudio = null;
-      return false;
-    }
-    return true;
-  } catch {
-    if (activeAudio === audio) activeAudio = null;
-    return false;
-  } finally {
-    clearTimeout(timeoutId);
-  }
 }
 
 function speakWithSystemVoice(text, settings) {
@@ -647,33 +461,15 @@ function speakWithSystemVoice(text, settings) {
   window.speechSynthesis.speak(utterance);
 }
 
-// 在线词典音频失败、无网络或输入不是单词时，始终回落到本机语音。
 export async function speakEnglish(text) {
   const input = String(text || "").trim();
   if (!input) return;
   const { settings } = useSettings();
-  const requestId = ++speechRequestId;
-  stopActiveAudio();
   window.speechSynthesis?.cancel();
 
-  if (settings.value.pronunciationSource !== "system" && isSingleWord(input)) {
-    const lookupController = new AbortController();
-    const lookupTimer = setTimeout(() => lookupController.abort(), PRONUNCIATION_LOOKUP_TIMEOUT_MS);
-    try {
-      const local = lookupWord(input);
-      const dataUrl = await findOnlinePronunciation(input, settings.value.accent, local?.entry, lookupController.signal);
-      if (await playPronunciation(dataUrl, requestId)) return;
-    } catch {
-      /* 在线音频不可用时静默回落本机语音 */
-    } finally {
-      clearTimeout(lookupTimer);
-    }
-  }
-  if (requestId === speechRequestId) {
-    // WebView2 的 SpeechSynthesis 在部分系统上会静默失败，原生 Windows SAPI 作为确定性兜底。
-    const nativeStarted = await invokeNativeSpeech(invoke, input, settings.value.accent);
-    if (!nativeStarted) speakWithSystemVoice(input, settings.value);
-  }
+  // 原生 Windows SAPI 负责直接发音，Web Speech 仅作为本机调用失败时的兜底。
+  const nativeStarted = await invokeNativeSpeech(invoke, input, settings.value.accent);
+  if (!nativeStarted) speakWithSystemVoice(input, settings.value);
 }
 
 // ---------- 翻译历史：每次成功翻译写入，空态下快捷回看 ----------
