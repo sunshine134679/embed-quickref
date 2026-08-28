@@ -15,6 +15,13 @@ dist-ssr
 # 本机构建环境补丁（link.exe 临时目录指向工作区）
 .cargo/
 
+# 本地索引、临时文件与构建产物
+.codegraph/
+Temp/
+src-tauri/target/
+src-tauri/gen/
+*.exe
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
