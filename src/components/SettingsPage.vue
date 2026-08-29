@@ -83,6 +83,13 @@ function captureShortcut(e, key) {
   }
   const value = shortcutFromEvent(e);
   if (!value) return;
+  // 无修饰键的单键（如直接按 A）不允许注册为系统级全局热键——几乎必然与所有应用冲突；F1~F12 例外
+  const hasModifier = /^(Ctrl|Alt|Shift|Super)\+/.test(value);
+  const isFunctionKey = /^F([1-9]|1[0-2])$/.test(value.split("+").pop() || "");
+  if (!hasModifier && !isFunctionKey) {
+    formError.value = "请带上 Ctrl / Alt / Shift 等修饰键（F1~F12 功能键可单独使用）";
+    return;
+  }
   form[key] = value;
   capturing.value = "";
   formError.value = "";
@@ -129,8 +136,8 @@ function scheduleAutoSave() {
 
 watch(() => form.baseUrl, (url) => {
   const p = PROVIDERS.find((x) => x.baseUrl === String(url || "").replace(/\/+$/, ""));
-  if (p) providerId.value = p.id;
-  else if (!currentProvider.value) providerId.value = "";
+  // 手动改成自定义 URL 时必须清空选择：否则下拉仍显示旧预设，与"自定义"选项矛盾
+  providerId.value = p ? p.id : "";
 });
 watch(providerId, (id) => {
   const p = PROVIDERS.find((x) => x.id === id);
