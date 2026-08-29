@@ -713,6 +713,10 @@ async function saveAiSession() {
   }
 }
 
+// 会话代次：openAiSession 等整体替换会话时递增，让进行中流式回调按旧代次整体失效，
+// 防止流式期间打开历史会话时旧流把内容写进新会话（串话/TypeError/误删消息/坏数据落盘）
+let aiSeq = 0;
+
 // 发起请求并流式写入会话末尾的 assistant 消息
 async function streamAi(isFirstAnswer) {
   aiStatus.value = "loading";
@@ -720,11 +724,15 @@ async function streamAi(isFirstAnswer) {
   const payload = aiMessages.value.map((m) => ({ role: m.role, content: m.content }));
   aiMessages.value.push({ role: "assistant", content: "" });
   const idx = aiMessages.value.length - 1;
+  const seq = ++aiSeq;
   try {
     const answer = await askAi(payload, settings.value, (t) => {
-      aiMessages.value[idx].content = t;
+      if (seq !== aiSeq) return; // 会话已被整体替换（如流式期间打开历史），丢弃过期输出
+      const m = aiMessages.value[idx];
+      if (m && m.role === "assistant") m.content = t;
       aiStatus.value = "streaming";
     });
+    if (seq !== aiSeq) return; // 过期流式：不写回、不落历史、不改状态
     aiMessages.value[idx].content = answer;
     aiStatus.value = "done";
     if (isFirstAnswer) {
@@ -744,6 +752,7 @@ async function streamAi(isFirstAnswer) {
     }
     await saveAiSession();
   } catch (e) {
+    if (seq !== aiSeq) return; // 过期流式的失败不触碰已被替换的新会话
     aiMessages.value.splice(idx, 1); // 失败的空占位不留在会话里
     aiStatus.value = "error";
     aiError.value = String(e.message || e);
@@ -869,6 +878,7 @@ async function appendFollowupsToTerm() {
 
 // 从历史打开会话：还原上下文，可继续追问
 function openAiSession(s) {
+  aiSeq++; // 使进行中流式回调整体失效（onDelta/收尾/catch 均按代次丢弃）
   aiSessionId = s.id;
   aiQuery.value = s.query;
   aiFromView.value = view.value; // 记录来源视图（history/search），供 Esc 逐级返回
