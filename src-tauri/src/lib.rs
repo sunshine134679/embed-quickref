@@ -120,6 +120,10 @@ const GAP: f64 = 10.0;
 
 #[tauri::command]
 fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String> {
+    // 非法坐标防御：Inf 会命中"放左侧"分支把窗口送到工作区外（NaN 会被 clamp/max 吸收，无需特判）
+    if !x.is_finite() || !y.is_finite() {
+        return Err("非法的快捷窗坐标".to_string());
+    }
     let quick = app.get_webview_window("quick").ok_or("no quick window")?;
     let main = app.get_webview_window("main").ok_or("no main window")?;
     // 主窗口可能仍处于展开态（hover 触发时圆点刚挂载），以传入的圆点位置为准
@@ -154,8 +158,12 @@ fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String>
     // 垂直方向以圆点中心对齐，再按工作区钳制；比顶边对齐更不容易遮住原应用关键区域。
     let max_y = (area_y + area_h - qh).max(area_y);
     let qy = (y + (dot - qh) / 2.0).clamp(area_y, max_y);
+    // qx 与 qy 对称做上界钳制：异常大的 x（跨屏/过期坐标）不会再把快捷窗放到工作区外不可见
     quick
-        .set_position(PhysicalPosition::new(qx.max(area_x), qy.max(area_y)))
+        .set_position(PhysicalPosition::new(
+            qx.max(area_x).clamp(area_x, max_x),
+            qy.max(area_y),
+        ))
         .map_err(|e| e.to_string())?;
     // 记录显示前可见性与焦点：focus=false（隐藏冷却期内重新弹出）不抢焦点；
     // 否则仅"从隐藏到显示"或"已可见但未聚焦"时抢 OS 键盘焦点（hover 即输）
