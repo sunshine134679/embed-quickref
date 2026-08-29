@@ -466,7 +466,11 @@ async function enterCompact(animate = true) {
     dotAnchorOffset = { x: 0, y: 0 };
     await win.setIgnoreCursorEvents(false).catch(() => {});
   } catch (e) {
-    if (isCurrentWindowAnimation(token)) console.error("缩回圆点失败", e);
+    if (isCurrentWindowAnimation(token)) {
+      console.error("缩回圆点失败", e);
+      // 异常路径也必须复位鼠标穿透：否则窗口对点击完全无响应，只能靠热键再展开恢复
+      win.setIgnoreCursorEvents(false).catch(() => {});
+    }
   } finally {
     if (isCurrentWindowAnimation(token)) {
       transitionPhase.value = "idle";
