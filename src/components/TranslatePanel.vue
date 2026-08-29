@@ -16,12 +16,17 @@ const emit = defineEmits(["replay", "clear-history", "open-full", "use-suggestio
 
 // 输入联想：英文单词输入时（未翻译）在搜索栏下方实时给出拼写建议（前缀补全 + 模糊匹配）
 const suggestions = ref([]);
+let suggestSeq = 0;
 watch(
   () => props.query,
   async (q) => {
+    const seq = ++suggestSeq;
     if (q && isSingleWord(q) && props.status !== "done") {
-      suggestions.value = await suggestWords(q).catch(() => []);
-    } else {
+      const list = await suggestWords(q).catch(() => []);
+      // suggestWords 首次调用会动态加载约 600KB 词库 chunk：加载窗口内旧查询可能最后返回，
+      // 无守卫会用过期建议覆盖新查询（点击后用过期词触发翻译）
+      if (seq === suggestSeq) suggestions.value = list;
+    } else if (seq === suggestSeq) {
       suggestions.value = [];
     }
   }
