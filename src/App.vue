@@ -326,10 +326,14 @@ watch(query, (q) => {
   } catch (e) {}
   if (panel.value === "translate") {
     if (view.value !== "search") view.value = "search";
-    // 手动触发：输入只清空结果，等待用户回车/点翻译按钮
-    translateStatus.value = "idle";
-    translateResult.value = null;
-    translateError.value = "";
+    // 手动触发：输入只清空结果，等待用户回车/点翻译按钮。
+    // 但程序化回填（历史回放/联想/快捷窗跳转）是先改 query 再 runTranslateNow：
+    // 此时已在 loading，复位会把 loading/结果冲掉，按钮闪回"翻译"字样
+    if (translateStatus.value !== "loading") {
+      translateStatus.value = "idle";
+      translateResult.value = null;
+      translateError.value = "";
+    }
     return;
   }
   clearTimeout(termSearchTimer);
