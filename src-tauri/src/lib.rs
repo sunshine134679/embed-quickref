@@ -14,12 +14,8 @@ unsafe extern "system" {
 }
 
 // 焦点借用记录：弹出抢焦点前的 OS 前台窗口句柄
+#[derive(Default)]
 struct QuickFocusState(Mutex<isize>);
-impl Default for QuickFocusState {
-    fn default() -> Self {
-        Self(Mutex::new(0))
-    }
-}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -101,12 +97,8 @@ fn speak_native_blocking(app: AppHandle, text: String, accent: String) -> Result
     }
 }
 
+#[derive(Default)]
 struct NativeSpeechState(Mutex<Option<std::process::Child>>);
-impl Default for NativeSpeechState {
-    fn default() -> Self {
-        Self(Mutex::new(None))
-    }
-}
 
 // 退出整个应用，而不是只销毁当前窗口；托盘图标和 quick 窗口也必须随应用一并结束。
 #[tauri::command]
