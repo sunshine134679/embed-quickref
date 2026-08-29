@@ -626,8 +626,8 @@ async function onDotSettings() {
 }
 
 async function applyPinned() {
-  // 固定 = 置顶最前 + 显示任务栏图标 + 不随失焦隐藏
-  await win.setAlwaysOnTop(true);
+  // 固定 = 置顶最前 + 显示任务栏图标 + 不随失焦隐藏；取消固定必须同步复位置顶
+  await win.setAlwaysOnTop(pinned.value);
   await win.setSkipTaskbar(!pinned.value);
 }
 
@@ -1430,10 +1430,12 @@ async function onModeChange(m) {
   if (m === "floating") {
     await enterCompact();
     await win.setSkipTaskbar(true).catch(() => {});
+    // 从固定切出：置顶必须复位（圆点态基线为不置顶，与冷启动 floating 一致）
+    await win.setAlwaysOnTop(false).catch(() => {});
   } else {
     // 固定模式保留任务栏图标，弹窗模式不显示图标
     await win.setSkipTaskbar(m !== "pinned").catch(() => {});
-    if (m === "pinned") await win.setAlwaysOnTop(true);
+    await win.setAlwaysOnTop(m === "pinned").catch(() => {});
     if (form.value === "compact") {
       await enterExpanded(expandInitialView());
       await win.setFocus();
