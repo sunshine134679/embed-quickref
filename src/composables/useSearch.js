@@ -27,7 +27,9 @@ let cachedSearchIndex = null;
 
 export async function initUserTerms() {
   store = await load("user-terms.json", { autoSave: false });
-  userTerms.value = (await store.get("terms")) || [];
+  const saved = await store.get("terms");
+  // 存储损坏/被手改为非数组时回退空表，否则后续 some/for-of 全链路 TypeError（搜索无结果且无提示）
+  userTerms.value = Array.isArray(saved) ? saved : [];
   cachedAll = null;
   cachedSearchIndex = builtinTerms ? buildTermSearchIndex(allTerms()) : null;
 }
