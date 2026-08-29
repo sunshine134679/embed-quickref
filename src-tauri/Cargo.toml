@@ -2,7 +2,7 @@
 name = "embed-quickref"
 version = "0.1.0"
 description = "嵌入式 Linux 术语速查桌面助手"
-authors = ["you"]
+authors = ["MR"]
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,7 +12,8 @@ edition = "2021"
 # to make the lib name unique and wouldn't conflict with the bin name.
 # This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "embed_quickref_lib"
-crate-type = ["staticlib", "cdylib", "rlib"]
+# 纯桌面应用：rlib 供 main.rs 链接即可，staticlib/cdylib 只在移动端有用，省去多余 DLL 产物
+crate-type = ["rlib"]
 
 # 生产构建必须启用：tauri-codegen 依此判定 dev 模式——
 # 无此 feature 时 dev=true，正式版不嵌入前端资源而加载 devUrl（localhost:1420）导致"无法访问此页面"
@@ -28,5 +29,3 @@ tauri-plugin-global-shortcut = "2"
 tauri-plugin-store = "2"
 tauri-plugin-http = "2"
 tauri-plugin-single-instance = "2"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
