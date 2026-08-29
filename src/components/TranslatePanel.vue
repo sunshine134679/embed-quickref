@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { speakEnglish, isSingleWord, suggestWords } from "../composables/useTranslate";
 import { addUserTerm } from "../composables/useSearch";
 import WordSuggest from "./WordSuggest.vue";
@@ -110,6 +110,11 @@ function parseAiReply(reply) {
   }
   return out.pronunciation || out.meaning || out.example || out.translated ? out : null;
 }
+
+// 模板复用的单次解析结果：一次渲染原本会对同一回复重复调用 parseAiReply 8+ 次
+const aiParsed = computed(() =>
+  props.result && props.result.kind === "word-ai" ? parseAiReply(props.result.reply) : null
+);
 
 // 可朗读的英文文本：单词卡片读单词；句子英译中读原文，中译英读译文
 function speakableText() {
@@ -298,22 +303,22 @@ async function saveWordToDict() {
       </header>
 
       <!-- AI 结构化字段 -->
-      <template v-if="parseAiReply(result.reply)">
-        <div v-if="parseAiReply(result.reply).pronunciation" class="ai-pron">
+      <template v-if="aiParsed">
+        <div v-if="aiParsed.pronunciation" class="ai-pron">
           <span class="label">音标</span>
-          <span class="pron-value">{{ parseAiReply(result.reply).pronunciation }}</span>
+          <span class="pron-value">{{ aiParsed.pronunciation }}</span>
         </div>
-        <div v-if="parseAiReply(result.reply).meaning" class="ai-meaning">
+        <div v-if="aiParsed.meaning" class="ai-meaning">
           <span class="label">释义</span>
-          <span class="meaning-text">{{ parseAiReply(result.reply).meaning }}</span>
+          <span class="meaning-text">{{ aiParsed.meaning }}</span>
         </div>
-        <div v-if="parseAiReply(result.reply).example" class="ai-example">
+        <div v-if="aiParsed.example" class="ai-example">
           <span class="label">例句</span>
-          <code>{{ parseAiReply(result.reply).example }}</code>
+          <code>{{ aiParsed.example }}</code>
         </div>
-        <div v-if="parseAiReply(result.reply).translated" class="ai-translated">
+        <div v-if="aiParsed.translated" class="ai-translated">
           <span class="label">译文</span>
-          <span class="translated-text">{{ parseAiReply(result.reply).translated }}</span>
+          <span class="translated-text">{{ aiParsed.translated }}</span>
         </div>
       </template>
       <pre v-else class="ai-reply">{{ result.reply }}</pre>
