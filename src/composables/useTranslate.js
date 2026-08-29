@@ -458,6 +458,8 @@ function speakWithSystemVoice(text, settings) {
   utterance.voice = selected || exact || regional || null;
   utterance.lang = utterance.voice?.lang || accent;
   utterance.rate = 0.85;
+  // 播放失败原本完全静默（点了发音没声音无从排查）：至少留日志
+  utterance.onerror = (e) => console.error("Web 语音播放失败", e?.error || e);
   window.speechSynthesis.speak(utterance);
 }
 
