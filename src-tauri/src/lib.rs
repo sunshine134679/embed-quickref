@@ -46,8 +46,16 @@ fn powershell_single_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
 
+// 发音命令：wry 的 IPC 在 WebView 主线程内联执行同步命令，kill/wait + spawn powershell
+// 会阻塞 UI（点击发音瞬间冻结窗口动画/事件处理），因此移入阻塞线程池执行
 #[tauri::command]
-fn speak_native(app: AppHandle, text: String, accent: String) -> Result<(), String> {
+async fn speak_native(app: AppHandle, text: String, accent: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || speak_native_blocking(app, text, accent))
+        .await
+        .map_err(|e| format!("语音任务执行失败: {e}"))?
+}
+
+fn speak_native_blocking(app: AppHandle, text: String, accent: String) -> Result<(), String> {
     let text = text.trim();
     if text.is_empty() {
         return Ok(());
