@@ -53,7 +53,6 @@ const translateResult = ref(null);
 const translateError = ref("");
 // 翻译历史（最近的在前），翻译成功后更新
 const translateHistory = ref(loadHistory());
-let translateTimer = null;
 let translateSeq = 0;
 let termSearchTimer = null;
 const aiQuery = ref("");
@@ -349,9 +348,8 @@ ensureTerms().then(() => {
 
 // ---------- 英语翻译分区：与专业名词查询分离 ----------
 
-// 立即翻译（Enter/Tab/翻译按钮触发）：先取消未执行的防抖，再执行
+// 立即翻译（Enter/Tab/翻译按钮触发）
 function runTranslateNow() {
-  clearTimeout(translateTimer);
   const text = (query.value || "").trim();
   if (!text) return;
   runTranslate(text);
@@ -388,7 +386,6 @@ function switchPanel(p) {
   if (panel.value !== p) {
     panel.value = p;
     translateSeq++; // 作废进行中的翻译
-    clearTimeout(translateTimer);
     query.value = "";
     results.value = [];
     selectedIndex.value = 0;
@@ -566,26 +563,6 @@ async function enterExpanded(initialView = "search", opts = {}) {
       transitionPhase.value = "idle";
       finishWindowAnimation(token);
     }
-  }
-}
-
-// 窗口位置纠正到当前显示器可见范围（完整可见 clamp，物理像素）
-async function clampToVisible() {
-  try {
-    const mon = await currentMonitor();
-    if (!mon) return;
-    const p = await win.outerPosition();
-    const s = await win.outerSize();
-    const area = mon.workArea || { position: mon.position, size: mon.size };
-    const maxX = area.position.x + Math.max(0, area.size.width - s.width);
-    const maxY = area.position.y + Math.max(0, area.size.height - s.height);
-    const x = Math.min(Math.max(p.x, area.position.x), maxX);
-    const y = Math.min(Math.max(p.y, area.position.y), maxY);
-    if (x !== p.x || y !== p.y) {
-      await win.setPosition(new PhysicalPosition(x, y));
-    }
-  } catch (e) {
-    console.error("位置纠正失败", e);
   }
 }
 
