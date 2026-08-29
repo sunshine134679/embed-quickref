@@ -108,6 +108,13 @@ impl Default for NativeSpeechState {
 // 退出整个应用，而不是只销毁当前窗口；托盘图标和 quick 窗口也必须随应用一并结束。
 #[tauri::command]
 fn exit_app(app: AppHandle) -> Result<(), String> {
+    // 退出前终止正在播放的原生语音子进程：Windows 父进程退出不会级联杀子进程，
+    // 否则 powershell.exe 会把剩余文本读完
+    #[cfg(windows)]
+    if let Some(mut child) = app.state::<NativeSpeechState>().0.lock().unwrap().take() {
+        let _ = child.kill();
+        let _ = child.wait();
+    }
     app.exit(0);
     Ok(())
 }
@@ -217,10 +224,15 @@ fn hide_quick(app: AppHandle) -> Result<(), String> {
         if fg != 0 {
             if let Ok(hwnd) = quick.hwnd() {
                 if fg == hwnd.0 as isize {
-                    let prev = *app.state::<QuickFocusState>().0.lock().unwrap();
+                    // state 先绑定：State 是临时借用包装，跨语句持有 MutexGuard 必须先留住它（E0716）
+                    let state = app.state::<QuickFocusState>();
+                    let mut prev_guard = state.0.lock().unwrap();
+                    let prev = *prev_guard;
                     if prev != 0 && prev != fg {
                         unsafe { SetForegroundWindow(prev) };
                     }
+                    // 归还后清零：陈旧句柄可能在下次 hide 时把焦点还给早已销毁/无关的窗口
+                    *prev_guard = 0;
                 }
             }
         }
