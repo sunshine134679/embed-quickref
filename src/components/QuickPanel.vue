@@ -324,6 +324,15 @@ function onKeydown(e) {
   }
 }
 
+// 焦点不在输入框时（点过发音/查看详情/分区切换等按钮后）Esc 也要能关窗：
+// 输入框上的 onKeydown 只覆盖输入框自身，WebView2 点击按钮后焦点会停在按钮上
+function onWindowKeydown(e) {
+  if (e.key !== "Escape") return;
+  if (e.target === inputRef.value) return; // 输入框场景由其自身 onKeydown 处理，避免双重触发
+  e.preventDefault();
+  invoke("hide_quick").catch(() => {});
+}
+
 function closeSelf() {
   invoke("hide_quick").catch(() => {});
 }
@@ -333,6 +342,7 @@ const inputRef = ref(null);
 const unlisteners = []; // 事件反注册函数：组件卸载时清理（主要防开发环境 HMR 重复回调）
 
 onMounted(async () => {
+  window.addEventListener("keydown", onWindowKeydown);
   const on = (name, handler) =>
     listen(name, handler)
       .then((u) => unlisteners.push(u))
@@ -360,6 +370,7 @@ onMounted(async () => {
 });
 
 onUnmounted(() => {
+  window.removeEventListener("keydown", onWindowKeydown);
   clearTimeout(timer);
   clearTimeout(graceTimer);
   clearTimeout(focusGuardTimer);
