@@ -1,11 +1,10 @@
 // 编程/嵌入式英语学习词典（移植自 QuickTranslator 半成品）
-// 结构：单词 -> { primary, pronunciation:{uk,us}, audio, forms[], usage, senses[{pos,meaning,example,exampleZh}] }
+// 结构：单词 -> { primary, pronunciation:{uk,us}, forms[], usage, senses[{pos,meaning,example,exampleZh}] }
 // 词形索引由 useTranslate 构建：输入变形（interrupted）也能命中原型（interrupt）
 export default {
   float: {
     primary: 'n. 浮点数；漂浮物  v. 漂浮；使浮动；提出',
     pronunciation: { uk: '/fləʊt/', us: '/floʊt/' },
-    audio: 'https://api.dictionaryapi.dev/media/pronunciations/en/float-au.mp3',
     forms: ['float', 'floats', 'floated', 'floating'],
     usage: '在 C/C++ 中，float 是单精度浮点类型；浮点字面量可写成 3.14f。',
     senses: [
