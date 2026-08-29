@@ -110,8 +110,10 @@ export async function saveSettings(next) {
   }
   await store.save();
   // 设置在各 WebView 是独立内存快照（快捷窗启动时加载一次）：落盘后广播，
-  // 让快捷窗重新 initSettings，否则改 API Key/model 后快捷窗翻译一直用旧值
-  emit("settings-changed", settings.value).catch(() => {});
+  // 让快捷窗重新 initSettings，否则改 API Key/model 后快捷窗翻译一直用旧值。
+  // 载荷剥离明文 apiKey：快捷窗收到事件后自行从 store 重读，不需要也不应持有 Key 明文
+  const { apiKey: _omit, ...safeSettings } = settings.value;
+  emit("settings-changed", safeSettings).catch(() => {});
 }
 
 export function useSettings() {
