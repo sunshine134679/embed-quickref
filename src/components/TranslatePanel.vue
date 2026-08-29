@@ -118,6 +118,13 @@ function speakableText() {
 // ---- AI 单词解释并入词库：与术语功能一致，把 AI 词典式解释存为词条 ----
 // 状态："" 未操作 | saving 保存中 | added 已并入 | exists 个人词库已有 | builtin 内置词库已有 | error 失败
 const termSaved = ref("");
+// 新查询结果到来时复位并入状态：否则上一个词的"已并入"会套在新词上（按钮永久消失、虚假成功提示）
+watch(
+  () => props.result,
+  () => {
+    termSaved.value = "";
+  }
+);
 
 async function saveWordToDict() {
   const r = props.result;
@@ -142,6 +149,7 @@ async function saveWordToDict() {
   termSaved.value = "saving";
   try {
     const res = await addUserTerm(term);
+    if (props.result !== r) return; // 保存期间结果已切换，过期状态不再写回（watch 已复位）
     termSaved.value = res === "added" ? "added" : res === "user-exists" ? "exists" : res === "builtin" ? "builtin" : "error";
   } catch (e) {
     console.error("翻译并入词库失败", e);
