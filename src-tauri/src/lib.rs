@@ -62,6 +62,9 @@ fn speak_native_blocking(app: AppHandle, text: String, accent: String) -> Result
     }
     #[cfg(windows)]
     {
+        // -EncodedCommand 走 CreateProcess 命令行（上限 32767 字符）：脚本经 UTF-16LE+base64
+        // 放大约 2.7 倍、单引号转义最坏再翻倍，超长正文会直接 spawn 失败；截断到安全长度
+        let text: String = text.chars().take(6000).collect();
         let locale = if accent == "en" { "en-GB" } else { "en-US" };
         let mut script = String::from(
             "Add-Type -AssemblyName System.Speech; $synth = New-Object System.Speech.Synthesis.SpeechSynthesizer; ",
@@ -69,7 +72,7 @@ fn speak_native_blocking(app: AppHandle, text: String, accent: String) -> Result
         script.push_str("$culture = New-Object System.Globalization.CultureInfo(");
         script.push_str(&powershell_single_quote(locale));
         script.push_str("); try { $synth.SelectVoiceByHints([System.Speech.Synthesis.VoiceGender]::NotSet, [System.Speech.Synthesis.VoiceAge]::NotSet, 0, $culture) } catch {}; $synth.Speak(");
-        script.push_str(&powershell_single_quote(text));
+        script.push_str(&powershell_single_quote(&text));
         script.push_str("); $synth.Dispose();");
 
         let mut utf16le = Vec::with_capacity(script.len() * 2);
