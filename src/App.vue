@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick, defineAsyncComponent } from "vue";
-import { getCurrentWindow, currentMonitor } from "@tauri-apps/api/window";
+import { getCurrentWindow, currentMonitor, availableMonitors } from "@tauri-apps/api/window";
 import { LogicalSize, PhysicalPosition } from "@tauri-apps/api/dpi";
 import { register, unregister } from "@tauri-apps/plugin-global-shortcut";
 import { TrayIcon } from "@tauri-apps/api/tray";
@@ -584,12 +584,44 @@ async function clampToVisible() {
   }
 }
 
-// 钳制坐标到当前显示器内：防最小化（outerPosition 返回 -32000）或异常状态
-// 把圆点/窗口带出屏幕（物理像素，与 outerPosition/setPosition 同单位）
-async function clampToWorkArea(pos, size = DOT_SIZE) {
+// 坐标所属显示器：包含该点的优先，否则取矩形中心距离最近的。
+// 恢复记忆的圆点位置必须按坐标选屏——窗口此时还在默认主屏位置，
+// currentMonitor() 返回的是窗口所在显示器，会把副屏坐标错误钳回主屏并经 onMoved 落盘
+async function monitorForPoint(x, y) {
   try {
-    const mon = await currentMonitor();
-    if (!mon || !pos) return pos;
+    const monitors = await availableMonitors();
+    if (!monitors || !monitors.length) return null;
+    const hit = monitors.find(
+      (m) =>
+        x >= m.position.x &&
+        x < m.position.x + m.size.width &&
+        y >= m.position.y &&
+        y < m.position.y + m.size.height
+    );
+    if (hit) return hit;
+    let best = null;
+    let bestDist = Infinity;
+    for (const m of monitors) {
+      const d = (m.position.x + m.size.width / 2 - x) ** 2 + (m.position.y + m.size.height / 2 - y) ** 2;
+      if (d < bestDist) {
+        bestDist = d;
+        best = m;
+      }
+    }
+    return best;
+  } catch {
+    return null;
+  }
+}
+
+// 钳制坐标到显示器可见区内：防最小化（outerPosition 返回 -32000）或异常状态
+// 把圆点/窗口带出屏幕（物理像素，与 outerPosition/setPosition 同单位）；
+// 显式传入 monitor 时按该显示器钳制（恢复位置按坐标选屏），否则按窗口当前所在显示器
+async function clampToWorkArea(pos, size = DOT_SIZE, monitor = null) {
+  try {
+    if (!pos) return pos;
+    const mon = monitor || (await currentMonitor());
+    if (!mon) return pos;
     return clampWindowPosition(pos, { width: size, height: size }, mon.scaleFactor || 1, mon);
   } catch {
     return pos;
@@ -599,7 +631,8 @@ async function clampToWorkArea(pos, size = DOT_SIZE) {
 // 应用记忆的圆点位置（钳制到可见区，异常保存值不会把圆点带出屏幕）
 async function applyDotPosition(p) {
   try {
-    const c = await clampToWorkArea(p);
+    const mon = await monitorForPoint(p.x, p.y);
+    const c = await clampToWorkArea(p, DOT_SIZE, mon);
     await win.setPosition(new PhysicalPosition(c.x, c.y));
   } catch (e) {
     console.error("恢复圆点位置失败", e);
