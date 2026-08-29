@@ -348,6 +348,9 @@ ensureTerms().then(() => {
   if (query.value.trim() && panel.value === "terms") {
     searchTermsNow(query.value);
   }
+}).catch((e) => {
+  // 词库 chunk 加载失败时 search() 会以空索引静默返回空结果，至少留下可排查的日志
+  console.error("内置词库加载失败", e);
 });
 
 // ---------- 英语翻译分区：与专业名词查询分离 ----------
@@ -380,7 +383,9 @@ async function runTranslate(text) {
     }
   } catch (e) {
     if (seq !== translateSeq) return;
-    translateError.value = String(e?.message || e);
+    const msg = String(e?.message || e);
+    // no-api-key 是内部错误码，直接展示对用户无意义
+    translateError.value = msg === "no-api-key" ? "尚未配置 API Key：请到设置页添加服务商与密钥" : msg;
     translateStatus.value = "error";
   }
 }
@@ -752,6 +757,7 @@ async function streamAi(isFirstAnswer) {
       aiStatus.value = "streaming";
     });
     if (seq !== aiSeq) return; // 过期流式：不写回、不落历史、不改状态
+    if (!answer) throw new Error("AI 返回了空回答"); // 空回答按错误处理，不再静默显示空气泡并落盘
     aiMessages.value[idx].content = answer;
     aiStatus.value = "done";
     if (isFirstAnswer) {
