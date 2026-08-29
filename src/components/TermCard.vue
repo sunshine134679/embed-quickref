@@ -11,6 +11,7 @@ defineEmits(["toggle-star"]);
 // 复制反馈：记录当前复制的块（usage/definition），1.2s 后复位
 const copied = ref("");
 async function copyText(text, key) {
+  if (!text) return; // 空内容不复制也不提示"已复制"（个别 AI 缓存词条可能缺 definition）
   try {
     await navigator.clipboard.writeText(text);
     copied.value = key;
@@ -89,7 +90,7 @@ function catStyle(cat) {
         <span>{{ op.d }}</span>
       </div>
     </div>
-    <div class="code-block">
+    <div v-if="term.definition" class="code-block">
       <button
         class="copy-btn"
         :class="{ done: copied === 'definition' }"
