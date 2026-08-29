@@ -260,6 +260,7 @@ const pinned = ref(false);
 // 指针是否在窗口内：点击边框缩放/拖动会瞬时失焦，此时不能隐藏窗口
 let pointerInside = false;
 let hideTimer = null;
+let moveTimer = null; // onMoved 防抖保存（onMounted 内赋值，卸载时统一清理）
 // 标签页：打开过的词条固定为标签，直到手动关闭；随 pinned 一起持久化，重启不丢
 const tabs = ref([]);
 const activeTab = ref(null);
@@ -1354,12 +1355,13 @@ async function onQuickAskAi(payload) {
 // 注册快捷窗口事件：hover 弹出 + 详情跳转
 async function setupQuickListeners() {
   try {
-    await listen("quick-open-detail", (e) => onQuickOpenDetail(e.payload));
-    await listen("quick-ask-ai", (e) => onQuickAskAi(e.payload));
-    await listen("quick-hover-in", onQuickHoverIn);
-    await listen("quick-hover-out", onQuickHoverOut);
-    await listen("quick-typing", onQuickTyping);
-    await listen("quick-blur", onQuickBlur);
+    // 反注册函数存入 unlisteners：组件卸载（HMR/开发重载）时统一注销，防回调双发
+    unlisteners.push(await listen("quick-open-detail", (e) => onQuickOpenDetail(e.payload)));
+    unlisteners.push(await listen("quick-ask-ai", (e) => onQuickAskAi(e.payload)));
+    unlisteners.push(await listen("quick-hover-in", onQuickHoverIn));
+    unlisteners.push(await listen("quick-hover-out", onQuickHoverOut));
+    unlisteners.push(await listen("quick-typing", onQuickTyping));
+    unlisteners.push(await listen("quick-blur", onQuickBlur));
   } catch (err) {
     console.error("快捷窗口事件监听失败", err);
   }
@@ -1521,6 +1523,10 @@ async function setupTray() {
   });
 }
 
+// Tauri 事件监听反注册表：单实例常驻下主要在 HMR/开发重载触发卸载，
+// 不注销会导致回调成对双发（重复收起计时/重复弹出定位）
+const unlisteners = [];
+
 onMounted(async () => {
   // 快捷查找窗口：不初始化主界面逻辑
   if (isQuick) return;
@@ -1566,7 +1572,7 @@ onMounted(async () => {
   } catch (e) {
     console.error("托盘创建失败", e);
   }
-  await win.onFocusChanged(({ payload: focused }) => {
+  unlisteners.push(await win.onFocusChanged(({ payload: focused }) => {
     // 原生边界动画期间记录焦点变化，动画完成后再按实际 OS 焦点状态处理。
     if (transitionPhase.value !== "idle") {
       pendingFocus = focused;
@@ -1607,10 +1613,9 @@ onMounted(async () => {
       if (await win.isFocused()) return;
       win.hide();
     }, 200);
-  });
+  }));
   // 悬浮模式：窗口移动后防抖保存位置 + 水平边缘吸附（80px 内贴边）
-  let moveTimer = null;
-  await win.onMoved(async ({ payload: pos }) => {
+  unlisteners.push(await win.onMoved(async ({ payload: pos }) => {
     // 动画自身会连续触发 onMoved；不让这些中间坐标覆盖圆点还原位置或触发吸附。
     if (transitionPhase.value !== "idle") return;
     if (consumeProgrammaticPosition(pos)) return;
@@ -1652,7 +1657,7 @@ onMounted(async () => {
         console.error("吸附失败", e);
       }
     }, 400);
-  });
+  }));
   try {
     await setupQuickListeners();
   } catch (e) {
@@ -1669,6 +1674,20 @@ onMounted(async () => {
 // 组件卸载时清理全局监听器（单实例常驻下主要在 HMR/开发环境触发）
 onUnmounted(() => {
   cancelWindowAnimation();
+  for (const off of unlisteners) {
+    try {
+      off();
+    } catch {
+      // 重复注销无害
+    }
+  }
+  unlisteners.length = 0;
+  clearTimeout(termSearchTimer);
+  clearTimeout(hideTimer);
+  clearTimeout(moveTimer);
+  clearTimeout(quickShowTimer);
+  clearTimeout(quickHideTimer);
+  clearTimeout(focusReconcileTimer);
   window.removeEventListener("keydown", onKeydown);
   document.removeEventListener("mouseenter", onPointerEnter);
   document.removeEventListener("mouseleave", onPointerLeave);
