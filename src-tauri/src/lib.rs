@@ -166,7 +166,23 @@ fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String>
             }
         }
     }
+    // 不抢焦点路径（focus=false 冷却期重弹，或已可见未聚焦）同样要防激活：
+    // tao 对普通窗口一律 SW_SHOW 显示（本身会激活窗口），Windows 上临时禁用可聚焦
+    // （WS_EX_NOACTIVATE，不影响已持有的焦点）再恢复，否则冷却期重弹仍会抢走前台，
+    // 且该路径无借用记录、hide_quick 的焦点归还会静默失效
+    #[cfg(windows)]
+    {
+        if !steal_focus {
+            quick.set_focusable(false).map_err(|e| e.to_string())?;
+        }
+    }
     quick.show().map_err(|e| e.to_string())?;
+    #[cfg(windows)]
+    {
+        if !steal_focus {
+            quick.set_focusable(true).map_err(|e| e.to_string())?;
+        }
+    }
     if steal_focus {
         quick.set_focus().map_err(|e| e.to_string())?;
     }
