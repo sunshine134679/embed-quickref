@@ -69,6 +69,7 @@ function openTranslate(h) {
     <div class="h-tabs" role="tablist">
       <button
         role="tab"
+        :aria-selected="tab === 'terms'"
         :class="{ on: tab === 'terms' }"
         @click="tab = 'terms'"
       >
@@ -77,6 +78,7 @@ function openTranslate(h) {
       </button>
       <button
         role="tab"
+        :aria-selected="tab === 'translate'"
         :class="{ on: tab === 'translate' }"
         @click="tab = 'translate'"
       >
@@ -85,6 +87,7 @@ function openTranslate(h) {
       </button>
       <button
         role="tab"
+        :aria-selected="tab === 'ai'"
         :class="{ on: tab === 'ai' }"
         @click="tab = 'ai'"
       >

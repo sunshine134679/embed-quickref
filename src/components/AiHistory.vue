@@ -31,12 +31,12 @@ function extraTurns(s) {
     <div v-if="!sessions.length" class="empty">
       还没有 AI 解释记录。词库未命中时按 <kbd>Enter</kbd> 问 AI，记录会自动保存在这里。
     </div>
-    <div v-for="s in sessions" :key="s.id" class="item" @click="emit('open', s)">
+    <div v-for="s in sessions" :key="s.id" class="item" role="button" tabindex="0" @click="emit('open', s)" @keydown.enter="emit('open', s)">
       <div class="row1">
         <span class="q">{{ s.query }}</span>
         <span v-if="extraTurns(s)" class="turns">+{{ extraTurns(s) }} 追问</span>
         <span class="time">{{ fmtWhen(s.time) }}</span>
-        <span class="del" title="删除记录" @click.stop="emit('remove', s.id)">×</span>
+        <span class="del" role="button" tabindex="0" title="删除记录" aria-label="删除记录" @click.stop="emit('remove', s.id)" @keydown.enter.stop="emit('remove', s.id)">×</span>
       </div>
       <div v-if="preview(s)" class="pv">{{ preview(s) }}</div>
     </div>
