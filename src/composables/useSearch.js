@@ -51,6 +51,10 @@ function allTerms() {
   // 去重规则：
   // - 内置词库全部保留（同缩写不同分类的一词多义词条互不冲突，如 ping 的 Linux/U-Boot/Windows 三条）
   // - 用户词库缓存：与内置「同缩写同分类」的词条跳过（内置优先），避免如 ipconfig 重复显示
+  // 内置键先建 Set：否则每个用户词条全量扫描内置词库（O(用户×内置)，词条过千后可感知）
+  const builtinKeys = new Set(
+    builtinTerms.map((t) => (t.abbr || "").trim().toLowerCase() + "\u0000" + (t.category || ""))
+  );
   const seen = new Set();
   const out = [];
   for (const t of builtinTerms) {
@@ -61,14 +65,10 @@ function allTerms() {
     }
   }
   for (const t of userTerms.value) {
-    const a = (t.abbr || "").trim().toLowerCase();
-    const c = t.category || "";
-    if (builtinTerms.some((b) => (b.abbr || "").trim().toLowerCase() === a && (b.category || "") === c)) continue;
-    const k = a + "\u0000" + c;
-    if (!seen.has(k)) {
-      seen.add(k);
-      out.push(t);
-    }
+    const k = (t.abbr || "").trim().toLowerCase() + "\u0000" + (t.category || "");
+    if (builtinKeys.has(k) || seen.has(k)) continue;
+    seen.add(k);
+    out.push(t);
   }
   cachedAll = out;
   return out;
