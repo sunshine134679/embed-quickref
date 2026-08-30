@@ -2538,6 +2538,10 @@ body {
 .recent-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  /* 与 .recent-list 同宽：标题/清空分列两缘，和翻译空态的 history-head 统一 */
+  width: 100%;
+  max-width: 420px;
   gap: 14px;
   margin-bottom: 4px;
 }
