@@ -14222,5 +14222,1419 @@
     ],
     "usage": "生成高质量插画与封面时用 MJ。在 Discord 频道输入 /imagine 加画面描述，追加 --ar 16:9 --v 6 等参数控制构图；不满意点 V 出变体，满意点 U 放大下载；商用注意订阅条款。嵌入式技术博客头图、文档封面常用它生成科技风配图。",
     "example": "/imagine prompt: embedded linux board illustration, circuit traces glowing blue, dark tech style --ar 16:9 --v 6 --stylize 200\n# 生成后在 Discord 中点 U1~U4 放大，V1~V4 生成变体"
+  },
+  {
+    "abbr": "dts",
+    "full": "Device Tree Source",
+    "zh": "设备树源文件",
+    "category": "设备树",
+    "definition": "描述板级硬件拓扑的可读文本源文件，编译后生成 dtb 供内核解析。",
+    "points": [
+      "板级 dts 位于 arch/arm64/boot/dts/freescale/，如 imx8mp-evk.dts",
+      "以 /dts-v1/; 声明语法版本，根节点为 /，是整棵树的唯一入口",
+      "可 include 多个 dtsi，后包含者覆盖先包含者的同名属性"
+    ],
+    "usage": "// arch/arm64/boot/dts/freescale/imx8mp-evk.dts\n/dts-v1/;\n#include \"imx8mp.dtsi\"      // 引入 SoC 级公共配置\n/ {\n    model = \"NXP i.MX8MPlus EVK board\";\n    compatible = \"fsl,imx8mp-evk\", \"fsl,imx8mp\";\n};",
+    "example": "&uart1 {                       // 引用 dtsi 里带标签的节点\n    pinctrl-names = \"default\";\n    pinctrl-0 = <&pinctrl_uart1>;\n    status = \"okay\";           // 启用外设\n};\n// make ARCH=arm64 dtbs 后产出同名 .dtb"
+  },
+  {
+    "abbr": "dtsi",
+    "full": "Device Tree Source Include",
+    "zh": "设备树包含文件",
+    "category": "设备树",
+    "definition": "被 dts include 的公共设备树片段，多用于 SoC 级外设默认配置。",
+    "points": [
+      "SoC 级 dtsi（imx8mp.dtsi）定义 CPU、CCM、外设寄存器等公共默认值",
+      "公共外设默认 status = \"disabled\"，板级 dts 按需覆盖为 \"okay\"",
+      "同名节点按 include 顺序合并，同名属性后包含者覆盖先包含者"
+    ],
+    "usage": "// imx8mp.dtsi：SoC 级公共外设定义\nuart1: serial@30860000 {\n    compatible = \"fsl,imx8mp-uart\", \"fsl,imx6q-uart\";\n    reg = <0x30860000 0x10000>;\n    interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;\n    status = \"disabled\";   // 默认关闭，等板级启用\n};",
+    "example": "// 板级 dts 覆盖 dtsi 默认值\n&uart1 { status = \"okay\"; };     // 启用\n&uart3 { status = \"disabled\"; }; // 覆盖 dtsi 里已启用的节点\n// 排错：反编译 dtb 后 diff，可看清最终合并结果"
+  },
+  {
+    "abbr": "dtb",
+    "full": "Device Tree Blob",
+    "zh": "设备树二进制文件",
+    "category": "设备树",
+    "definition": "dts 编译生成的扁平二进制设备树，由 U-Boot 传给内核解析。",
+    "points": [
+      "由板级 dts 连同 include 的 dtsi 编译而来，随内核镜像一起发布",
+      "U-Boot 用 booti 的第三个参数把 dtb 地址传给内核",
+      "fdtdump/fdtget 可离线反查内容，不上电即可确认配置"
+    ],
+    "usage": "# U-Boot 从网络加载内核与 dtb\ntftpboot ${loadaddr} Image\ntftpboot ${fdt_addr} imx8mp-evk.dtb\nbooti ${loadaddr} - ${fdt_addr}   # 第 2 参数为 ramdisk，- 表示无",
+    "example": "# 离线检查 dtb 内容\nfdtdump arch/arm64/boot/dts/freescale/imx8mp-evk.dtb | less\nfdtget imx8mp-evk.dtb /soc@0/serial@30860000 status\n# 输出 okay，确认板级覆盖已生效"
+  },
+  {
+    "abbr": "dtbs",
+    "full": "Device Tree Blobs (kernel build target)",
+    "zh": "设备树批量编译目标",
+    "category": "设备树",
+    "definition": "内核 Makefile 目标，一次编译所有已启用平台的 dtb。",
+    "points": [
+      "依赖内核配置使能目标 SoC（如 CONFIG_ARCH_MXC），否则不编对应 dts",
+      "只处理 dts/dtsi，比 make all 快得多，调设备树时高频使用",
+      "产物目录 arch/arm64/boot/dts/freescale/，与 SoC 型号一一对应"
+    ],
+    "usage": "# 编译内核自带全部设备树\nmake ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- imx_v8_defconfig\nmake ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- dtbs -j8\n# 产物：arch/arm64/boot/dts/freescale/imx8mp-evk.dtb",
+    "example": "# 只编单个 dtb，改 dts 后快速验证\nmake ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- freescale/imx8mp-evk.dtb\n# 加 V=1 可看到真实编译命令（含 cpp 预处理 + dtc）\nmake ARCH=arm64 V=1 freescale/imx8mp-evk.dtb | head"
+  },
+  {
+    "abbr": "dtc",
+    "full": "Device Tree Compiler",
+    "zh": "设备树编译器",
+    "category": "设备树",
+    "definition": "设备树编译器，dts 与 dtb 双向转换的命令行工具。",
+    "points": [
+      "内核自带 scripts/dtc，与 apt 安装的 device-tree-compiler 同源",
+      "-I/-O 支持 dts 与 dtb 双向转换，反编译是分析官方板卡的利器",
+      "-@ 生成 __symbols__ 符号表，是 overlay 能用 &label 的前提"
+    ],
+    "usage": "# 手动编译与反编译（apt install device-tree-compiler）\ndtc -I dts -O dtb -o board.dtb board.dts      # dts → dtb\ndtc -I dtb -O dts -o board_dec.dts board.dtb  # 反编译对照",
+    "example": "# 生成带 __symbols__ 的 dtb，供 overlay 的 &label 解析\ndtc -@ -I dts -O dtb -o base.dtb base.dts\n# 严格模式：把检查警告当错误，CI 卡关用\ndtc -Werror -E -I dts -O dtb -o /dev/null board.dts"
+  },
+  {
+    "abbr": "fdt",
+    "full": "Flattened Device Tree",
+    "zh": "扁平设备树",
+    "category": "设备树",
+    "definition": "dtb 的扁平化二进制格式规范，U-Boot 与内核按此解析。",
+    "points": [
+      "由头部、结构块、字符串表组成，magic 固定 0xd00dfeed",
+      "U-Boot 的 fdt 命令族直接读写内存中的 fdt，可免重编修正配置",
+      "内核侧 /sys/firmware/fdt 与 /proc/device-tree 源自同一个 blob"
+    ],
+    "usage": "# U-Boot 直接修改内存中的 fdt\nfdt addr ${fdt_addr}              # 声明 fdt 所在地址\nfdt print /chosen                 # 打印节点内容\nfdt set /soc@0/serial@30890000 status disabled  # 运行时禁用外设\nbooti ${loadaddr} - ${fdt_addr}",
+    "example": "# 校验 fdt 头部与大小\nfdt addr ${fdt_addr} && fdt header\n# magic = 0xd00dfeed 表示 blob 有效，totalsize 需小于预留空间\n# 内核里 /proc/device-tree 即它的只读展开"
+  },
+  {
+    "abbr": "overlay",
+    "full": "Device Tree Overlay",
+    "zh": "设备树叠加层",
+    "category": "设备树",
+    "definition": "叠加在基板 dtb 之上动态增改节点的片段，用于扩展板。",
+    "points": [
+      "基板 dtb 必须 -@ 编译生成 __symbols__，否则 &label 解析失败",
+      "U-Boot 用 fdt apply 合并；内核态走 CONFIG_OF_OVERLAY + configfs",
+      "典型场景：扩展板、传感器配件、量产板的差异化引脚配置"
+    ],
+    "usage": "// example-overlay.dts：给基板 i2c1 挂新设备\n/dts-v1/;\n/plugin/;\n&i2c1 {                          // 引用基板 __symbols__ 中的符号\n    status = \"okay\";\n    eeprom@50 {\n        compatible = \"atmel,24c02\";\n        reg = <0x50>;\n    };\n};",
+    "example": "# U-Boot 应用 overlay\ntftpboot ${fdt_addr} base.dtb && fdt addr ${fdt_addr}\ntftpboot 0x45000000 example.dtbo\nfdt apply 0x45000000             # 合并后立即生效\n# 内核态：/sys/kernel/config/device-tree/overlays/ 下写入加载"
+  },
+  {
+    "abbr": "compatible",
+    "full": "Compatible String",
+    "zh": "兼容性字符串",
+    "category": "设备树",
+    "definition": "节点与驱动匹配的关键属性，内核据此选择驱动并传入 data。",
+    "points": [
+      "格式 \"厂商,型号\"，全小写、逗号分隔，不得含空格",
+      "可有多个值，内核按从左到右顺序匹配，先专用后通用兜底",
+      "驱动侧 of_device_get_match_data() 取匹配项携带的私有数据"
+    ],
+    "usage": "uart1: serial@30860000 {\n    // 从左到右依次匹配，先专用后通用兜底\n    compatible = \"fsl,imx8mp-uart\", \"fsl,imx6q-uart\";\n};\neeprom@50 {\n    compatible = \"microchip,24lc256\", \"atmel,24c256\";\n    // 第二个值让旧通用驱动也能带起新芯片\n};",
+    "example": "// 驱动侧匹配表与私有数据\nstatic const struct of_device_id imx_uart_ids[] = {\n    { .compatible = \"fsl,imx8mp-uart\", .data = &imx8mp_data },\n    { .compatible = \"fsl,imx6q-uart\",  .data = &imx6q_data  },\n    { /* sentinel */ }\n};\n// probe 中 of_device_get_match_data(dev) 取对应 data"
+  },
+  {
+    "abbr": "model",
+    "full": "Model Name Property",
+    "zh": "板卡型号属性",
+    "category": "设备树",
+    "definition": "根节点下描述整板名称的字符串属性，仅用于展示与日志。",
+    "points": [
+      "只写在根节点，内核启动日志 \"Machine model:\" 由此而来",
+      "内容自由，惯例 \"厂商 板卡名 版本\"，便于产线与售后对板",
+      "不参与驱动匹配，选驱动看 compatible，人看用 model"
+    ],
+    "usage": "/ {\n    model = \"Freescale i.MX8MPlus EVK board\";\n    compatible = \"fsl,imx8mp-evk\", \"fsl,imx8mp\";\n};\n// 子节点写 model 无标准语义，内核只读根节点这一个",
+    "example": "# 内核启动日志中确认\ndmesg | grep \"Machine model\"\n# Machine model: Freescale i.MX8MPlus EVK board\ncat /proc/device-tree/model; echo   # 运行时读取（内容无换行符）"
+  },
+  {
+    "abbr": "phandle",
+    "full": "Phandle (Pointer Handle)",
+    "zh": "节点句柄",
+    "category": "设备树",
+    "definition": "节点在 dtb 内的数字编号，供其他节点以数值形式引用。",
+    "points": [
+      "源码写 &label，dtc 编译时替换为 32 位整数句柄",
+      "同一节点在整棵 dtb 里只分配一个 phandle，全树唯一",
+      "分析反编译产物时，靠 phandle 属性找回数值与节点的对应关系"
+    ],
+    "usage": "// 源码用 &label 引用，人不需要手写数字\nleds {\n    compatible = \"gpio-leds\";\n    led0 {\n        gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;  // &gpio1 即 phandle 引用\n    };\n};",
+    "example": "# 反编译看 dtb 里的真实数值\ndtc -I dtb -O dts board.dtb | grep -B1 -A1 phandle\n# gpio1: gpio@30200000 { ..., phandle = <0x13>; }\n# 引用处等价写法：gpios = <0x13 0x05 0x01>;"
+  },
+  {
+    "abbr": "pinctrl",
+    "full": "Pin Control Node",
+    "zh": "引脚控制",
+    "category": "设备树",
+    "definition": "i.MX 引脚复用与电气属性配置框架，DTS 中按组声明。",
+    "points": [
+      "i.MX 在 iomuxc 节点内用 fsl,pins 列表描述复用与 pad 电气值",
+      "每条记录 6 个 u32：mux/conf/input 寄存器偏移与三个配置值",
+      "宏在 imx8mp-pinfunc.h 定义，pad 值含义查 RM 的 IOMUXC 章节"
+    ],
+    "usage": "// i.MX8MP：iomuxc 节点 + fsl,pins 宏\n&iomuxc {\n    pinctrl_uart1: uart1grp {\n        fsl,pins = <\n            MX8MP_IOMUXC_UART1_RXD__UART1_DCE_RX  0x140  // pad 配置值\n            MX8MP_IOMUXC_UART1_TXD__UART1_DCE_TX  0x140\n        >;\n    };\n};",
+    "example": "// 查宏的完整展开（6 个值各代表什么）\ngrep UART1_RXD arch/arm64/boot/dts/freescale/imx8mp-pinfunc.h\n// pad 值含压摆率、驱动强度、上拉等字段\n// 逐位含义查 SoC 参考手册 IOMUXC 章的 SW_PAD_CTL 寄存器"
+  },
+  {
+    "abbr": "pinctrl-0",
+    "full": "Pin Control Configuration List",
+    "zh": "默认引脚配置引用",
+    "category": "设备树",
+    "definition": "引用引脚配置组列表，与 pinctrl-names 状态一一对应。",
+    "points": [
+      "pinctrl-0/1/2 与 pinctrl-names 第 0/1/2 个状态一一对应",
+      "一个状态可引用多组：pinctrl-0 = <&grp1 &grp2>，probe 时一起下发",
+      "驱动未主动切换状态时，core 默认套用 \"default\"（第 0 组）"
+    ],
+    "usage": "&usdhc1 {\n    pinctrl-names = \"default\", \"state_100mhz\", \"state_200mhz\";\n    pinctrl-0 = <&pinctrl_usdhc1>;            // 默认速率引脚组\n    pinctrl-1 = <&pinctrl_usdhc1_100mhz>;     // 高速档换驱动强度\n    pinctrl-2 = <&pinctrl_usdhc1_200mhz>;\n};",
+    "example": "// 一个状态挂多组，probe 时按顺序一起生效\n&i2c1 {\n    pinctrl-names = \"default\";\n    pinctrl-0 = <&pinctrl_i2c1>, <&pinctrl_pmic_int>;\n};\n// 驱动里 pinctrl_lookup_state + pinctrl_select_state 切换"
+  },
+  {
+    "abbr": "hog",
+    "full": "Pin Hog",
+    "zh": "引脚独占配置",
+    "category": "设备树",
+    "definition": "pinctrl 初始化时直接生效、无需驱动消费的静态引脚组。",
+    "points": [
+      "定义在 pinctrl 控制器节点的 pinctrl-0 中，无对应消费者设备",
+      "pinctrl 驱动 probe 时统一写入，早于所有外设驱动配置引脚",
+      "适合复位脚默认电平、boot strap 引脚等纯静态配置"
+    ],
+    "usage": "&iomuxc {\n    pinctrl-names = \"default\";\n    pinctrl-0 = <&pinctrl_hog_1>;   // 挂在控制器自身上 = hog\n\n    imx8mp-evk {\n        pinctrl_hog_1: hoggrp {\n            fsl,pins = <\n                MX8MP_IOMUXC_GPIO1_IO08__GPIO1_IO08  0xd6\n            >;\n        };\n    };\n};",
+    "example": "// hog 由 imx pinctrl 驱动 probe 时统一设置，早于各设备驱动\n// 适合：网口复位脚默认拉高、boot strap 脚固定电平\n// 验证：内核日志确认 pinctrl probe 后，用 devmem2 读 pad 值"
+  },
+  {
+    "abbr": "sion",
+    "full": "Software Input On Bit",
+    "zh": "软件输入使能位",
+    "category": "设备树",
+    "definition": "i.MX MUX 寄存器 bit30，强制打开引脚输入回读通路。",
+    "points": [
+      "SION 是 i.MX MUX 寄存器 bit30（0x40000000），强制接通输入路径",
+      "DTS 中在 pad 配置值按位或 0x40000000，驱动转写到 MUX 寄存器",
+      "典型用途：I2C 调试回读 SCL/SDA 电平、输出脚需软件读回状态"
+    ],
+    "usage": "// imx8mq dtsi：I2C 引脚默认开 SION（pad 值高位置 0x40000000）\npinctrl_i2c1: i2c1grp {\n    fsl,pins = <\n        MX8MQ_IOMUXC_I2C1_SCL_I2C1_SCL  0x400001c6  // 0x1c6 | SION\n        MX8MQ_IOMUXC_I2C1_SDA_I2C1_SDA  0x400001c6\n    >;\n};",
+    "example": "// 给普通 pad 加 SION：pad 值按位或 0x40000000\nfsl,pins = <MX8MP_IOMUXC_GPIO1_IO09__GPIO1_IO09 0x40000140>;\n// 典型调试场景：I2C 总线卡死后\n// 软件回读 SCL/SDA 电平前必须先开 SION，否则读回恒 0"
+  },
+  {
+    "abbr": "status",
+    "full": "Status Property",
+    "zh": "节点状态属性",
+    "category": "设备树",
+    "definition": "控制设备是否被内核启用的状态属性，okay 为启用。",
+    "points": [
+      "取值 okay/disabled/reserved/fail-sss，前两个覆盖绝大多数场景",
+      "SoC dtsi 默认 disabled，板级改 okay 才会生成平台设备并 probe",
+      "disabled 节点仍在 dtb 中，只是不匹配驱动；可用 fdt set 动态改"
+    ],
+    "usage": "&uart2 {\n    status = \"okay\";     // 启用，驱动匹配后 probe\n};\n&uart3 {\n    status = \"disabled\"; // 禁用，不创建平台设备\n};",
+    "example": "# 运行时查看（注意内容无换行符）\ncat /proc/device-tree/soc@0/serial@30890000/status\n# okay\n# 反编译确认最终合并结果\ndtc -I dtb -O dts imx8mp-evk.dtb | grep -A3 serial@30890000"
+  },
+  {
+    "abbr": "reg",
+    "full": "Register Address/Size Property",
+    "zh": "寄存器地址属性",
+    "category": "设备树",
+    "definition": "描述设备寄存器起始地址与长度的属性，格式由 cells 决定。",
+    "points": [
+      "reg = <addr size>，两者各占几个 u32 由父节点 cells 声明决定",
+      "64 位地址典型写法 reg = <0x0 0x50000000 0x0 0x10000>（4 个 u32）",
+      "平台设备名即 reg 首地址，如 30860000.serial，可直接对日志"
+    ],
+    "usage": "// 父节点声明位宽，子节点按其写 reg\nsoc@0 {\n    #address-cells = <1>;\n    #size-cells = <1>;\n    uart1: serial@30860000 {\n        reg = <0x30860000 0x10000>;  // 起始 0x30860000，长 64KB\n    };\n};",
+    "example": "// 驱动侧映射 reg\nbase = devm_platform_ioremap_resource(pdev, 0);\n// 设备名即 reg 首地址，便于日志对照\nls /sys/bus/platform/devices/ | grep 30860000\n# 30860000.serial"
+  },
+  {
+    "abbr": "ranges",
+    "full": "Address Translation Property",
+    "zh": "地址映射属性",
+    "category": "设备树",
+    "definition": "声明子总线地址空间到父总线地址空间的映射转换关系。",
+    "points": [
+      "三元组 <子地址 父地址 子大小>，cells 数由父子节点各自声明",
+      "空 ranges（只写 ranges;）表示子空间与父空间一一对应直通",
+      "完全省略 ranges 则子地址不可转换，子设备内存无法访问"
+    ],
+    "usage": "// 空 ranges：子地址空间与父完全一致\nsoc@0 {\n    compatible = \"simple-bus\";\n    #address-cells = <1>;\n    #size-cells = <1>;\n    ranges;                 // 直通映射，子 reg 无需换算\n};",
+    "example": "// PCIe：多段映射 <子地址 父地址 子大小>\nranges = <0x81000000 0x0 0x00000000 0x3f800000 0x0 0x10000>,    // IO\n         <0x82000000 0x0 0x18000000 0x18000000 0x0 0xfe000000>; // 32位MEM\n// 首个 u32 是空间类型：0x81=IO、0x82=32位MEM、0x83=64位MEM"
+  },
+  {
+    "abbr": "aliases",
+    "full": "Aliases Node",
+    "zh": "设备别名节点",
+    "category": "设备树",
+    "definition": "为节点定义短别名的根节点，决定设备序号与启动设备。",
+    "points": [
+      "serial0/mmc0 等键决定内核给同类设备分配的序号",
+      "U-Boot 依据 mmc 别名选择启动设备，调换会改变 bootcmd 行为",
+      "stdout-path 常配合 aliases 用 serial0 引用控制台"
+    ],
+    "usage": "aliases {\n    serial0 = &uart1;    // 对应 /dev/ttymxc0\n    mmc0 = &usdhc1;      // SD 卡槽\n    mmc1 = &usdhc2;      // eMMC，U-Boot 按此选启动设备\n    ethernet0 = &fec;\n};",
+    "example": "# 验证别名到节点路径的映射\ncat /sys/firmware/devicetree/base/aliases/mmc1\n# /soc@0/mmc@30b50000\n# 内核按 aliases 中出现顺序给同类设备编号"
+  },
+  {
+    "abbr": "chosen",
+    "full": "Chosen Node",
+    "zh": "引导参数节点",
+    "category": "设备树",
+    "definition": "传递引导期运行参数的伪节点，内核从中读控制台与命令行。",
+    "points": [
+      "内核极早期解析，先于驱动 probe，stdout-path/bootargs 在此",
+      "U-Boot 可在加载后用 fdt set 修改，实现每板差异化启动参数",
+      "不含硬件描述，是纯软件约定的伪节点，不放 reg 等资源属性"
+    ],
+    "usage": "chosen {\n    stdout-path = &uart1;   // 控制台指向 uart1\n    bootargs = \"console=ttymxc0,115200 root=/dev/mmcblk1p2 rootwait\";\n    // U-Boot 会用环境变量 bootargs 覆盖此节点\n};",
+    "example": "# U-Boot 运行时改 chosen 再启动\nfdt addr ${fdt_addr}\nfdt set /chosen bootargs \"${bootargs} initcall_debug\"\n# 内核侧核对\ncat /proc/device-tree/chosen/bootargs; echo"
+  },
+  {
+    "abbr": "stdout-path",
+    "full": "Standard Output Path Property",
+    "zh": "控制台路径属性",
+    "category": "设备树",
+    "definition": "chosen 中指定默认控制台设备路径及串口参数的属性。",
+    "points": [
+      "值可为完整节点路径或别名，冒号后可跟 \"115200n8\" 串口参数",
+      "cmdline 未显式给 console= 时，内核按它注册首选控制台",
+      "earlycon 不带参数时也从此属性推断 UART 地址与波特率"
+    ],
+    "usage": "chosen {\n    // 别名 + 串口参数（115200 波特率、无校验、8 数据位）\n    stdout-path = \"serial0:115200n8\";\n};\naliases {\n    serial0 = &uart1;\n};",
+    "example": "// 完整路径写法，不依赖 aliases\nchosen {\n    stdout-path = \"/soc@0/serial@30860000:115200n8\";\n};\n// cmdline 未给 console= 时内核按此注册 /dev/console\ndmesg | head   # 出现 bootconsole 即已生效"
+  },
+  {
+    "abbr": "reserved-memory",
+    "full": "Reserved Memory Node",
+    "zh": "保留内存节点",
+    "category": "设备树",
+    "definition": "在根节点下声明保留内存区，供 CMA、VPU 等专用。",
+    "points": [
+      "根节点直接子节点，子项用 reg 声明物理地址与大小",
+      "no-map 内核完全不映射；reusable 可作 CMA 动态借用",
+      "消费侧写 memory-region = <&xxx>，框架自动绑定 DMA 内存"
+    ],
+    "usage": "reserved-memory {\n    #address-cells = <1>;\n    #size-cells = <1>;\n    vpu_reserved: vpu@94000000 {\n        reg = <0x94000000 0x10000000>;\n        no-map;   // 内核不映射\n    };\n    linux,cma {\n        compatible = \"shared-dma-pool\";\n        reusable;  // 可复用\n        size = <0x10000000>;\n    };\n};",
+    "example": "// 消费节点引用保留区\n&vpu {\n    memory-region = <&vpu_reserved>;\n};\n// 驱动/框架用 of_reserved_mem_device_init() 绑定 DMA 内存"
+  },
+  {
+    "abbr": "interrupts",
+    "full": "Interrupts Property",
+    "zh": "中断描述属性",
+    "category": "设备树",
+    "definition": "声明设备中断号与触发类型的属性，格式随控制器而异。",
+    "points": [
+      "GIC 下 3 cells：<GIC_SPI/GIC_PPI 中断号 触发类型>",
+      "SPI 类型值 +32 才是 GIC 实际中断号，如 26 对应 GIC 58 号",
+      "触发类型宏在 include/dt-bindings/interrupt-controller/ 下"
+    ],
+    "usage": "#include <dt-bindings/interrupt-controller/arm-gic.h>\nuart1: serial@30860000 {\n    // <类型 中断号 触发方式>，个数由控制器 #interrupt-cells 决定\n    interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>;\n    // SPI 26，实际对应 GIC 中断号 26+32=58\n};",
+    "example": "// GPIO 触发的按键：挂到 gpio1 控制器，仅 2 cells\ngpio_keys {\n    button {\n        interrupt-parent = <&gpio1>;\n        interrupts = <5 IRQ_TYPE_EDGE_FALLING>;  // 下降沿\n    };\n};\n// 驱动统一用 platform_get_irq(pdev, 0) 取编号"
+  },
+  {
+    "abbr": "interrupt-parent",
+    "full": "Interrupt Parent Property",
+    "zh": "中断父控制器属性",
+    "category": "设备树",
+    "definition": "指定节点中断所连接的中断控制器 phandle，可继承。",
+    "points": [
+      "就近继承：节点不写时沿用父节点，直到遇到声明它的控制器",
+      "级联时每层控制器都要正确声明，否则中断号解析错位",
+      "与 interrupts 成对使用，cells 数由父控制器 #interrupt-cells 决定"
+    ],
+    "usage": "intc: interrupt-controller@38800000 {\n    compatible = \"arm,gic-v3\";\n    interrupt-controller;        // 声明自己是中断控制器\n    #interrupt-cells = <3>;\n};\n// soc 总线下的设备不写 interrupt-parent 时逐级继承到 intc",
+    "example": "// 级联场景：GPIO 控制器本身也是中断控制器\ngpio1: gpio@30200000 {\n    interrupt-controller;\n    #interrupt-cells = <2>;\n    interrupt-parent = <&gpc>;   // gpio1 的汇总中断接到 GPC\n    interrupts = <GIC_SPI 64 IRQ_TYPE_LEVEL_HIGH>;\n};"
+  },
+  {
+    "abbr": "#interrupt-cells",
+    "full": "Interrupt Cells Property",
+    "zh": "中断单元数属性",
+    "category": "设备树",
+    "definition": "中断控制器声明其下 interrupts 需要几个 u32 单元。",
+    "points": [
+      "常见取值：GIC 为 3、GPIO 控制器为 2、简单控制器为 1",
+      "写在控制器节点内，只对挂到它下面的设备生效",
+      "cells 数不匹配时 interrupts 会被整体错位解析，极难排查"
+    ],
+    "usage": "// GIC-V3：3 cells\nintc: interrupt-controller@38800000 {\n    #interrupt-cells = <3>;      // <type, number, flags>\n};\n// GPIO 控制器：2 cells\ngpio1: gpio@30200000 {\n    #interrupt-cells = <2>;      // <pin, flags>\n};",
+    "example": "// cells 数不同，interrupts 写法随之不同\nuart1 { interrupts = <GIC_SPI 26 IRQ_TYPE_LEVEL_HIGH>; }; // 3 个\nbutton { interrupts = <5 IRQ_TYPE_EDGE_FALLING>; };       // 2 个\n// 写错个数会把后续属性吞进中断描述，probe 直接失败"
+  },
+  {
+    "abbr": "#address-cells",
+    "full": "Address Cells Property",
+    "zh": "地址单元数属性",
+    "category": "设备树",
+    "definition": "声明子节点 reg 中地址字段占几个 u32 单元。",
+    "points": [
+      "根节点 64 位平台通常 <2>，soc 内部总线通常 <1>",
+      "PCIe 总线为 <3>（高32/低32/空间标志），配合 #size-cells <2>",
+      "只约束直接子节点，每级总线可重新声明覆盖"
+    ],
+    "usage": "/ {\n    #address-cells = <2>;    // 地址用 2 个 u32（64 位）\n    #size-cells = <1>;       // 长度 1 个 u32\n    memory@40000000 {\n        device_type = \"memory\";\n        reg = <0x0 0x40000000 0xc0000000>;  // 高位 0，起始 1G，长 3G\n    };\n};",
+    "example": "// 子节点作用域：soc 内部总线改为 32 位地址\nsoc@0 {\n    #address-cells = <1>;\n    #size-cells = <1>;\n    serial@30860000 { reg = <0x30860000 0x10000>; };  // 只 1 cell\n};"
+  },
+  {
+    "abbr": "#size-cells",
+    "full": "Size Cells Property",
+    "zh": "长度单元数属性",
+    "category": "设备树",
+    "definition": "声明子节点 reg 中长度字段占几个 u32 单元。",
+    "points": [
+      "<0> 用于无长度的节点如 cpus，<1> 为 32 位、<2> 为 64 位长度",
+      "与 #address-cells 配对决定 reg 元组总长度，改一个必查另一个",
+      "只作用于直接子节点，逐级可覆盖"
+    ],
+    "usage": "cpus {\n    #address-cells = <1>;\n    #size-cells = <0>;   // CPU 无长度概念\n    cpu@0 {\n        device_type = \"cpu\";\n        reg = <0>;       // 只有编号一个值\n    };\n    cpu@1 { reg = <1>; };  // 其余属性略\n};",
+    "example": "/ {\n    #address-cells = <2>;\n    #size-cells = <1>;   // 长度 1 个 u32\n    memory@40000000 {\n        device_type = \"memory\";\n        reg = <0x0 0x40000000 0xc0000000>;  // 2 cells 地址 + 1 cell 长度\n    };\n};\n// 64 位长度的总线（PCIe）才需要 <2>"
+  },
+  {
+    "abbr": "#clock-cells",
+    "full": "Clock Cells Property",
+    "zh": "时钟单元数属性",
+    "category": "设备树",
+    "definition": "时钟提供者声明引用自己需要几个参数单元。",
+    "points": [
+      "i.MX8M CCM 为 <1>，第二参数是 include/dt-bindings/clock 里的 ID",
+      "取 0 表示引用不带参数，如固定频率振荡器节点",
+      "cells 数决定 clocks 里每个引用占几个 u32，写错全列错位"
+    ],
+    "usage": "// i.MX8MP 时钟控制器（CCM）\nclock: clock-controller@30380000 {\n    compatible = \"fsl,imx8mp-ccm\";\n    #clock-cells = <1>;          // 引用时带 1 个时钟 ID\n    #power-domain-cells = <1>;\n};",
+    "example": "// cells=1：<&clk 时钟ID>，ID 枚举见 imx8mp-clock.h\nuart1: serial@30860000 {\n    clocks = <&clk IMX8MP_CLK_UART1_ROOT>,\n             <&clk IMX8MP_CLK_UART1_ROOT>;\n    clock-names = \"ipg\", \"per\";\n};"
+  },
+  {
+    "abbr": "#gpio-cells",
+    "full": "GPIO Cells Property",
+    "zh": "GPIO 单元数属性",
+    "category": "设备树",
+    "definition": "GPIO 控制器声明 gpio 引用需要几个参数单元。",
+    "points": [
+      "标准 2 cells：<相对编号 极性宏 GPIO_ACTIVE_HIGH/LOW>",
+      "编号在该控制器内从 0 计，跨控制器需换算全局编号",
+      "极性宏在 include/dt-bindings/gpio/gpio.h，低有效外设用 LOW"
+    ],
+    "usage": "gpio1: gpio@30200000 {\n    compatible = \"fsl,imx8mp-gpio\", \"fsl,imx35-gpio\";\n    gpio-controller;        // 声明为 GPIO 提供者\n    #gpio-cells = <2>;      // <编号, 有效电平极性>\n    interrupt-controller;\n    #interrupt-cells = <2>;\n};",
+    "example": "// 消费者引用：编号从 0 计\nled0 {\n    gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;   // gpio1.5，低电平点亮\n};\n// 全局编号换算：gpio1 基号 0，gpio2 基号 32，依次累加"
+  },
+  {
+    "abbr": "clocks",
+    "full": "Clocks Property",
+    "zh": "时钟列表属性",
+    "category": "设备树",
+    "definition": "设备引用时钟提供者的 phandle+ID 列表属性。",
+    "points": [
+      "每项 <&提供者 时钟ID>，项数与 clock-names 一一对应",
+      "驱动 clk_get(dev, name) 取用，使能前不得访问外设寄存器",
+      "排错利器：/sys/kernel/debug/clk/clk_summary 看实际时钟树"
+    ],
+    "usage": "usdhc1: mmc@30b40000 {\n    compatible = \"fsl,imx8mp-usdhc\", \"fsl,imx7d-usdhc\";\n    clocks = <&clk IMX8MP_CLK_USDHC1_ROOT>,   // 工作时钟\n             <&clk IMX8MP_CLK_AHB>,           // AHB 总线时钟\n             <&clk IMX8MP_CLK_IPG_ROOT>;      // 寄存器时钟\n    clock-names = \"per\", \"ahb\", \"ipg\";\n};",
+    "example": "// 驱动按名取用并使能\nhost->clk_per = devm_clk_get(dev, \"per\");\nhost->clk_ipg = devm_clk_get(dev, \"ipg\");\nclk_prepare_enable(host->clk_per);\n# 时钟树全貌\ncat /sys/kernel/debug/clk/clk_summary | grep usdhc"
+  },
+  {
+    "abbr": "clock-names",
+    "full": "Clock Names Property",
+    "zh": "时钟名称属性",
+    "category": "设备树",
+    "definition": "为 clocks 逐项命名，驱动按名 clk_get 取时钟。",
+    "points": [
+      "顺序严格对应 clocks 列表，名字错位则 clk_get 取到别的时钟",
+      "常用名 ipg/ahb/per/ptp，具体以该驱动 binding 文档为准",
+      "单时钟设备可省略，驱动 clk_get(dev, NULL) 直接取"
+    ],
+    "usage": "uart1: serial@30860000 {\n    clocks = <&clk IMX8MP_CLK_UART1_ROOT>,   // ipg 时钟\n             <&clk IMX8MP_CLK_UART1_ROOT>;   // per 时钟\n    clock-names = \"ipg\", \"per\";\n};",
+    "example": "// 驱动侧按名获取，错名返回 -ENOENT\nipg = devm_clk_get(&pdev->dev, \"ipg\");\nper = devm_clk_get(&pdev->dev, \"per\");\n// 对照 binding 确认名称与顺序：\n// Documentation/devicetree/bindings/serial/fsl-imx-uart.yaml"
+  },
+  {
+    "abbr": "dmas",
+    "full": "DMA Channel Property",
+    "zh": "DMA 通道属性",
+    "category": "设备树",
+    "definition": "设备引用 DMA 通道的 phandle+参数列表属性。",
+    "points": [
+      "i.MX SDMA 格式 <&sdma 事件号 外设类型 优先级>",
+      "事件号与外设类型查 SoC 参考手册的 SDMA Request Mapping 表",
+      "与 dma-names 成对出现，两者数量必须相等"
+    ],
+    "usage": "// 以 imx6qdl uart1 为例，SDMA 格式 <&sdma 事件号 类型 优先级>\nuart1: serial@2020000 {\n    dmas = <&sdma 25 4 0>,    // RX：事件 25，类型 4(UART)\n           <&sdma 26 4 0>;    // TX：事件 26\n    dma-names = \"rx\", \"tx\";\n};\n// 换 SoC 后事件号不同，务必查 RM 对应表",
+    "example": "// 驱动侧按名请求通道\nrx = dma_request_chan(dev, \"rx\");\n// 旧接口：dma_request_slave_channel(dev, \"tx\")\n// imx-sdma 驱动把 <事件,类型> 转成通道号并加载对应微码脚本"
+  },
+  {
+    "abbr": "dma-names",
+    "full": "DMA Channel Names Property",
+    "zh": "DMA 通道名称属性",
+    "category": "设备树",
+    "definition": "为 dmas 逐项命名，驱动按名请求 DMA 通道。",
+    "points": [
+      "串口为 rx/tx，SAI 音频同样 rx/tx，名称由驱动 binding 约定",
+      "驱动 dma_request_chan(dev, name) 按名请求，失败需回退 PIO",
+      "顺序与 dmas 严格对应，写反会把收发接反且不易察觉"
+    ],
+    "usage": "uart1: serial@30860000 {\n    dmas = <&sdma 25 4 0>, <&sdma 26 4 0>;\n    dma-names = \"rx\", \"tx\";   // 顺序必须与 dmas 一一对应\n};\n// 顺序颠倒会把收发接到同一方向，驱动还可能初始化成功",
+    "example": "// 驱动侧按名请求并判错\ntx_chan = dma_request_chan(dev, \"tx\");\nif (IS_ERR(tx_chan))\n    goto pio_mode;          // 请求失败回退 CPU 拷贝\n// 串口无 DMA 时仍能工作，只是高波特率下易丢数据"
+  },
+  {
+    "abbr": "resets",
+    "full": "Resets Property",
+    "zh": "复位引用属性",
+    "category": "设备树",
+    "definition": "引用复位控制器与复位线的属性，驱动据此硬复位外设。",
+    "points": [
+      "每项 <&复位控制器 复位ID>，cells 数由控制器 #reset-cells 决定",
+      "i.MX8MQ 常用 <&src IMX8MQ_RESET_xxx>，宏在 dt-bindings/reset/",
+      "驱动用 reset_control_assert/deassert 控制时序，PCIe/USB 高频使用"
+    ],
+    "usage": "// imx8mq PCIe：引用 SRC 复位控制器\npcie0: pcie@33800000 {\n    compatible = \"fsl,imx8mq-pcie\";\n    resets = <&src IMX8MQ_RESET_PCIEPHY>,           // PHY 复位\n             <&src IMX8MQ_RESET_PCIE_CTRL_APPS_EN>; // 应用层使能\n    reset-names = \"pciephy\", \"apps\";\n};",
+    "example": "// 驱动侧按名取复位线并控制时序\nphy = devm_reset_control_get_exclusive(dev, \"pciephy\");\nreset_control_assert(phy);      // 拉复位\nusleep_range(1000, 2000);\nreset_control_deassert(phy);    // 出复位，随后 link training"
+  },
+  {
+    "abbr": "power-domains",
+    "full": "Power Domains Property",
+    "zh": "电源域属性",
+    "category": "设备树",
+    "definition": "把设备挂到电源域下，PM 核心自动做运行时上下电。",
+    "points": [
+      "提供者多为 GPC/PGC 节点，叶子域 #power-domain-cells = <0>",
+      "PM 核心 probe 前自动上电、runtime PM 空闲时下电",
+      "漏配时设备寄存器访问报 imprecise bus fault，时钟正常也没用"
+    ],
+    "usage": "// i.MX8MP GPC 定义各 PGC 电源域\ngpc: gpc@303a0000 {\n    compatible = \"fsl,imx8mp-gpc\";\n    pgc {\n        pgc_mipi: power-domain@6 {\n            #power-domain-cells = <0>;  // 叶子域无参数\n            reg = <IMX8MP_POWER_DOMAIN_MIPI_PHY1>;\n        };\n    };\n};",
+    "example": "// 消费者挂域（提供者 cells=0 时直接引 phandle）\nmipi_dsi1: dsi@32e60000 {\n    power-domains = <&pgc_mipi>;\n};\n// 提供者 cells=1 时写 <&gpc 域ID>\n// PM 核心 probe 前自动 power on，空闲时按 runtime PM 下电"
+  },
+  {
+    "abbr": "syscon",
+    "full": "System Controller (Syscon) Node",
+    "zh": "系统控制器节点",
+    "category": "设备树",
+    "definition": "带 syscon 标记的寄存器块，可被多驱动经 regmap 共享。",
+    "points": [
+      "compatible 附加 \"syscon\" 后即可被其他驱动以 regmap 方式访问",
+      "i.MX 典型宿主：iomuxc-gpr、anatop、gpc 等杂合寄存器块",
+      "消费侧 syscon_regmap_lookup_by_phandle，属性名由 binding 自定"
+    ],
+    "usage": "// i.MX8MP IOMUXC-GPR：混合寄存器块标记为 syscon\niomuxc_gpr: iomuxc-gpr@30360000 {\n    compatible = \"fsl,imx8mp-iomuxc-gpr\", \"syscon\";\n    reg = <0x30360000 0x10000>;\n};",
+    "example": "// 消费驱动经 regmap 操作 GPR，无需重复 ioremap\ngpr = syscon_regmap_lookup_by_phandle(np, \"fsl,gpr\");\nregmap_update_bits(gpr, 0x4, BIT(6), BIT(6));\n// 例：ENET RGMII 时钟方向控制等就藏在 IOMUXC-GPR 里"
+  },
+  {
+    "abbr": "simple-bus",
+    "full": "Simple Bus Compatible",
+    "zh": "简单总线节点",
+    "category": "设备树",
+    "definition": "内存映射平铺总线标记，内核自动为其子节点建平台设备。",
+    "points": [
+      "of_platform_populate 遇到它自动为子节点创建平台设备",
+      "i.MX8MP 的 soc@0 即 simple-bus，子节点 reg 是 SoC 物理地址",
+      "挂 I2C/SPI 下的设备不能用，它们由各自总线驱动展开"
+    ],
+    "usage": "soc@0 {\n    compatible = \"simple-bus\";   // 内核自动展开子节点为平台设备\n    #address-cells = <1>;\n    #size-cells = <1>;\n    ranges;\n\n    uart1: serial@30860000 {\n        compatible = \"fsl,imx8mp-uart\";\n        reg = <0x30860000 0x10000>;\n    };\n};",
+    "example": "# 确认子节点已被 of_platform_populate 展开\nls /sys/bus/platform/devices/ | grep 30860000\n# 30860000.serial\n# 注意：I2C/SPI 设备由对应控制器驱动在 probe 里\n# 调 of_platform_populate 展开，不走 simple-bus"
+  },
+  {
+    "abbr": "CCM",
+    "full": "Clock Controller Module",
+    "zh": "时钟控制模块",
+    "category": "芯片外设",
+    "definition": "i.MX 时钟子系统总控，PLL/PFD 产生时钟，经时钟根与门控分发到各外设",
+    "points": [
+      "i.MX6 基址 0x020C4000；i.MX8M 系列 CCM 基址 0x30380000",
+      "i.MX8M 每个时钟根 CCM_TARGET_ROOTn（0x30388000 起）含 mux/prediv/div 三段",
+      "设备树用 assigned-clocks + assigned-clock-rates 在启动时定频"
+    ],
+    "usage": "/* DTS：启动时把 USDHC2 根时钟设为 200MHz（i.MX8MM） */\n&usdhc2 {\n  assigned-clocks = <&clk IMX8MM_CLK_USDHC2_ROOT>;\n  assigned-clock-rates = <200000000>;\n  status = \"okay\";\n};",
+    "example": "# 查看运行时时钟树（内核 CCF）\ncat /sys/kernel/debug/clk/clk_summary | head -30\n# 单个时钟：/sys/kernel/debug/clk/<name>/clk_rate"
+  },
+  {
+    "abbr": "CCGR",
+    "full": "Clock Controller Gate Register",
+    "zh": "时钟门控寄存器",
+    "category": "芯片外设",
+    "definition": "CCM 的时钟门控寄存器组，每两位控制一个外设时钟的开启模式",
+    "points": [
+      "CCGR0~CCGR7：i.MX6 从 0x020C4068 起、i.MX8M 从 0x30384000 起，每 2 位一路时钟",
+      "cg 编码：0b11 始终开启，0b00 关闭，0b01 仅 Run 模式，0b10 Run/Wait 模式",
+      "调试外设无响应时先查对应 CCGR 位是否为 0b11（常见踩坑点）"
+    ],
+    "usage": "/* i.MX6ULL：临时打开 CCGR0 全部时钟（仅调试用） */\n#define CCM_CCGR0 (*(volatile unsigned int *)0x020C4068)\nCCM_CCGR0 = 0xFFFFFFFF;  /* 每两位 cg=0b11：始终开启 */",
+    "example": "# 读 i.MX8MM CCGR0，观察 2 位一组的门控值\ndevmem2 0x30384000 w\n# 内核 clk get/put 会自动置位，手改仅限调试"
+  },
+  {
+    "abbr": "ANATOP",
+    "full": "Analog On-chip Power and PLL Block",
+    "zh": "片上模拟电源与 PLL 模块",
+    "category": "芯片外设",
+    "definition": "i.MX 片上模拟模块，集成各路 PLL、内核 LDO 与温度监测",
+    "points": [
+      "i.MX6 基址 0x020C8000，i.MX8M 系列为 0x30360000",
+      "内含 ARM PLL、SYS PLL(528M)、USB PLL(480M)、AUDIO/VIDEO 分数 PLL",
+      "PMU_REG_ARM（偏移 0x140）内含 vddarm/vddpu/vddsoc 三组 5 位电压域，25mV 步进"
+    ],
+    "usage": "/* i.MX6：读 anatop REG_ARM，观察内核 LDO 电压位 */\n#define PMU_REG_ARM (*(volatile unsigned int *)0x020C8940)\nunsigned int v = PMU_REG_ARM;  /* [4:0] ARM、[13:9] PU、[22:18] SOC */",
+    "example": "# 读 ANATOP ARM PLL 寄存器（bit13 使能、[6:0] 分频）\ndevmem2 0x020C8000 w\n# 电压轨经 fsl,anatop-regulator 暴露给 regulator 框架"
+  },
+  {
+    "abbr": "PLL",
+    "full": "Phase-Locked Loop",
+    "zh": "锁相环",
+    "category": "芯片外设",
+    "definition": "以 24MHz 参考时钟倍频产生系统主时钟，输出再分频供 CPU/总线/外设",
+    "points": [
+      "i.MX6 ARM PLL：Fout=24MHz×DIV/2，DIV 范围 54~108，996MHz 取 DIV=83",
+      "SYS PLL 528MHz、USB PLL 480MHz 派生 PFD；AUDIO/VIDEO PLL 可分数调频",
+      "寄存器 bit13=ENABLE、bit31=LOCK；i.MX8M 由 clk 驱动按 DT 频率自动配置"
+    ],
+    "usage": "/* i.MX6 U-Boot：ARM PLL 设到 996MHz（24*83/2） */\n#define CCM_ANALOG_PLL_ARM (*(volatile unsigned int *)0x020C8000)\nCCM_ANALOG_PLL_ARM = (1u << 13) | 83;  /* ENABLE | DIV_SELECT=83 */",
+    "example": "# U-Boot 直接读 ARM PLL 寄存器\n=> md 0x020C8000 1\n# bit13=1 且 LOCK(bit31)=1 表示已锁定输出"
+  },
+  {
+    "abbr": "PFD",
+    "full": "Phase/Fractional Divider",
+    "zh": "分数分频器",
+    "category": "芯片外设",
+    "definition": "对 528/480MHz PLL 分数分频，为 USDHC 等提供中间频率",
+    "points": [
+      "CCM_ANALOG_PFD_480（0x020C90F0）/PFD_528（0x020C9100），每路 6 位 FRAC、按 8 位间隔排布（PFD0~3）",
+      "输出 = PLL×18/FRAC，FRAC 有效 12~35，如 480×18/19≈454MHz",
+      "USDHC/NAND 时钟多取自 PFD，改频前确认对应外设空闲"
+    ],
+    "usage": "/* i.MX6：把 528MHz PLL 的 PFD2 设到 396MHz（528*18/24） */\n#define CCM_ANALOG_PFD_528 (*(volatile unsigned int *)0x020C9100)\nvolatile unsigned int v = CCM_ANALOG_PFD_528;\nv = (v & ~(0x3Fu << 16)) | (24u << 16);  /* PFD2_FRAC=24 */\nCCM_ANALOG_PFD_528 = v;",
+    "example": "# 查看 PFD_528 当前各路 FRAC 值\ndevmem2 0x020C9100 w\n# 4 路 PFD0~3 分别占 [5:0]/[13:8]/[21:16]/[29:24]"
+  },
+  {
+    "abbr": "GPC",
+    "full": "General Power Controller",
+    "zh": "通用电源控制器",
+    "category": "芯片外设",
+    "definition": "管理电源域开关、低功耗模式与唤醒源路由的电源控制器",
+    "points": [
+      "i.MX6 基址 0x020DC000；i.MX8M 系列位于 0x303A0000（DT gpc@303a0000）",
+      "i.MX6 用 IMR1~IMR4 屏蔽电源管理中断；8M 经 PGC 的 PUP/PDN 请求寄存器开关电源域",
+      "深度睡眠下仅 GPC 放行的中断能唤醒，驱动以 irq_set_irq_wake 关联"
+    ],
+    "usage": "/* DTS：i.MX8MM GPC 节点（兼作 interrupt-parent） */\ngpc: gpc@303a0000 {\n  compatible = \"fsl,imx8mm-gpc\";\n  reg = <0x303a0000 0x10000>;\n  interrupt-controller;\n  #interrupt-cells = <3>;\n};",
+    "example": "# 休眠/唤醒验证\necho mem > /sys/power/state\ndmesg | grep -Ei \"gpc|wake\"\n# M4 侧电源域开关也经 GPC（rpmsg 场景）"
+  },
+  {
+    "abbr": "GPR",
+    "full": "General Purpose Register",
+    "zh": "通用目的寄存器",
+    "category": "芯片外设",
+    "definition": "IOMUXC 内的全局配置寄存器组，控制系统级选项与时钟源选择",
+    "points": [
+      "i.MX6 IOMUXC_GPR1 位于 0x020E0004，GPR0 起按 32 位递增",
+      "GPR1[21] ENET_CLK_SEL 选 RMII 参考时钟方向（内部输出或外部输入）",
+      "GPR 配置不受外设软复位影响，U-Boot 与内核需保持一致"
+    ],
+    "usage": "/* i.MX6Q：ENET RMII 参考时钟改由内部 50MHz 输出到 PHY */\n#define IOMUXC_GPR1 (*(volatile unsigned int *)0x020E0004)\nIOMUXC_GPR1 |= (1u << 21);  /* ENET_CLK_SEL=1 */",
+    "example": "# 读 GPR1 确认位 21 与其他全局配置\ndevmem2 0x020E0004 w\n# GPR 还控制 SAI MCLK、LCDIF 域等（按型号手册）"
+  },
+  {
+    "abbr": "SNVS",
+    "full": "Secure Non-Volatile Storage",
+    "zh": "安全非易失性存储",
+    "category": "芯片外设",
+    "definition": "集成低功耗 RTC、安全状态机、防篡改与熔丝影子区的安全模块",
+    "points": [
+      "i.MX6 基址 0x020CC000，LP 子块偏移 0x34，由 VDD_SNVS 独立供电",
+      "LPSRTCMR/LPSRTCLR 组成 47 位秒计数，即 /dev/rtc0 的 SNVS RTC",
+      "HPSR/HPSVCR 反映安全状态与篡改事件；LPCR 可关中断/锁写"
+    ],
+    "usage": "/* DTS：SNVS LP RTC 节点（i.MX6 系列通用） */\n&snvs {\n  snvs-rtc-lp {\n    compatible = \"fsl,sec-v4.0-mon-rtc-lp\";\n    regmap = <&snvs>;\n    offset = <0x34>;\n    interrupts = <GIC_SPI 19 IRQ_TYPE_LEVEL_HIGH>;\n  };\n};",
+    "example": "# 读 SNVS RTC（主电断开靠 VDD_SNVS 继续走时）\ncat /sys/class/rtc/rtc0/date\nhwclock -r -f /dev/rtc0"
+  },
+  {
+    "abbr": "IOMUXC",
+    "full": "IOMUX Controller",
+    "zh": "引脚复用控制器",
+    "category": "芯片外设",
+    "definition": "为每个 pad 提供 MUX/PAD/INPUT 寄存器，选功能并设电气属性",
+    "points": [
+      "i.MX6 基址 0x020E0000；SW_MUX_CTL 与 SW_PAD_CTL 每 pad 各 32 位",
+      "SW_MUX_CTL 的 SION（bit4）把输出回环进输入，调试串口常开",
+      "内核统一走 pinctrl 框架，DT 中 pinctrl-0 引用 fsl,pins 节点"
+    ],
+    "usage": "/* DTS：UART1 复用与电气属性（i.MX6UL，数值=pad conf） */\npinctrl_uart1: uart1grp {\n  fsl,pins = <\n    MX6UL_PAD_UART1_TX_DATA__UART1_DCE_TX 0x1b0b1\n    MX6UL_PAD_UART1_RX_DATA__UART1_DCE_RX 0x1b0b1\n  >;\n};",
+    "example": "# 直接读 pad 寄存器核对（i.MX6UL UART1_TX）\ndevmem2 0x020E0084 w   # SW_MUX\ndevmem2 0x020E0314 w   # SW_PAD"
+  },
+  {
+    "abbr": "IOMUX",
+    "full": "Input/Output Multiplexer",
+    "zh": "引脚复用器",
+    "category": "芯片外设",
+    "definition": "把 pad 与多个功能信号相连的多路开关阵列，由 IOMUXC 寄存器选择",
+    "points": [
+      "外设输入经 daisy chain：SELECT_INPUT 寄存器从候选 pad 中选信号源",
+      "只配 SW_MUX 不配 SELECT_INPUT 时，常见表现为输出正常但收不到输入",
+      "同一外设多组引脚共存时尤其要核对，典型如 UART RX、ECSPI MISO"
+    ],
+    "usage": "/* i.MX6Q：UART1 RX 输入经 daisy chain 选择 pad */\n#define UART1_RX_SEL (*(volatile unsigned int *)0x020E0624)\n/* 值对应候选 pad 编号，编码表见 RM IOMUXC 章节 */\nUART1_RX_SEL = 0x0;",
+    "example": "# 排查输入不通：先查 SELECT_INPUT 再查 pad 配置\ndevmem2 0x020E0624 w   # UART1 RX SELECT_INPUT\n# INPUT 区段一般位于 PAD 寄存器区之后"
+  },
+  {
+    "abbr": "CSU",
+    "full": "Central Security Unit",
+    "zh": "中央安全单元",
+    "category": "芯片外设",
+    "definition": "按安全/非安全与用户/访问位为每个总线从设备配置访问权限",
+    "points": [
+      "i.MX6 基址 0x021C0000；CSU_CSL0~CSL43 每从设备 4 位：SA/SU/NSA/NSU",
+      "CSU_HP 控制各总线主设备权限；LOCK 后配置直到复位不可再改",
+      "多在 U-Boot/TF-A 阶段配置，Linux 侧基本只读"
+    ],
+    "usage": "/* i.MX6：放开某从设备给安全/非安全世界读写 */\n#define CSU_CSL16 (*(volatile unsigned int *)0x021C0040)\nCSU_CSL16 |= 0xF;  /* SA|SU|NSA|NSU 全置 1 */\n/* 从设备编号表见 RM 附录，误开安全外设有风险 */",
+    "example": "# U-Boot 检查 CSU 配置\n=> md 0x021C0040 1   # 读 CSU_CSL16\n# 全 0 表示该从设备全部拒绝访问"
+  },
+  {
+    "abbr": "RDC",
+    "full": "Resource Domain Controller",
+    "zh": "资源域控制器",
+    "category": "芯片外设",
+    "definition": "把外设与内存划入最多 4 个域，限制跨域访问以隔离 A/M 核资源",
+    "points": [
+      "i.MX8M 系列 RDC 基址 0x303D0000；RDC_PDAPn 分配外设域，MDA 分配主设备域",
+      "M4 越域访问外设/内存会被拦截，表现为总线错误或 NMI",
+      "配置须在启动早期由 TF-A/U-Boot 完成；rpmsg 共享内存需两侧放行"
+    ],
+    "usage": "/* TF-A（plat/imx）启动早期把外设划入 M4 域（示意） */\nstruct imx_rdc_cfg rdc_cfg[] = {\n  { .start = RDC_PDAP_UART4, .domain = BIT(1) },\n  {},\n};\nimx_rdc_set_perim(rdc_cfg);",
+    "example": "# 验证隔离：A 核访问 M4 独占外设应触发异常\ndmesg | grep -i \"external abort\"\n# rpmsg 起不来时先检查 M4 域对 TCM/共享内存的放行"
+  },
+  {
+    "abbr": "SRC",
+    "full": "System Reset Controller",
+    "zh": "系统复位控制器",
+    "category": "芯片外设",
+    "definition": "汇集并分发各复位源，记录复位原因，支持子核复位与复位保持",
+    "points": [
+      "i.MX6 基址 0x020D8000；SRC_SRSR（偏移 0x08）记录最近复位原因",
+      "SRC_SBMR（0x04）保存启动模式引脚采样；SRC_GPR1 双核型号用于传 M4 入口地址",
+      "i.MX7/8M 经 drivers/reset/reset-imx7 提供外设级复位线"
+    ],
+    "usage": "/* 读复位原因（i.MX6 SRC_SRSR） */\n#define SRC_SRSR (*(volatile unsigned int *)0x020D8008)\nunsigned int r = SRC_SRSR;\n/* WDOG 复位位为 1 即看门狗复位，其余位按 RM 位表判读 */",
+    "example": "# 看门狗复位后确认复位源\ndevmem2 0x020D8008 w\ndmesg | grep -i reset\n# SRSR 写 1 清零后才能记录下一次复位"
+  },
+  {
+    "abbr": "WDOG",
+    "full": "Watchdog Timer",
+    "zh": "看门狗定时器",
+    "category": "芯片外设",
+    "definition": "超时未喂狗即复位芯片的定时器，i.MX 提供 WDOG1/2/3 多实例",
+    "points": [
+      "WDOG1 i.MX6 基址 0x020BC000；WCR[15:8]=WT 以 0.5s 为单位（WT=0xFF 约 128s）",
+      "WCR bit2=WDE 使能；喂狗须向 WSR 先写 0x5555 再写 0xAAAA",
+      "内核驱动 imx2_wdt；DT 兼容串 fsl,imx6q-wdt"
+    ],
+    "usage": "/* DTS：使能 WDOG1，10s 超时 */\n&wdog1 {\n  pinctrl-names = \"default\";\n  pinctrl-0 = <&pinctrl_wdog>;\n  fsl,ext-reset-output;\n  timeout-sec = <10>;\n  status = \"okay\";\n};",
+    "example": "# 用户态喂狗测试（10s 不写即复位）\necho V > /dev/watchdog0\nsleep 5 && echo V > /dev/watchdog0\ndmesg | grep -i imx2-wdt"
+  },
+  {
+    "abbr": "GPT",
+    "full": "General Purpose Timer",
+    "zh": "通用定时器",
+    "category": "芯片外设",
+    "definition": "32 位递增计数定时器，多时钟源可选，带输出比较与输入捕获",
+    "points": [
+      "GPT1 i.MX6 基址 0x02098000；CR[9:6]=CLKSRC：001=ipg、101=24MHz 晶振、110=32.768kHz",
+      "GPT_CNT（偏移 0x24）读当前计数；OCR1/2 比较触发中断或输出波形",
+      "内核 imx-gpt 驱动可作 clocksource/clockevent"
+    ],
+    "usage": "/* i.MX6：GPT1 选 24MHz 晶振并启动 */\n#define GPT1_CR (*(volatile unsigned int *)0x02098000)\nGPT1_CR = (0x5u << 6) | 1u;  /* CLKSRC=101, EN=1 */",
+    "example": "# 读当前计数值（24MHz 计数，分辨率约 41.7ns）\ndevmem2 0x02098024 w\n# 连续读两次差值即为经过时间"
+  },
+  {
+    "abbr": "EPIT",
+    "full": "Enhanced Periodic Interrupt Timer",
+    "zh": "增强周期中断定时器",
+    "category": "芯片外设",
+    "definition": "32 位递减自动重装定时器，专用于产生周期性中断",
+    "points": [
+      "EPIT1 i.MX6 基址 0x020D4000；CR[25:24]=CLKSRC，PRESCALER=[15:4]",
+      "RLD=1 时从 LR 重装计数，递减到 CMPR 值触发中断；ENMOD=1 使能时清零",
+      "老内核曾以 EPIT 作 clockevent，现多由 GPT 承担"
+    ],
+    "usage": "/* i.MX6：EPIT1 产生 10Hz 周期中断（66MHz/100/66000） */\n#define EPIT1_CR (*(volatile unsigned int *)0x020D4000)\n#define EPIT1_LR (*(volatile unsigned int *)0x020D4008)\nEPIT1_LR = 66000;   /* CMPR=0，递减到 0 触发 */\nEPIT1_CR = (0x1u << 24) | (99u << 4) | (1u << 3) | 1u; /* ipg|presc100|RLD|EN */",
+    "example": "# 读剩余计数值 EPIT1_CNTR（偏移 0x10）\ndevmem2 0x020D4010 w\n# 配套置位 CR.OCIEN 并注册中断即可收周期中断"
+  },
+  {
+    "abbr": "ECSPI",
+    "full": "Enhanced Configurable Serial Peripheral Interface",
+    "zh": "增强可配置 SPI 控制器",
+    "category": "芯片外设",
+    "definition": "i.MX6 全双工 SPI 控制器，64 深 FIFO，支持多片选与可变帧长",
+    "points": [
+      "ECSPI1 i.MX6 基址 0x02008000；CONREG.BURST_LENGTH=[19:12] 为帧长-1（位）",
+      "TXFIFO/RXFIFO 各 64×32 位；PRE_DIVIDER=[11:8] 分频出 SCLK",
+      "最多 4 片选，可用内部 SS 或 GPIO；DT 兼容串 fsl,imx6q-ecspi"
+    ],
+    "usage": "/* DTS：ECSPI1 挂 spidev，片选用 GPIO */\n&ecspi1 {\n  cs-gpios = <&gpio4 26 GPIO_ACTIVE_LOW>;\n  spidev0: spidev@0 {\n    compatible = \"rohm,dh2228fv\";  /* spidev 测试占位 */\n    reg = <0>;\n    spi-max-frequency = <10000000>;\n  };\n};",
+    "example": "# 环回测试（MOSI 短接 MISO）\nspidev_test -D /dev/spidev0.0 -s 1000000 -v -p \"hello\"\ndmesg | grep ecspi"
+  },
+  {
+    "abbr": "LPSPI",
+    "full": "Low Power Serial Peripheral Interface",
+    "zh": "低功耗 SPI 控制器",
+    "category": "芯片外设",
+    "definition": "i.MX7/8M 低功耗 SPI 控制器，4 字 FIFO，支持主从与低功耗运行",
+    "points": [
+      "LPSPI1 i.MX8MM 基址 0x5A000000；TCR：CPOL=bit30、CPHA=bit31、PRESCALE=[29:27]、FRAMESZ=[12:0]",
+      "CCR 的 SCKDIV/DBT 决定 SCK 高低周期；FCR 中 TXWATER/RXWATER 设水位中断阈值",
+      "DT 兼容串 fsl,imx8mm-lpspi；可配合 spidev 使用"
+    ],
+    "usage": "/* DTS：LPSPI1 挂 spidev（i.MX8MM） */\n&lpspi1 {\n  pinctrl-0 = <&pinctrl_lpspi1>;\n  spidev@0 {\n    compatible = \"rohm,dh2228fv\";\n    reg = <0>;\n    spi-max-frequency = <10000000>;\n  };\n};",
+    "example": "# 确认驱动绑定与设备\ndmesg | grep -i lpspi\ncat /sys/bus/spi/devices/spi0.0/modalias\n# 环回：spidev_test -D /dev/spidev0.0"
+  },
+  {
+    "abbr": "LPUART",
+    "full": "Low Power Universal Asynchronous Receiver Transmitter",
+    "zh": "低功耗通用异步收发器",
+    "category": "芯片外设",
+    "definition": "i.MX7/8M 串口控制器，支持 DMA、低功耗唤醒与 LIN 等模式",
+    "points": [
+      "LPUART1 i.MX8MM 基址 0x5A060000；CTRL：TE=bit19、RE=bit18、PE=bit1",
+      "BAUD 寄存器：OSR=[29:24] 过采样、SBR=[12:0] 分频、TDMAE=bit23 开 DMA",
+      "DT 兼容串 fsl,imx8mm-lpuart；常作 earlycon 与系统控制台"
+    ],
+    "usage": "/* DTS：LPUART1 作调试串口（i.MX8MM） */\n&lpuart1 {\n  pinctrl-0 = <&pinctrl_uart1>;\n  assigned-clocks = <&clk IMX8MM_CLK_UART1_ROOT>;\n  assigned-clock-parents = <&clk IMX8MM_SYS_PLL1_80M>;\n  status = \"okay\";\n};",
+    "example": "# 配置并自测串口\nstty -F /dev/ttyLP0 115200 cs8 -cstopb\necho hi > /dev/ttyLP0 & cat /dev/ttyLP0\n# 内核参数 console=ttyLP0,115200"
+  },
+  {
+    "abbr": "LPI2C",
+    "full": "Low Power Inter-Integrated Circuit",
+    "zh": "低功耗 I2C 控制器",
+    "category": "芯片外设",
+    "definition": "i.MX7/8M 低功耗 I2C 主从控制器，支持 DMA 与高速传输",
+    "points": [
+      "LPI2C1 i.MX8MM 基址 0x5A800000；MCFGR1.PRESCALE=[2:0] 与 MCCR0 的 CLKHI/CLKLO 定 SCL",
+      "MTDR 高 2 位为命令（START/STOP/RX），低 8 位为数据",
+      "DT 兼容串 fsl,imx8mm-lpi2c；i2c-tools 可直接操作"
+    ],
+    "usage": "/* DTS：LPI2C1 挂温度传感器（i.MX8MM） */\n&lpi2c1 {\n  clock-frequency = <400000>;\n  lm75@48 {\n    compatible = \"national,lm75\";\n    reg = <0x48>;\n  };\n};",
+    "example": "# 扫描总线并读传感器温度寄存器\ni2cdetect -y 0\ni2cget -y 0 0x48 0x00 w\n# 总线号以 i2cdetect -l 实测为准"
+  },
+  {
+    "abbr": "FlexSPI",
+    "full": "Flexible Serial Peripheral Interface",
+    "zh": "灵活串行 Flash 控制器",
+    "category": "芯片外设",
+    "definition": "NXP 专用 Flash 控制器，支持四线 NOR/NAND 与 XIP 执行",
+    "points": [
+      "i.MX8MM FlexSPI 基址 0x302C0000，XIP 窗口 0x08000000 起",
+      "LUT 共 64 条序列、每条 4 个指令字，描述 Flash 读/写/擦的命令波形",
+      "A1/A2/B1/B2 四组端口；U-Boot 走 sf，内核驱动 fsl,imx8mm-fspi"
+    ],
+    "usage": "/* DTS：FlexSPI 挂 32MB Quad NOR（i.MX8MM） */\n&flexspi {\n  pinctrl-0 = <&pinctrl_flexspi0>;\n  flash@0 {\n    reg = <0>;\n    compatible = \"jedec,spi-nor\";\n    spi-max-frequency = <133000000>;\n    spi-rx-bus-width = <4>;\n  };\n};",
+    "example": "# 查看映射出的 MTD 设备与容量\ndmesg | grep -i flexspi\nmtdinfo /dev/mtd0\n# XIP 窗口可直接读：devmem2 0x08000000 w"
+  },
+  {
+    "abbr": "QSPI",
+    "full": "Quad Serial Peripheral Interface",
+    "zh": "四线 SPI 控制器",
+    "category": "芯片外设",
+    "definition": "四数据线 SPI Flash 控制器，支持 XIP 内存映射直接执行代码",
+    "points": [
+      "i.MX6UL QSPI 基址 0x021E4000，XIP 映射 0x60000000 起",
+      "支持 SDR/DDR 与双/四线；BUF0~3CR/BUFAMP 划分 AHB 缓冲与映射窗口",
+      "DT 兼容串 fsl,imx6ul-qspi；熔丝可选 QSPI 启动"
+    ],
+    "usage": "/* DTS：QSPI NOR 16MB（i.MX6UL） */\n&qspi {\n  pinctrl-0 = <&pinctrl_qspi>;\n  flash@0 {\n    compatible = \"jedec,spi-nor\";\n    reg = <0>;\n    spi-max-frequency = <50000000>;\n    spi-rx-bus-width = <4>;\n    m25p,fast-read;\n  };\n};",
+    "example": "# 验证 XIP 映射窗口可读\ndevmem2 0x60000000 w\ndmesg | grep -i qspi\n# 内核里对应 /dev/mtd0，可 mtdinfo 查看"
+  },
+  {
+    "abbr": "SEMC",
+    "full": "Smart External Memory Controller",
+    "zh": "智能外部存储控制器",
+    "category": "芯片外设",
+    "definition": "i.MX7 外存控制器，统一支持 SDRAM/NAND/NOR/SRAM",
+    "points": [
+      "i.MX7D 基址 0x402F0000；BR0~BR3 定义各片选基址、位宽与容量",
+      "IOCR 把引脚组复用为 SDRAM/NOR/NAND/SRAM 模式，四种模式互斥",
+      "SDRAM 时序在 SDRAMCR0~3 配置，通常 U-Boot 初始化后内核直接映射"
+    ],
+    "usage": "/* 读 SEMC BR0 确认 SDRAM 片选 0 配置（i.MX7D） */\n#define SEMC_BR0 (*(volatile unsigned int *)0x402F0000)\nunsigned int v = SEMC_BR0;  /* [31:18] 基址；位宽/容量/使能在低位 */",
+    "example": "# U-Boot 内存读写测试（SDRAM 已初始化）\n=> mtest 0x80000000 0x80001000\n# i.MX7 SDRAM 常映射在 0x80000000"
+  },
+  {
+    "abbr": "MMDC",
+    "full": "Multi Mode DDR Controller",
+    "zh": "多模式 DDR 控制器",
+    "category": "芯片外设",
+    "definition": "i.MX6 DDR3/LPDDR2 控制器，自带 PHY 写均衡与读写延时校准",
+    "points": [
+      "基址 0x021B0000；MDCTL（0x00）设位宽、行列地址与 DRAM 类型",
+      "MPRDDLCTL/MPWRDLCTL（0x848/0x850）保存读写延时校准结果",
+      "MPMUR0（0x8B8）可强制刷新用于调试；校准一般在 U-Boot DDR plugin 完成"
+    ],
+    "usage": "/* 读 MDCTL 确认 DDR 配置（i.MX6） */\n#define MMDC_MDCTL (*(volatile unsigned int *)0x021B0000)\nunsigned int ctl = MMDC_MDCTL;\n/* 16/32 位宽、行/列数、类型字段见 RM 位表 */",
+    "example": "# U-Boot 下验证 DDR 稳定性\n=> mtest 0x10000000 0x10001000 0xdeadbeef 2\n# 校准失败常表现为高低温下随机挂死"
+  },
+  {
+    "abbr": "DDRC",
+    "full": "DDR Controller",
+    "zh": "DDR 控制器",
+    "category": "芯片外设",
+    "definition": "i.MX7/8M 使用的 DDR 控制器，支持 DDR3/LPDDR4",
+    "points": [
+      "i.MX8MM DDRC 基址 0x3D400000；MSTR 选类型与位宽，RFSHCTL 管刷新",
+      "8MM/8MQ 初始化需 SPL 先加载 DDR PHY 固件（ddr4_fw.bin/lpddr4_fw.bin）",
+      "内核 imx8m-ddrc devfreq 驱动支持按负载调 DDR 频率"
+    ],
+    "usage": "/* 读 DDRC_MSTR 确认 DRAM 类型（i.MX8MM） */\n#define DDRC_MSTR (*(volatile unsigned int *)0x3D400000)\nunsigned int v = DDRC_MSTR;\n/* LPDDR4/DDR3/位宽字段见 RM，一般只读验证 */",
+    "example": "# 查看 DDR 当前频率（devfreq 接管后）\ncat /sys/class/devfreq/3d400000.memory-controller/cur_freq\n# 变频异常时先检查 DT 里 operating-points-v2"
+  },
+  {
+    "abbr": "CAAM",
+    "full": "Cryptographic Acceleration and Assurance Module",
+    "zh": "加密加速与安全模块",
+    "category": "芯片外设",
+    "definition": "i.MX 安全引擎，AES/SHA/RSA 加速，Job Ring 提交任务",
+    "points": [
+      "i.MX6 基址 0x02100000；4 个 Job Ring，队列寄存器 IRBAR/IRSR/ORBR/ORSR",
+      "任务以命令描述符（Descriptor）描述，内核 caam 驱动注册进 crypto API",
+      "支持 HAB DEK blob 加密、NTRNG 真随机数与 SNVS 联动防回滚"
+    ],
+    "usage": "# 确认 caam 驱动加载与算法注册\ndmesg | grep -i caam\ncat /proc/crypto | grep -A2 \"driver.*caam\"\n# 用户态经 AF_ALG 或 cryptsetup 间接使用，不直接碰寄存器",
+    "example": "# 压测硬件加速效果\nopenssl speed -evp aes-128-cbc\ncryptsetup benchmark\n# 对比关闭 caam（DT status=disabled）前后的吞吐差异"
+  },
+  {
+    "abbr": "DCP",
+    "full": "Data Co-Processor",
+    "zh": "数据协处理器",
+    "category": "芯片外设",
+    "definition": "轻量级加密协处理器，提供 AES/SHA1/SHA256 与真随机数",
+    "points": [
+      "i.MX6UL 基址 0x02280000；4 个通道，密钥槽 KEY0~KEY3 与 OTP 密钥",
+      "CIPHER/HASH 控制寄存器选算法模式，通道内 SEQ_SIZE 定数据长度",
+      "内核 dcp 驱动注册 crypto API，DT 兼容串 fsl,imx6ul-dcp"
+    ],
+    "usage": "/* DTS：i.MX6UL 启用 DCP（crypto API 自动注册算法） */\n&dcp {\n  compatible = \"fsl,imx6ul-dcp\";\n  status = \"okay\";\n};\n/* 部分型号兼容串为 fsl,imx28-dcp */",
+    "example": "# 确认 dcp 算法与 RNG 注册\ndmesg | grep -i dcp\ncat /proc/crypto | grep -B1 -A3 dcp"
+  },
+  {
+    "abbr": "MU",
+    "full": "Messaging Unit",
+    "zh": "消息单元",
+    "category": "芯片外设",
+    "definition": "A/M 核间硬件邮箱，经收发寄存器交换消息并互发中断",
+    "points": [
+      "i.MX8MM MU 基址 0x30AA0000；ATR0~3 发送、ARR0~3 接收、ASR 状态、ACR 中断使能",
+      "另有通用中断寄存器组（GIR/ACR.GIRm 位）用于软通知",
+      "rpmsg、remoteproc、SRTM 等机制都基于 MU；DT 兼容串 fsl,imx8mm-mu"
+    ],
+    "usage": "# A 核侧：启动 M4 固件并建立 MU/rpmsg 通道\ncp m4_demo_rpmsg.bin /lib/firmware/\necho start > /sys/class/remoteproc/remoteproc0/state\ndmesg | grep -i rpmsg   # 出现 rpmsg 字符设备即 MU 通路正常",
+    "example": "/* 裸机/RTOS 直接操作 MU（i.MX8MM） */\n#define MU_ATR0 (*(volatile unsigned int *)0x30AA0000)\n#define MU_ASR  (*(volatile unsigned int *)0x30AA0060)\nwhile (!(MU_ASR & 0x01000000)) ;  /* 等 TES0=1 发送空 */\nMU_ATR0 = 0x12345678;             /* 通知 M4 */"
+  },
+  {
+    "abbr": "OCOTP",
+    "full": "On-Chip One-Time Programmable Controller",
+    "zh": "片上一次性可编程控制器",
+    "category": "芯片外设",
+    "definition": "eFuse 读写控制器，上电把熔丝内容锁存到影子寄存器供读取",
+    "points": [
+      "i.MX6 基址 0x021BC000；CFG0~CFG7、MAC0/1 等字位按芯片 fusemap 定义",
+      "写流程：向 CTRL 写解锁码 0x3E77 与字地址，再写 DATA 触发烧写，轮询 BUSY 完成",
+      "内核以 nvmem 设备 imx-ocotp0 暴露；DT 中 &ocotp 引用取 MAC 等"
+    ],
+    "usage": "# U-Boot 读/写 eFuse（bank/word 按芯片 fusemap 查表）\n=> fuse read 0 0\n=> fuse prog -y 4 6 0x10AA10BB   # 烧写前二次确认，不可恢复！\n# MAC 常在 bank4~9 区段，型号各异",
+    "example": "# Linux 侧读 OCOTP 影子寄存器（每字 4 字节）\nxxd /sys/bus/nvmem/devices/imx-ocotp0/nvmem | head -8\n# 写操作须走 nvmem 接口且多数配置默认只读"
+  },
+  {
+    "abbr": "fuse",
+    "full": "Embedded Fuse",
+    "zh": "片内熔丝（eFuse）",
+    "category": "芯片外设",
+    "definition": "一次性可编程熔丝位，保存启动配置、安全状态与 MAC 等产线数据",
+    "points": [
+      "按 bank/word 组织，上电锁存进 OCOTP 影子寄存器，读快写慢且不可逆",
+      "关键 fuse：SEC_CONFIG（安全启动开关）、BT_FUSE_SEL、BOOT_CFG、MAC 地址",
+      "量产烧写务必先用 fuse read 核对，烧错安全 fuse 可能变砖"
+    ],
+    "usage": "# 查看启动相关 fuse（i.MX6 bank4~6 为 BOOT_CFG/BT_FUSE_SEL 区）\n=> fuse read 4 5\n=> fuse read 4 6   # 具体位含义见该型号 fusemap 表\n# BT_FUSE_SEL=1 后按熔丝而非 GPIO 引脚启动",
+    "example": "# Linux 读全部 eFuse 内容\ncat /sys/bus/nvmem/devices/imx-ocotp0/nvmem | xxd | head -8\n# nvmem cell 在 DT 中声明后可被驱动按名字引用"
+  },
+  {
+    "abbr": "BMODE",
+    "full": "Boot Mode",
+    "zh": "启动模式",
+    "category": "芯片外设",
+    "definition": "由 BOOT_MODE 引脚与熔丝共同决定芯片从哪个设备引导系统",
+    "points": [
+      "i.MX6 BOOT_MODE[1:0]=00 进入串行下载（USB SDP，用 uuu/imx_usb 烧写）",
+      "=10 走内部启动：BT_FUSE_SEL=0 时按 GPIO 引脚配置，=1 时按 BOOT_CFG 熔丝",
+      "i.MX8M 同理支持 SDP over USB-HID；量产常熔丝固化 QSPI/eMMC 启动"
+    ],
+    "usage": "# 处于串行下载模式（BOOT_MODE=00）时用 uuu 烧写\nlsusb   # 见 15a2:0061(i.MX6) 或 1fc9:012b(i.MX8MM) 即 SDP 设备\nuuu -v -b emmc_all flash.bin\n# 烧完断电，拨回内部启动模式上电验证",
+    "example": "# 复位后读启动模式寄存器确认实际引导配置\ndevmem2 0x020D8004 w   # i.MX6 SRC_SBMR\n# i.MX8M 为 SRC_SBMR1，U-Boot 也会打印 boot device"
+  },
+  {
+    "abbr": "SAI",
+    "full": "Synchronous Audio Interface",
+    "zh": "同步音频接口",
+    "category": "芯片外设",
+    "definition": "支持 I2S/左对齐/TDM 的音频接口，主从模式可配，收发各自 FIFO",
+    "points": [
+      "i.MX6 SAI1 基址 0x02028000；TCR4.SYWD=[7:0] 设同步位宽，TCR5 设字宽",
+      "TCR2：MSEL 选 MCLK 来源，BCD 为位时钟分频；BCS=1 时钟由外部输入（从模式）",
+      "DT 兼容串 fsl,imx6q-sai；配合 simple-audio-card 或 fsl-asoc-card 组链"
+    ],
+    "usage": "/* DTS：SAI3 挂 codec（i.MX8MM） */\n&sai3 {\n  pinctrl-0 = <&pinctrl_sai3>;\n  assigned-clocks = <&clk IMX8MM_CLK_SAI3_ROOT>;\n  assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL1_OUT>;\n  assigned-clock-rates = <24576000>;\n  status = \"okay\";\n};",
+    "example": "# 播放测试（先看声卡号）\ncat /proc/asound/cards\naplay -D hw:0,0 -c 2 -r 48000 -f S16_LE test.wav\n# TDM 多声道用 -c 8 并配合 codec 驱动"
+  },
+  {
+    "abbr": "SPDIF",
+    "full": "Sony/Philips Digital Interface",
+    "zh": "S/PDIF 数字音频接口",
+    "category": "芯片外设",
+    "definition": "S/PDIF 数字音频收发控制器，支持常见采样率与通道状态字",
+    "points": [
+      "i.MX6 SPDIF 基址 0x02004000；SCR 选 FIFO 触发与同步模式，SRPC 选发送源与增益",
+      "支持 44.1/48/88.2/96kHz 采样率，收发各有独立 FIFO 与 DMA 请求",
+      "DT 兼容串 fsl,imx6q-spdif；注册为独立 ALSA 声卡"
+    ],
+    "usage": "/* DTS：启用 SPDIF 输出（i.MX6） */\n&spdif {\n  pinctrl-0 = <&pinctrl_spdif>;\n  assigned-clocks = <&clks IMX6QDL_CLK_SPDIF_SEL>;\n  assigned-clock-rates = <98304000>;\n  status = \"okay\";\n};",
+    "example": "# 找到 SPDIF 声卡并播放\ncat /proc/asound/cards\naplay -D plughw:1,0 test48k.wav\n# 光纤/同轴接解码器验证，或用 arecord 录回环"
+  },
+  {
+    "abbr": "CSI",
+    "full": "CMOS Sensor Interface",
+    "zh": "摄像头传感器接口",
+    "category": "芯片外设",
+    "definition": "并行 CMOS 传感器接口，采集 8/10 位图像数据经 DMA 送入内存",
+    "points": [
+      "i.MX6UL CSI 基址 0x021C4000；CSICR1 配时钟极性与 SKIP，CSICR3 开 RXFIFO DMA",
+      "支持逐行/隔行输入、窗口裁剪（CSIFW/CSIFH 系列寄存器）",
+      "内核 mx6s-csi/imx7-csi 驱动挂 V4L2，常接 OV5640 等 DVP 模组"
+    ],
+    "usage": "/* DTS：接 OV5640 并行摄像头（i.MX6UL） */\n&csi {\n  status = \"okay\";\n  port {\n    csi_from_ov5640: endpoint {\n      remote-endpoint = <&ov5640_to_csi>;\n      bus-width = <8>;\n      data-shift = <0>;\n    };\n  };\n};",
+    "example": "# V4L2 采集验证\nv4l2-ctl -d /dev/video0 --set-fmt-video=width=640,height=480,pixelformat=UYVY\nv4l2-ctl -d /dev/video0 --stream-mmap --stream-count=5"
+  },
+  {
+    "abbr": "LCDIF",
+    "full": "Enhanced LCD Interface",
+    "zh": "LCD 显示控制器",
+    "category": "芯片外设",
+    "definition": "面向 RGB 接口屏的显示控制器，支持 MPU/DOTCLK/VGA 模式",
+    "points": [
+      "i.MX8MM 基址 0x32E00000（i.MX6UL 为 0x021C8000）",
+      "TRANSFER_COUNT 设分辨率；VDCTRL/HSYNC 系列寄存器配屏时序",
+      "CUR_BUF/NEXT_BUF 双缓冲翻页；内核 mxsfb 驱动，兼容串 fsl,imx8mm-lcdif"
+    ],
+    "usage": "/* DTS：RGB888 800x480 屏（i.MX6UL） */\n&lcdif {\n  pinctrl-0 = <&pinctrl_lcdif>;\n  display-timings {\n    native-mode = <&timing0>;\n    timing0: timing {\n      clock-frequency = <30000000>;\n      hactive = <800>; vactive = <480>;\n      hsync-len = <48>; vsync-len = <3>;\n    };\n  };\n};",
+    "example": "# 帧缓冲快速验证\ncat /sys/class/graphics/fb0/virtual_size\ncat /dev/urandom > /dev/fb0   # 花屏=通路 OK\n# 桌面场景配 weston 或 X11 + g2d"
+  },
+  {
+    "abbr": "PXP",
+    "full": "Pixel Pipeline",
+    "zh": "像素流水线",
+    "category": "芯片外设",
+    "definition": "2D 图形加速器，完成缩放、旋转、色彩空间转换与图层叠加",
+    "points": [
+      "i.MX6UL 基址 0x021CC000；PS 处理面 + OSD1/OSD2 叠加面，结果写 OUT_BUF",
+      "CSC0 系数寄存器做 YUV↔RGB 转换，支持 0/90/180/270 度旋转",
+      "内核经 V4L2 M2M 或 g2d 库暴露给合成器/播放器使用"
+    ],
+    "usage": "# GStreamer 经 g2d（PXP 后端）播放并缩放\ngst-launch-1.0 filesrc location=clip.mp4 ! qtdemux ! decodebin ! imxvideoconvert_g2d ! waylandsink\n# 无 GPU 型号上 PXP 是主要合成加速路径",
+    "example": "# 确认 pxp/g2d 驱动加载\ndmesg | grep -i pxp\nls /dev/video*\n# V4L2 M2M 节点可用 v4l2-ctl --list-formats-ext 查看"
+  },
+  {
+    "abbr": "VPU",
+    "full": "Video Processing Unit",
+    "zh": "视频编解码单元",
+    "category": "芯片外设",
+    "definition": "硬件视频编解码器，i.MX8M 由 G1/G2 解码核与 H1 编码核组成",
+    "points": [
+      "i.MX8MM：G1@0x38300000（H.264/MPEG4 解码）、G2@0x38310000（HEVC/VP9）、H1@0x38320000（H.264 编码）",
+      "Linux 走 V4L2 接口，驱动为 hantro（G1/G2）与 NXP vpu（H1）",
+      "固件缺失时 dmesg 报 vpu 超时，需检查 /lib/firmware 下 vpu 相关 bin"
+    ],
+    "usage": "# 硬件解码播放\nGST_DEBUG=2 gst-launch-1.0 playbin uri=file:///media/h264.mp4\ndmesg | grep -i vpu   # 确认各核探测成功\n# 8MQ 使用 amphion 驱动，8MM/8MP 用 hantro",
+    "example": "# 查看解码设备与支持格式\nls -l /dev/video*\nv4l2-ctl -d /dev/video0 --list-formats-ext | head -20\n# ffplay/ffmpeg 亦可走 v4l2m2m 硬解"
+  },
+  {
+    "abbr": "NPU",
+    "full": "Neural Processing Unit",
+    "zh": "神经网络处理单元",
+    "category": "芯片外设",
+    "definition": "i.MX8MP 内置 2.3 TOPS 神经网络加速核，运行量化后的推理模型",
+    "points": [
+      "i.MX8MP NPU 基址 0x38500000，Verisilicon VIP 核，经 Vivante 驱动栈（/dev/galcore）访问",
+      "NXP eIQ 工具链将 ONNX/TF 模型量化转换后由 NPU 执行",
+      "与 GPU 同属 Vivante 驱动框架但独立电源域，DT 节点 npu@38500000"
+    ],
+    "usage": "# 确认 NPU 驱动加载（galcore 同时管理 GPU/NPU）\ndmesg | grep -iE \"galcore|npu\"\nls -l /dev/galcore\n# i.MX8M Mini/MQ 无 NPU，仅 8M Plus 具备",
+    "example": "# eIQ 转出的模型跑推理（NXP 8MP demo）\n./classification -m mobilenet_v2_int8.nb -i dog.bmp -l labels.txt\n# 输出 Top5 标签即 NPU 推理链路正常"
+  },
+  {
+    "abbr": "NVIC",
+    "full": "Nested Vectored Interrupt Controller",
+    "zh": "嵌套向量中断控制器",
+    "category": "芯片外设",
+    "definition": "ARM Cortex-M 内核中断控制器，管理中断使能、优先级与嵌套抢占",
+    "points": [
+      "使能寄存器 ISER/ICER 位于 0xE000E100，IPR 在 0xE000E400（每中断 8 位）",
+      "优先级位数随实现为 3~8 位；SCB AIRCR 配置抢占/子优先级分组",
+      "CMSIS 封装：NVIC_EnableIRQ/NVIC_SetPriority/NVIC_ClearPendingIRQ"
+    ],
+    "usage": "/* STM32：使能 USART1 中断并设优先级 */\nNVIC_SetPriorityGrouping(3);            /* 4 位抢占分组 */\nNVIC_SetPriority(USART1_IRQn, 5);\nNVIC_ClearPendingIRQ(USART1_IRQn);\nNVIC_EnableIRQ(USART1_IRQn);",
+    "example": "/* 寄存器方式使能 IRQ37（等效 NVIC_EnableIRQ） */\n#define NVIC_ISER1 (*(volatile unsigned int *)0xE000E104)\nNVIC_ISER1 = 1u << (37 - 32);  /* 写 1 使能，写 0 无效 */"
+  },
+  {
+    "abbr": "EXTI",
+    "full": "External Interrupt/Event Controller",
+    "zh": "外部中断/事件控制器",
+    "category": "芯片外设",
+    "definition": "STM32 外部中断线控制器，检测 GPIO 与内部信号边沿并触发中断/事件",
+    "points": [
+      "线 0~15 对应 GPIO 引脚，由 SYSCFG_EXTICRn 把端口映射到线",
+      "IMR/EMR 选中断/事件，RTSR/FTSR 选上升/下降沿，PR 写 1 清挂起",
+      "STM32F4 基址 0x40013C00；HAL 流程：GPIO→NVIC→HAL_GPIO_EXTI_Callback"
+    ],
+    "usage": "/* STM32F4：PA0 下降沿触发 EXTI0 */\n#define EXTI_FTSR (*(volatile unsigned int *)0x40013C0C)\n#define EXTI_PR   (*(volatile unsigned int *)0x40013C14)\nEXTI_FTSR |= 1u;   /* 线 0 允许下降沿 */\nEXTI_PR = 1u;      /* 写 1 清挂起 */",
+    "example": "/* 中断服务与用户回调（HAL 风格） */\nvoid EXTI0_IRQHandler(void) {\n  HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_0);  /* 内部清 PR */\n}\nvoid HAL_GPIO_EXTI_Callback(uint16_t pin) { /* 业务 */ }"
+  },
+  {
+    "abbr": "FLEXCAN",
+    "full": "Flexible Controller Area Network",
+    "zh": "灵活 CAN 控制器",
+    "category": "芯片外设",
+    "definition": "NXP CAN 2.0B 控制器，多报文缓冲区与 RX FIFO，支持环回测试",
+    "points": [
+      "i.MX8MM FlexCAN1 基址 0x308D0000；MCR.MDIS=bit31 须清零才能配置",
+      "MCR.MAXMB=[7:0] 设最大缓冲号，RFEN=bit15 使能 RX FIFO；CTRL 内 PRESDIV/PSEG 定位时序",
+      "Linux SocketCAN 生态直接可用：ip link、candump、cansend"
+    ],
+    "usage": "# 配置 500k 并收发测试\nip link set can0 down\nip link set can0 up type can bitrate 500000\ncandump can0 &\ncansend can0 123#DEADBEEF",
+    "example": "/* DTS：FlexCAN1 使能（i.MX8MM） */\n&flexcan1 {\n  pinctrl-0 = <&pinctrl_flexcan1>;\n  xceiver-supply = <&reg_can_stby>;\n  status = \"okay\";\n};"
+  },
+  {
+    "abbr": "PMIC",
+    "full": "Power Management IC",
+    "zh": "电源管理芯片",
+    "category": "芯片外设",
+    "definition": "板级多路电源管理芯片，经 I2C 控制各路电压输出与时序",
+    "points": [
+      "NXP 常用 PFUZE100（i.MX6，I2C 地址 0x08）、PCA9450（8M 系列，0x25）、PF8100",
+      "大电流轨为 DCDC Buck，小电流为 LDO；上电时序由 PMIC 内部决定或可编程",
+      "内核经 regulator 框架抽象，DT 中以 &reg_xxx phandle 被外设引用"
+    ],
+    "usage": "# 查看供电树与 PMIC 在总线上的地址\ncat /sys/kernel/debug/regulator/regulator_summary\ni2cdetect -y 1   # 0x08=PFUZE100，0x25=PCA9450\n# 电压异常时对比 DT 中 regulator-min/max-microvolt",
+    "example": "/* DTS：PCA9450 挂 I2C（i.MX8MP EVK 片段） */\npmic@25 {\n  compatible = \"nxp,pca9450c\";\n  reg = <0x25>;\n  regulators {\n    BUCK1 { regulator-name = \"VDD_SOC\";\n            regulator-min-microvolt = <850000>; };\n  };\n};"
+  },
+  {
+    "abbr": "LDO",
+    "full": "Low Dropout Regulator",
+    "zh": "低压差线性稳压器",
+    "category": "芯片外设",
+    "definition": "压差小、噪声低的线性稳压，i.MX 内核电压由片上 anatop LDO 供给",
+    "points": [
+      "anatop REG_ARM（偏移 0x140）：vddarm[4:0]、vddpu[13:9]、vddsoc[22:18]，25mV 步进",
+      "cpufreq/DVFS 经 regulator 框架动态调 vddarm，与 OPP 表联动",
+      "调试入口：/sys/kernel/debug/regulator/regulator_summary 与 sysfs microvolts"
+    ],
+    "usage": "# 查看内核电压并验证与频率联动\ncat /sys/kernel/debug/regulator/regulator_summary | grep -i arm\ncat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq\n# 欠压典型症状：高频负载下随机复位",
+    "example": "/* DTS：vddarm 由 anatop LDO 供给（i.MX6 经典写法） */\nreg_arm: regulator-arm {\n  compatible = \"fsl,anatop-regulator\";\n  anatop-reg-offset = <0x140>;\n  anatop-vol-bit-width = <5>;\n  anatop-min-bit-val = <4>;\n  regulator-name = \"vddarm\";\n};"
+  },
+  {
+    "abbr": "DCDC",
+    "full": "DC-DC Converter",
+    "zh": "直流-直流变换器",
+    "category": "芯片外设",
+    "definition": "开关式高效降压/升压电源，常见于 PMIC Buck 路与大电流核供电",
+    "points": [
+      "Buck/Boost 拓扑效率可达 90% 以上，适合大于 500mA 的核电压/DRAM 供电",
+      "PWM/PFM 双模式兼顾轻载效率；PMIC Buck 电压经 I2C 寄存器设定",
+      "i.MX 板上 VDD_SOC、VDD_DRAM 等大电流轨一般走 DCDC 而非 LDO"
+    ],
+    "usage": "# 经 regulator 接口查看/调整 DCDC 输出（节点号以实测为准）\nr=/sys/class/regulator/regulator.X\ncat $r/name $r/microvolts\necho 1100000 > $r/microvolts   # 需驱动与约束允许",
+    "example": "/* DTS：PMIC Buck 输出声明（示意） */\nbuck2: BUCK2 {\n  regulator-name = \"VDD_DRAM\";\n  regulator-min-microvolt = <1000000>;\n  regulator-max-microvolt = <1100000>;\n  regulator-always-on;\n};"
+  },
+  {
+    "abbr": "TZASC",
+    "full": "TrustZone Address Space Controller",
+    "zh": "TrustZone 地址空间控制器",
+    "category": "芯片外设",
+    "definition": "AXI 总线防火墙，把 DRAM 等从设备空间划分为多个安全区域",
+    "points": [
+      "每个区域配置基址/上界与安全读写位，非授权访问被拦截并报总线错误",
+      "i.MX6 TZASC1 基址 0x021D0000；i.MX8M 系列用 TZC-380 保护 DDR",
+      "区域配置须在非安全世界启动前由 TF-A/U-Boot 完成并加锁"
+    ],
+    "usage": "/* TF-A：TZC-380 初始化并配置安全区域（i.MX8M 示意） */\ntzc380_init(IMX_TZASC_BASE);\ntzc380_configure_region(0xff, 1,\n    TZC_ATTR_SP_S_RW | TZC_ATTR_REGION_SIZE(SZ_256M),\n    0xA0000000, 0xB0000000);",
+    "example": "# 非安全侧越界读安全区应触发 abort\ndevmem2 0xA0000000 w\ndmesg | grep -i abort\n# 常用于保护 OP-TEE 使用的内存区域"
+  },
+  {
+    "abbr": "etc",
+    "full": "/etc",
+    "zh": "系统配置目录",
+    "category": "文件系统",
+    "definition": "系统全局配置文件目录，几乎所有服务与应用的设置都在此",
+    "points": [
+      "存 passwd、fstab、hosts、ssh/sshd_config 等纯文本机器配置，改前先备份",
+      "开机自启脚本（init.d）、用户与组、防火墙规则、profile 环境变量也在 /etc",
+      "系统级默认值放 /etc/default 或 /etc/sysconfig，用户级覆盖在各自主目录"
+    ],
+    "usage": "ls /etc/*.conf   # 列出主配置文件\ncat /etc/os-release   # 查看发行版信息\ngrep -r 'net.ipv4' /etc/sysctl.conf /etc/sysctl.d/   # 查内核参数配置",
+    "example": "sudo cp /etc/fstab /etc/fstab.bak   # 改配置前先备份\ndiff /etc/ssh/sshd_config.bak /etc/ssh/sshd_config   # 比对配置改动"
+  },
+  {
+    "abbr": "var",
+    "full": "/var",
+    "zh": "可变数据目录",
+    "category": "文件系统",
+    "definition": "运行时可变数据目录：日志、缓存、邮件队列、软件包数据库",
+    "points": [
+      "/var/log 存系统与服务日志，排障首选；logrotate 轮转后压缩为 .gz",
+      "/var/cache 是缓存、/var/lib 是应用状态库（如 apt 数据库）、/var/spool 是排队数据",
+      "日志暴涨可占满磁盘，服务器常单独分区并用 journalctl --vacuum-size 控制占用"
+    ],
+    "usage": "tail -f /var/log/syslog   # 实时跟踪系统日志（Debian 系）\ndu -sh /var/log/* | sort -h   # 找出占空间的大日志\nls /var/lib/dpkg/   # Debian 软件包状态数据库",
+    "example": "sudo journalctl --vacuum-size=100M   # 限制 journal 日志占用\nsudo truncate -s 0 /var/log/huge.log   # 清空超大日志文件"
+  },
+  {
+    "abbr": "usr",
+    "full": "/usr",
+    "zh": "系统资源目录",
+    "category": "文件系统",
+    "definition": "用户级程序、库、头文件与共享数据的主存放目录",
+    "points": [
+      "usr 指 Unix System Resources 而非 user，与用户主目录 /home 无关",
+      "/usr/bin 放发行版命令、/usr/lib 放动态库、/usr/include 放 C 头文件，占空间最大",
+      "现代发行版已把 /bin、/sbin、/lib 合并为指向 /usr 对应目录的符号链接（usrmerge）"
+    ],
+    "usage": "ls /usr/bin | wc -l   # 统计系统命令数量\nhead /usr/include/stdio.h   # C 标准库头文件\nls /usr/local/bin   # 手动编译安装软件的默认落点",
+    "example": "file /usr/bin/gcc   # 查看可执行文件类型\nldconfig -p | grep libssl   # 查看动态库缓存中的实际路径"
+  },
+  {
+    "abbr": "proc",
+    "full": "/proc",
+    "zh": "内核与进程信息伪文件系统",
+    "category": "文件系统",
+    "definition": "进程与内核信息的伪文件系统，内容由内核实时生成",
+    "points": [
+      "procfs 是虚拟文件系统：文件不占磁盘、不存在于硬盘上，重启重建、关机即消失",
+      "/proc/<pid>/ 对应每个进程，status、cmdline、fd 可查进程状态与打开的文件",
+      "cpuinfo、meminfo、mounts 只读可查；/proc/sys/ 下部分文件可写，等于运行时改内核参数"
+    ],
+    "usage": "cat /proc/cpuinfo   # 查看 CPU 型号与核心数\ncat /proc/meminfo | head -5   # 查看内存用量\ngrep Threads /proc/self/status   # 查看当前进程线程数",
+    "example": "echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward   # 运行时开启 IP 转发\nls -l /proc/$(pgrep sshd | head -1)/fd   # 查看进程打开的文件描述符"
+  },
+  {
+    "abbr": "sys",
+    "full": "/sys",
+    "zh": "内核设备树 sysfs",
+    "category": "文件系统",
+    "definition": "sysfs 虚拟文件系统，把设备、驱动、总线导出为文件树",
+    "points": [
+      "同为虚拟文件系统：内容在内存中由内核实时生成，不占磁盘，关机即消失",
+      "按 class（类别）、bus（总线）、devices（设备）组织，是 udev 设备信息的来源",
+      "向属性文件写值即向内核设备下控制命令（需 root），嵌入式常用来点 LED、控 GPIO"
+    ],
+    "usage": "ls /sys/class/leds   # 列出 LED 设备\ncat /sys/class/net/eth0/address   # 查看网卡 MAC\ncat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq   # 当前 CPU 频率",
+    "example": "echo heartbeat | sudo tee /sys/class/leds/led0/trigger   # 设 LED 心跳闪烁\nls /sys/bus/usb/devices/   # 查看已接入的 USB 设备"
+  },
+  {
+    "abbr": "dev",
+    "full": "/dev",
+    "zh": "设备文件目录",
+    "category": "文件系统",
+    "definition": "设备文件目录，一切硬件在此以文件形式访问",
+    "points": [
+      "块设备 sda、mmcblk0 与字符设备 tty、input/event* 以文件呈现，可 read/write/ioctl",
+      "/dev/null 黑洞、/dev/zero 出零、/dev/urandom 随机数是脚本与测试常客",
+      "udev 按内核事件动态创建节点，U 盘串口热插拔自动增删，无需手动 mknod"
+    ],
+    "usage": "ls -l /dev/sd*   # 查看磁盘块设备\nls /dev/ttyUSB* /dev/ttyACM*   # 查看串口设备\ndmesg | grep tty   # 插拔串口后确认设备号",
+    "example": "echo hello > /dev/null   # 丢弃输出不打印\nhead -c 16 /dev/urandom | xxd   # 取 16 字节随机数\nsudo dd if=image.img of=/dev/sdb   # 写入 U 盘（先确认设备名）"
+  },
+  {
+    "abbr": "run",
+    "full": "/run",
+    "zh": "运行时数据目录",
+    "category": "文件系统",
+    "definition": "开机以来的运行时数据目录：PID 文件、套接字、锁文件",
+    "points": [
+      "挂载为 tmpfs 内存盘，重启即清空，与 /tmp 同属易失目录",
+      "守护进程 pid 文件与 unix socket 在此，如 /run/sshd.pid、/run/docker.sock",
+      "/var/run 与 /var/lock 已是指向 /run 与 /run/lock 的符号链接（历史兼容）"
+    ],
+    "usage": "ls /run   # 查看运行时文件\ncat /run/sshd.pid   # 读取守护进程 PID\nls /run/user/$(id -u)/   # 当前用户运行时目录",
+    "example": "df -h /run   # 查看 tmpfs 占用\npgrep -F /run/sshd.pid   # 按 PID 文件定位进程\nss -x | grep /run   # 列出 /run 下的 unix 套接字"
+  },
+  {
+    "abbr": "opt",
+    "full": "/opt",
+    "zh": "第三方大型软件目录",
+    "category": "文件系统",
+    "definition": "第三方可选软件目录，每个大型软件独立占一个子目录",
+    "points": [
+      "惯例 /opt/<软件名或厂商>，整套文件自包含，卸载删目录即可、无残留",
+      "典型占用者：Chrome、VS Code、交叉编译工具链等打包成闭包的商业/独立软件",
+      "与 /usr/local 的区别：/opt 每软件一整目录；/usr/local 按 bin/lib 分散遵循 FHS 布局"
+    ],
+    "usage": "ls /opt   # 看装了哪些第三方软件\ndu -sh /opt/*   # 各软件占用大小\nexport PATH=/opt/gcc-arm-none-eabi/bin:$PATH   # 工具链加入 PATH",
+    "example": "ln -s /opt/someapp/bin/app /usr/local/bin/app   # 软链命令入 PATH\nsudo rm -rf /opt/someapp   # 整目录卸载第三方软件"
+  },
+  {
+    "abbr": "mnt",
+    "full": "/mnt",
+    "zh": "临时挂载点",
+    "category": "文件系统",
+    "definition": "管理员手动临时挂载文件系统的传统挂载点",
+    "points": [
+      "只作临时手动挂载，长期固定挂载应放 /media 或自建目录并写入 fstab",
+      "挂载后原目录内容被遮盖，umount 后自动恢复；嵌入式常复用 /mnt 挂数据分区",
+      "Docker/WSL 等场景 /mnt/c、/mnt/d 常用作宿主目录的挂载入口"
+    ],
+    "usage": "sudo mount /dev/sdb1 /mnt   # 临时挂载分区到 /mnt\nls /mnt   # 访问挂载内容\nsudo umount /mnt   # 用完卸载",
+    "example": "mount | grep /mnt   # 确认挂载状态与文件系统类型\nsudo mount -t vfat -o iocharset=utf8 /dev/mmcblk0p1 /mnt   # 挂载 FAT32 SD 卡"
+  },
+  {
+    "abbr": "media",
+    "full": "/media",
+    "zh": "可移动介质挂载点",
+    "category": "文件系统",
+    "definition": "U 盘、SD 卡、光盘等可移动介质的自动挂载点",
+    "points": [
+      "桌面环境/udisks 会把插入的 U 盘自动挂到 /media/<用户>/<卷标> 下",
+      "与 /mnt 的分工：/media 给可移动介质自动挂载，/mnt 给管理员临时手动挂载",
+      "嵌入式无桌面时仍需手动 mount；拔出前务必 umount 或 eject 防数据丢失"
+    ],
+    "usage": "ls /media/$USER/   # 看已自动挂载的 U 盘\nudisksctl mount -b /dev/sdb1   # 手动触发桌面式自动挂载\numount /media/$USER/Udisk   # 拔出前先卸载",
+    "example": "mount | grep media   # 查看可移动介质挂载点\ncp report.txt /media/$USER/Udisk/ && sync   # 拷文件到 U 盘并落盘"
+  },
+  {
+    "abbr": "srv",
+    "full": "/srv",
+    "zh": "服务数据目录",
+    "category": "文件系统",
+    "definition": "本机对外提供服务的站点与数据目录（srv=service）",
+    "points": [
+      "FHS 惯例按协议组织：/srv/www、/srv/ftp、/srv/nfs 分别放 Web/FTP/NFS 数据",
+      "实际发行版差异大：Debian 的 Web 根默认在 /var/www，NFS 导出路径由 /etc/exports 自定",
+      "好处是服务数据集中一处，便于备份、限权与磁盘配额管理"
+    ],
+    "usage": "ls /srv   # 看有哪些服务数据目录\nsudo mkdir -p /srv/nfs/share   # 建 NFS 共享目录\nsudo chown -R www-data:www-data /srv/www   # 交给 Web 服务用户",
+    "example": "sudo cp app.tar.gz /srv/ftp/pub/   # 放入 FTP 发布目录\nsudo exportfs -ra   # 依据 /etc/exports 重新导出共享"
+  },
+  {
+    "abbr": "tmp",
+    "full": "/tmp",
+    "zh": "临时文件目录",
+    "category": "文件系统",
+    "definition": "全局临时文件目录，任何用户可写，重启后清空",
+    "points": [
+      "多挂载为 tmpfs 内存盘，重启即清空，绝不能存放需长期保存的数据",
+      "带 sticky bit（drwxrwxrwt）：人人可写，但只能删除属于自己的文件",
+      "systemd-tmpfiles 会定期清理陈旧文件；脚本临时文件建议用 mktemp 创建"
+    ],
+    "usage": "ls -ld /tmp   # 确认权限应为 drwxrwxrwt\nmktemp -d   # 安全创建随机临时目录\ntar -xf pkg.tar.gz -C /tmp   # 解包到临时目录",
+    "example": "df -h /tmp   # 查看是否为 tmpfs 及占用\nfind /tmp -mtime +1 -user $USER   # 找自己一天前的遗留临时文件"
+  },
+  {
+    "abbr": "home",
+    "full": "/home",
+    "zh": "用户主目录",
+    "category": "文件系统",
+    "definition": "普通用户主目录所在，每人一个 /home/<用户名>",
+    "points": [
+      "个人配置是隐藏文件：.bashrc、.ssh、.config，改坏可致终端或服务异常",
+      "权限默认仅本人可读写；root 主目录在 /root，不在 /home 下",
+      "重装系统常把 /home 单独分区保留；嵌入式只读根文件系统下常配 tmpfs 供写"
+    ],
+    "usage": "ls -a ~   # 列出含隐藏配置的全部文件\ntail ~/.bashrc   # 查看个人 shell 配置\ndu -sh /home/*   # 各用户占用空间",
+    "example": "chmod 700 ~/.ssh && chmod 600 ~/.ssh/id_rsa   # 收紧 SSH 权限\necho 'alias ll=\"ls -l\"' >> ~/.bashrc   # 追加别名后重开终端生效"
+  },
+  {
+    "abbr": "boot",
+    "full": "/boot",
+    "zh": "启动文件目录",
+    "category": "文件系统",
+    "definition": "系统启动文件目录：内核镜像、initramfs、GRUB 配置",
+    "points": [
+      "存 vmlinuz-<版本> 内核与 initramfs/initrd 引导内存盘，多版本内核可并存",
+      "GRUB 配置 grub.cfg 在 /boot/grub/ 下；改启动参数、选默认内核都落在这里",
+      "嵌入式常见 /boot 独立分区放 uImage/zImage、设备树 dtb 与 u-boot 脚本"
+    ],
+    "usage": "ls /boot   # 查看内核与引导文件\nuname -r   # 当前正在运行的内核版本\ngrep menuentry /boot/grub/grub.cfg   # 列出 GRUB 启动项",
+    "example": "sudo update-grub   # 重新生成 GRUB 配置（Debian 系）\nls /boot/*.dtb   # 嵌入式设备树文件列表"
+  },
+  {
+    "abbr": "clang",
+    "full": "Clang",
+    "zh": "LLVM C/C++ 编译器",
+    "category": "构建与工具链",
+    "definition": "基于 LLVM 的 C/C++/ObjC 编译器，错误提示友好，交叉编译便捷",
+    "points": [
+      "GCC 兼容替代品，错误/警告信息更易读，编译速度快，模块化利于 IDE 集成",
+      "一条 --target=三元组 即可交叉编译，无需另装交叉版本，工具链更轻",
+      "常用三元组：arm-linux-gnueabihf、aarch64-linux-gnu、riscv64-unknown-elf"
+    ],
+    "usage": "clang -O2 -Wall main.c -o app   # 常规编译\nclang --target=arm-linux-gnueabihf -mcpu=cortex-a7 main.c -o app   # 交叉编译 ARM\nclang --version   # 查看版本与支持的目标",
+    "example": "clang -c main.c -o main.o   # 只编译不链接\nclang -g -fsanitize=address main.c -o app   # 带内存错误检测编译"
+  },
+  {
+    "abbr": "prefix",
+    "full": "--prefix",
+    "zh": "源码安装路径前缀",
+    "category": "Linux 命令",
+    "definition": "./configure 的安装路径前缀，决定 make install 装到哪里",
+    "points": [
+      "不指定时默认 --prefix=/usr/local，即装到 /usr/local/bin、/usr/local/lib",
+      "configure 只记录路径，真正复制文件的是 make install；改 prefix 须重新 configure",
+      "装到 /opt/<名> 或自定目录可实现多版本共存、整目录卸载无残留"
+    ],
+    "usage": "./configure --prefix=/usr/local   # 指定安装根目录\nmake -j$(nproc)   # 编译\nsudo make install   # 按 prefix 复制文件",
+    "example": "./configure --prefix=/opt/nginx --with-http_ssl_module   # 装到独立目录\nmake && sudo make install   # 编译并安装\n/opt/nginx/sbin/nginx -V   # 查看编译安装参数"
+  },
+  {
+    "abbr": "eject",
+    "full": "eject",
+    "zh": "弹出可移动介质",
+    "category": "Linux 命令",
+    "definition": "弹出光驱、U 盘等可移动介质，必要时先卸载再弹出",
+    "points": [
+      "自动完成 umount + 弹出，比手动卸载更省事，防缓冲未落盘丢数据",
+      "参数可为设备名（/dev/sr0）、挂载点或分区；光驱用 eject -t 收回托盘",
+      "eject -i on/off 加/解除软件锁，服务器上可防误弹盘"
+    ],
+    "usage": "sudo eject /dev/sr0   # 弹出光驱\neject /media/$USER/Udisk   # 按挂载点卸载并弹出 U 盘\neject -t /dev/sr0   # 收回光驱托盘",
+    "example": "lsblk   # 弹出前先确认设备名防止误操作\neject -i off /dev/sr0   # 解除光驱软件锁后再弹"
+  },
+  {
+    "abbr": "audit",
+    "full": "Linux Audit Subsystem",
+    "zh": "内核审计子系统",
+    "category": "内核与系统",
+    "definition": "内核审计子系统，记录安全事件供事后追查",
+    "points": [
+      "由内核 audit 模块 + auditd 守护进程组成，日志落 /var/log/audit/audit.log",
+      "auditctl -w 文件 -p wa -k 标签 设规则；规则重启失效，持久化须写入 /etc/audit/rules.d/",
+      "ausearch -k 标签查记录、aureport 出汇总报表，比直接 grep 日志可靠"
+    ],
+    "usage": "sudo auditctl -w /etc/passwd -p wa -k passwd-change   # 监控关键文件写入\nsudo ausearch -k passwd-change -i   # 按标签查审计记录并翻译时间\nsudo systemctl status auditd   # 查看审计服务状态",
+    "example": "sudo aureport --file   # 文件访问汇总报表\nsudo auditctl -D   # 清空运行中的全部规则"
+  },
+  {
+    "abbr": "$1",
+    "full": "Positional Parameter 1",
+    "zh": "脚本第一个位置参数",
+    "category": "Shell 脚本",
+    "definition": "Shell 位置参数：脚本或函数接收的第一个参数",
+    "points": [
+      "$0 是脚本名，$1-$9 依次为第一到第九参数，两位数须写成 ${10}",
+      "兄弟变量：$# 参数个数、$@ 全部参数、$? 上一命令退出码、$$ 脚本自身 PID",
+      "函数体内 $1 指函数首参，与脚本级 $1 互不影响"
+    ],
+    "usage": "if [ -z \"$1\" ]; then echo \"用法: $0 <名字>\"; exit 1; fi   # 脚本开头校验参数\necho \"第一个参数: $1\"   # 使用第一参数\ngreet() { echo \"你好, $1\"; }; greet 世界   # 函数内取参",
+    "example": "# test.sh 内容：\necho \"脚本名:$0 第1参数:$1 共:$# 个\"\n# 执行: bash test.sh hello  ->  输出: 脚本名:test.sh 第1参数:hello 共:1 个"
+  },
+  {
+    "abbr": "ldd",
+    "full": "List Dynamic Dependencies",
+    "zh": "查看动态库依赖",
+    "category": "Linux 命令",
+    "definition": "列出可执行文件依赖的共享库及实际加载路径",
+    "points": [
+      "原理是让动态加载器以 LD_TRACE_LOADED_OBJECTS=1 方式运行目标程序",
+      "输出 not found 即缺库，交叉编译后检查目标库是否齐全的首选手段",
+      "对不可信二进制慎用 ldd（会执行其代码），可改用 objdump -p | grep NEEDED"
+    ],
+    "usage": "ldd /bin/ls   # 查看 ls 依赖的共享库\nldd app | grep 'not found'   # 检查目标板缺失的库\nldd -v /bin/ls   # 附加版本信息",
+    "example": "ldd /usr/bin/curl | head -5   # 看前几个依赖\nobjdump -p app | grep NEEDED   # 更安全地列出直接依赖库"
   }
 ]
