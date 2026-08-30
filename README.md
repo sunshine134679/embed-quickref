@@ -1,6 +1,6 @@
 # EmbedQuickRef · 嵌入式速查
 
-一个悬浮在桌面上的嵌入式开发速查工具：内置 796 条精选词条（命令、协议、语法、工具链、AI 开发等），输入即查；查不到的按 `Tab` 让 AI 解释并自动沉淀为个人词库。另含英语翻译分区（243 词学习词典 + AI 句子翻译）与 hover 快捷查找窗。
+一个悬浮在桌面上的嵌入式开发速查工具：内置 897 条精选词条（命令、协议、语法、工具链、设备树、芯片外设、AI 开发等），输入即查；查不到的按 `Tab` 让 AI 解释并自动沉淀为个人词库。另含英语翻译分区（243 词学习词典 + AI 句子翻译）与 hover 快捷查找窗。
 
 基于 **Tauri 2 + Vue 3 + Vite**，纯前端无 TypeScript，透明毛玻璃悬浮窗，支持悬浮圆点 / 弹窗 / 固定三种模式。
 
@@ -11,7 +11,7 @@
 - 多模型故障转移：API 设置支持无限数量的备用模型，主模型请求失败时按顺序自动切换；备用项可自行添加。
 - 本机英语发音：直接调用 Windows 本机语音，不请求在线词典音频；支持美式 / 英式口音和已安装的英语语音。
 - 分类设置与快捷键：API、快捷键、界面行为、发音分区管理；快捷键可直接按键录入并自动保存。
-- **796 条内置词条，17 个板块**：Linux 命令、U-Boot 命令、Windows 命令、内核与系统、文件后缀、硬件与存储、网络协议、Shell 脚本、总线协议、构建与工具链、汇编指令、Git 操作、Make 语法、CMake 语法、VSCode 配置、文件系统、AI 开发
+- **897 条内置词条，19 个板块**：Linux 命令、U-Boot 命令、Windows 命令、内核与系统、文件后缀、硬件与存储、网络协议、Shell 脚本、总线协议、构建与工具链、汇编指令、Git 操作、Make 语法、CMake 语法、VSCode 配置、文件系统、AI 开发、设备树、芯片外设
 - **智能搜索**：
   - 缩写精确 / 前缀 / 包含、全称与中文匹配（输入 `TCP`、`传输控制` 都能命中）
   - 带点号输入：`main.c` → `.c`、`.h` → 头文件、`a.b.py` → `.py`
@@ -75,7 +75,7 @@ Windows 本机发音使用系统已安装的英语语音。若列表中没有合
 │   │                         #   + QuickPanel（快捷窗）/ TranslatePanel（翻译分区）
 │   ├── composables/          # useSearch（搜索与词库）/ useTranslate（翻译与发音）/ useAi / useSettings / useFavorites
 │   ├── utils/                # 搜索索引/语音/服务商端点/URL 校验等（含 4 个测试文件）
-│   └── data/                 # terms.json 内置词库（796 条）+ learning-dictionary / development-dictionary / providers
+│   └── data/                 # terms.json 内置词库（897 条）+ learning-dictionary / development-dictionary / providers
 ├── src-tauri/                # Tauri 2（Rust）
 │   ├── src/lib.rs            # 快捷窗定位与焦点借用 / 原生语音 / API Key DPAPI 加密 / 单实例
 │   └── tauri.conf.json       # 窗口/打包配置（透明 + acrylic 效果）
