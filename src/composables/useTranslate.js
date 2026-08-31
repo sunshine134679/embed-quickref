@@ -3,7 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "./useSettings";
 import { endpointFor } from "../data/providers";
 import { assertSafeApiUrl } from "../utils/safeUrl";
-import { hasApiCandidate, withApiFallback } from "../utils/apiCandidates";
+import { withApiFallback } from "../utils/apiCandidates";
 import { invokeNativeSpeech, prepareSpeechSynthesis } from "../utils/speechSynthesis";
 import learningDictionary from "../data/learning-dictionary";
 import developmentDictionary from "../data/development-dictionary";
@@ -360,11 +360,11 @@ const NOT_FOUND_RE = /未找到|不存在|拼写错误|不是(一个|个)?(有�
 // - 本地词库未收录但属于正常单词 -> { kind: "word-ai", text, reply }（AI 词典式解释）
 // - 句子/中文 -> { kind: "sentence", text, source, target, translated }（SSE 流式，onDelta 逐段回调）
 // onDelta(partialText, target)：句子流式翻译时随内容增长回调（快捷窗不传则静默等最终结果）
-// 返回 Promise；无 apiKey 时抛错提示去设置
+// 返回 Promise；无 apiKey 时仅在真正需要网络的分支抛错——
+// 本地词典命中与缓存命中零网络返回，不因未配置 Key 而拦截
 export async function translateQuery(text, settings, onDelta) {
   const input = (text || "").trim();
   if (!input) return null;
-  if (!hasApiCandidate(settings)) throw new Error("no-api-key");
 
   if (isSingleWord(input)) {
     const local = lookupWord(input);

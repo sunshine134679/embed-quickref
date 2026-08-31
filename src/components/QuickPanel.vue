@@ -6,7 +6,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { search, initUserTerms, ensureTerms } from "../composables/useSearch";
 import { initSettings, useSettings } from "../composables/useSettings";
 import { translateQuery, isSingleWord, speakEnglish } from "../composables/useTranslate";
-import { hasApiCandidate } from "../utils/apiCandidates";
 import { categoryColor } from "../utils/categories";
 import { focusAndSelectInput } from "../utils/focusAndSelectInput";
 
@@ -238,11 +237,8 @@ async function doSearch() {
     notifyResultDone();
     return;
   }
-  if (!hasApiCandidate(settings.value)) {
-    searching.value = false;
-    error.value = "no-api-key";
-    return;
-  }
+  // 翻译分区不做无 Key 前置拦截：本地词典/缓存命中零网络直接可用，
+  // 只有真正需要网络的翻译在 translateQuery 内部抛 no-api-key
   try {
     const r = await translateQuery(text, settings.value, (partial, target) => {
       if (my !== seq) return;
