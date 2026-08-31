@@ -556,6 +556,11 @@ export function loadHistory() {
 }
 
 // 记录一次翻译：kind word|word-ai|sentence；保留原输入与一句话摘要（最近的在前）
+// 去重按大小写/空白归一化后的键：Hello 与 hello（及首尾空格差异）不再各占一条历史
+function historyKey(s) {
+  return (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+}
+
 export function addHistory(result, input) {
   if (!result || !input) return;
   const summary =
@@ -570,7 +575,8 @@ export function addHistory(result, input) {
     summary: (summary || "").trim().slice(0, 80),
     time: Date.now(),
   };
-  const list = loadHistory().filter((h) => h.input !== entry.input);
+  const key = historyKey(entry.input);
+  const list = loadHistory().filter((h) => historyKey(h.input) !== key);
   list.unshift(entry);
   try {
     localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(list.slice(0, HISTORY_LIMIT)));
