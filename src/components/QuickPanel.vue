@@ -209,6 +209,7 @@ function catStyle(cat) {
 async function doSearch() {
   const text = q.value.trim();
   if (!text) return;
+  lastSearchedQ = text; // 供 Enter/Tab 判断"输入是否已搜索过"
   searchAt = Date.now(); // 本轮搜索起点：结果出来前鼠标离开窗口才触发"完成即收起"
   clearTimeout(timer);
   const my = ++seq;
@@ -216,6 +217,7 @@ async function doSearch() {
   error.value = "";
   termResults.value = [];
   selectedTerm.value = null;
+  listIndex.value = 0;
   transResult.value = null;
   if (panel.value === "terms") {
     termsFailed.value = false;
@@ -263,6 +265,7 @@ function schedule() {
   if (!text) {
     termResults.value = [];
     selectedTerm.value = null;
+    listIndex.value = 0;
     transResult.value = null;
     error.value = "";
     searching.value = false;
@@ -293,9 +296,28 @@ async function openDetail() {
   await invoke("hide_quick").catch(() => {});
 }
 
-// 选中术语列表里的某条：在快捷窗内展示简介（不跳主界面）
+// 本轮搜索对应的输入（防抖窗口内已改字时 Enter/Tab 按"改了字"处理，先搜索再打开）
+let lastSearchedQ = "";
+// 键盘选中的列表下标（↑↓ 导航；与鼠标预览保持一致）
+const listIndex = ref(0);
+const termListEl = ref(null);
+
+// 键盘移动选中：循环切换并同步预览（与鼠标点击 pickTerm 等价），高亮项滚动可见
+function moveList(delta) {
+  const n = termResults.value.length;
+  if (!n) return;
+  listIndex.value = (listIndex.value + delta + n) % n;
+  pickTerm(termResults.value[listIndex.value]);
+  termListEl.value
+    ?.querySelectorAll(".q-term")
+    [listIndex.value]?.scrollIntoView({ block: "nearest" });
+}
+
+// 选中术语列表里的某条：在快捷窗内展示简介（不跳主界面）；同步键盘高亮位
 function pickTerm(t) {
   selectedTerm.value = t;
+  const i = termResults.value.findIndex((x) => x === t);
+  if (i !== -1) listIndex.value = i;
 }
 
 function speak() {
@@ -307,24 +329,39 @@ function speak() {
 }
 
 function onKeydown(e) {
+  const text = q.value.trim();
   if (e.key === "Enter") {
     e.preventDefault();
     if (searching.value) return; // 与查找按钮禁用一致：在途不重复发起
+    // 输入与上次搜索一致且已有结果 → 打开当前选中（键盘/鼠标预览一致）；否则立即搜索
+    const fresh = !!text && text === lastSearchedQ;
+    if (panel.value === "terms" && fresh && (selectedTerm.value || termResults.value.length)) {
+      openDetail();
+      return;
+    }
     clearTimeout(timer);
     doSearch();
   } else if (e.key === "Escape") {
     e.preventDefault();
     invoke("hide_quick").catch(() => {});
-  } else if (e.key === "Tab" && !e.shiftKey) {
-    // Tab 保留给 AI 跳转：其余情况一律拦掉默认焦点移动（焦点跑出输入框会误触收起链）
+  } else if (e.key === "ArrowDown") {
     e.preventDefault();
-    const text = q.value.trim();
-    // 即时核对输入是否仍与上次搜索一致：防抖窗口内刚改过字时 exactHit 还是上一轮的结论
+    if (panel.value === "terms" && !searching.value) moveList(1);
+  } else if (e.key === "ArrowUp") {
+    e.preventDefault();
+    if (panel.value === "terms" && !searching.value) moveList(-1);
+  } else if (e.key === "Tab" && !e.shiftKey) {
+    // Tab：精确命中 → 打开详情（与 Enter 一致，不再吞键）；未命中 → 一键跳主窗用 AI
+    // Shift+Tab 放行默认焦点移动（从输入框跳出）
+    e.preventDefault();
     const fresh = !!text && text.toLowerCase() === exactHitQ;
-    // 术语未精确命中（仅模糊结果/无结果）：一键跳主窗口用 AI 搜索
-    if (panel.value === "terms" && text && !(fresh && exactHit)) {
-      emitTo("main", "quick-ask-ai", { text }).catch(() => {});
-      invoke("hide_quick").catch(() => {});
+    if (panel.value === "terms" && text) {
+      if (fresh && exactHit && (selectedTerm.value || termResults.value.length)) {
+        openDetail();
+      } else {
+        emitTo("main", "quick-ask-ai", { text }).catch(() => {});
+        invoke("hide_quick").catch(() => {});
+      }
     }
   }
 }
@@ -447,8 +484,15 @@ onUnmounted(() => {
           </div>
         </div>
         <!-- 列表：一词多义（同缩写不同分类）或普通匹配，点击后在快捷窗内看简介 -->
-        <div v-else-if="termResults.length" class="q-term-list">
-          <button v-for="(t, i) in termResults" :key="i" class="q-term" @click="pickTerm(t)">
+        <div v-else-if="termResults.length" ref="termListEl" class="q-term-list">
+          <button
+            v-for="(t, i) in termResults"
+            :key="i"
+            class="q-term"
+            :class="{ sel: i === listIndex }"
+            @click="pickTerm(t)"
+            @mouseenter="listIndex = i"
+          >
             <span class="qt-abbr">{{ t.abbr }}</span>
             <span class="qt-body">
               <span v-if="t.zh" class="qt-zh">{{ t.zh }}</span>
@@ -813,6 +857,12 @@ onUnmounted(() => {
 .q-term:hover {
   background: #e8eef5;
   border-color: rgba(219, 226, 234, 0.7);
+}
+
+/* 键盘 ↑↓ 选中的高亮位（与 hover 视觉一致，预览同步切换） */
+.q-term.sel {
+  background: rgba(82, 112, 143, 0.1);
+  border-color: rgba(143, 168, 196, 0.75);
 }
 
 .qt-abbr {
