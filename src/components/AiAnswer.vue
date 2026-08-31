@@ -105,6 +105,74 @@ function send() {
   followText.value = "";
 }
 
+// ---------- 围栏代码块渲染 ----------
+// 把 ``` … ``` 围栏识别为独立代码段（可复制），其余保持纯文本；
+// 追问可能绕过系统提示词带出 markdown，速查工具的核心价值是能取走代码
+function splitCodeFences(text) {
+  const segments = [];
+  const lines = String(text || "").split("\n");
+  let buf = [];
+  let inCode = false;
+  let fenceInfo = "";
+  const flushText = () => {
+    if (buf.length) {
+      segments.push({ type: "text", text: buf.join("\n") });
+      buf = [];
+    }
+  };
+  for (const line of lines) {
+    const fence = /^\s*```\s*([\w+-]*)\s*$/.exec(line);
+    if (fence) {
+      if (inCode) {
+        inCode = false;
+        segments.push({ type: "code", info: fenceInfo, text: buf.join("\n") });
+        buf = [];
+      } else {
+        flushText();
+        inCode = true;
+        fenceInfo = fence[1] || "";
+      }
+    } else {
+      buf.push(line);
+    }
+  }
+  if (inCode) segments.push({ type: "code", info: fenceInfo, text: buf.join("\n") });
+  else flushText();
+  return segments;
+}
+
+const firstSegs = computed(() => splitCodeFences(shownFirst.value));
+const followSegs = computed(() =>
+  followUps.value.map((m) => ({ ...m, segments: splitCodeFences(m.content) }))
+);
+
+// 代码块复制反馈（同 TermCard 交互：clipboard + execCommand 降级 + 1.2s 提示）
+const copiedSeg = ref("");
+async function copySeg(key, text) {
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+    copiedSeg.value = key;
+  } catch {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand("copy");
+      copiedSeg.value = key;
+    } catch (e) {
+      console.error("复制失败", e);
+    }
+    ta.remove();
+  }
+  setTimeout(() => {
+    if (copiedSeg.value === key) copiedSeg.value = "";
+  }, 1200);
+}
+
 // 最近的可滚动祖先（回答流式溢出后 .content 才是滚动容器）
 function scrollParent(el) {
   for (let p = el; p; p = p.parentElement) {
@@ -179,28 +247,48 @@ onUnmounted(() => {
         <p v-for="(l, i) in parsed.extra" :key="'x' + i" class="extra">{{ l }}</p>
         <span v-if="streamingFirst && status === 'streaming'" class="caret"></span>
       </article>
-      <pre v-else class="answer">{{ shownFirst }}<span
-        v-if="status === 'streaming' && streamingFirst"
-        class="caret"
-      ></span></pre>
+      <template v-else>
+        <template v-for="(seg, i) in firstSegs" :key="i">
+          <pre v-if="seg.type === 'text'" class="answer">{{ seg.text }}<span
+            v-if="status === 'streaming' && streamingFirst && i === firstSegs.length - 1"
+            class="caret"
+          ></span></pre>
+          <div v-else class="code-block ai-code">
+            <button class="copy-btn" :class="{ done: copiedSeg === 'f' + i }" @click="copySeg('f' + i, seg.text)">
+              {{ copiedSeg === "f" + i ? "已复制 ✓" : "复制" }}
+            </button>
+            <pre class="code-body"><code>{{ seg.text }}</code></pre>
+          </div>
+        </template>
+      </template>
     </template>
     <div v-else-if="streamingFirst" class="loading-dots"><i></i><i></i><i></i></div>
 
     <!-- 追问问答对 -->
-    <template v-for="(m, i) in followUps" :key="i">
+    <template v-for="(m, i) in followSegs" :key="i">
       <div v-if="m.role === 'user'" class="q-row">
         <div class="q-bubble">{{ m.content }}</div>
       </div>
       <div
-        v-else-if="!m.content && busy && i === followUps.length - 1"
+        v-else-if="!m.content && busy && i === followSegs.length - 1"
         class="loading-dots"
       >
         <i></i><i></i><i></i>
       </div>
-      <pre v-else class="answer follow">{{ m.content }}<span
-        v-if="status === 'streaming' && i === followUps.length - 1"
-        class="caret"
-      ></span></pre>
+      <template v-else>
+        <template v-for="(seg, si) in m.segments" :key="si">
+          <pre v-if="seg.type === 'text'" class="answer follow">{{ seg.text }}<span
+            v-if="status === 'streaming' && i === followSegs.length - 1 && si === m.segments.length - 1"
+            class="caret"
+          ></span></pre>
+          <div v-else class="code-block ai-code">
+            <button class="copy-btn" :class="{ done: copiedSeg === 'a' + i + '-' + si }" @click="copySeg('a' + i + '-' + si, seg.text)">
+              {{ copiedSeg === "a" + i + "-" + si ? "已复制 ✓" : "复制" }}
+            </button>
+            <pre class="code-body"><code>{{ seg.text }}</code></pre>
+          </div>
+        </template>
+      </template>
     </template>
 
     <!-- AI 完成回答后，在最新追问下方提供"并入词库"入口（仅 done 状态出现） -->
@@ -437,6 +525,62 @@ onUnmounted(() => {
   margin-top: 10px;
   border-radius: 3px 10px 10px 10px;
   font-size: 13px;
+}
+
+/* AI 回答中的围栏代码块：与 TermCard 同款可复制交互 */
+.code-block {
+  position: relative;
+}
+
+.ai-code {
+  margin-top: 10px;
+}
+
+.copy-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 1;
+  padding: 2px 9px;
+  border: 1px solid rgba(219, 226, 234, 0.9);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #64748b;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.code-block:hover .copy-btn,
+.code-block:focus-within .copy-btn {
+  opacity: 1;
+}
+
+.copy-btn:hover {
+  color: #52708f;
+  border-color: rgba(82, 112, 143, 0.5);
+}
+
+.copy-btn.done {
+  color: #6b9e78;
+  border-color: rgba(107, 158, 120, 0.5);
+  opacity: 1;
+}
+
+.code-body {
+  margin: 0;
+  padding: 12px 14px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
 }
 
 .error-box {
