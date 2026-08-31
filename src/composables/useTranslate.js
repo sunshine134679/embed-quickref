@@ -84,8 +84,8 @@ const SENTENCE_PROMPT = `你是专业的中英互译引擎。把用户输入的�
 
 // 单词/句子请求整体超时（DeepSeek 非流式通常 1-3s，给足余量）
 const REQUEST_TIMEOUT_MS = 30_000;
-// 翻译结果缓存：内存 + localStorage，TTL 30 天
-const CACHE_STORAGE_KEY = "embed-quickref-translate-cache-v1";
+// 翻译结果缓存：内存 + localStorage，TTL 30 天；key 含服务商/模型指纹（v2 起）
+const CACHE_STORAGE_KEY = "embed-quickref-translate-cache-v2";
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const CACHE_LIMIT = 200;
 const translateCache = new Map();
@@ -110,6 +110,17 @@ function persistCache() {
   } catch {
     /* localStorage 不可用时忽略 */
   }
+}
+
+// 缓存指纹：baseUrl+model 的短散列——切换服务商/模型后旧缓存自然失效，
+// 不再把旧模型的答案继续返回给新配置（此前缓存不含配置指纹，换模型最长 30 天不生效）
+function settingsFingerprint(settings) {
+  const base = String(settings?.baseUrl || "").trim().replace(/\/+$/, "").toLowerCase();
+  const model = String(settings?.model || "").trim();
+  let h = 5381;
+  const s = `${base}|${model}`;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+  return h.toString(36);
 }
 
 function cached(key) {
@@ -365,6 +376,7 @@ const NOT_FOUND_RE = /未找到|不存在|拼写错误|不是(一个|个)?(有�
 export async function translateQuery(text, settings, onDelta) {
   const input = (text || "").trim();
   if (!input) return null;
+  const fp = settingsFingerprint(settings);
 
   if (isSingleWord(input)) {
     const local = lookupWord(input);
@@ -373,8 +385,8 @@ export async function translateQuery(text, settings, onDelta) {
     // 严格模式：词表精确命中（echo 等有效命令词）视为有效，不判错
     const q = normalizeWord(input);
     // AI 词典式解释：建议只作为辅助，不再因“本地没有收录”而拦截正常单词。
-    // v2 用于淘汰旧逻辑缓存的误判结果。
-    const key = "word:v2:" + q;
+    // v2 用于淘汰旧逻辑缓存的误判结果；key 含配置指纹，换模型/服务商即自然失效
+    const key = "word:v2:" + fp + ":" + q;
     let reply = cached(key);
     let sugg = [];
     if (!reply) {
@@ -405,7 +417,7 @@ export async function translateQuery(text, settings, onDelta) {
   }
 
   const target = containsChinese(input) ? "en" : "zh";
-  const key = `sentence:${target}:${normalizeWord(input)}`;
+  const key = `sentence:${target}:${fp}:${normalizeWord(input)}`;
   let translated = cached(key);
   if (!translated) {
     // 长句/中文翻译走 SSE 流式：onDelta 收到的是累计文本，UI 可逐段上屏
