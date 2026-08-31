@@ -349,8 +349,9 @@ ensureTerms().then(() => {
     searchTermsNow(query.value);
   }
 }).catch((e) => {
-  // 词库 chunk 加载失败时 search() 会以空索引静默返回空结果，至少留下可排查的日志
+  // 词库 chunk 加载失败：标记错误态，空态展示「加载失败+重试」而非静默伪装成"未命中"
   console.error("内置词库加载失败", e);
+  termsError.value = true;
 });
 
 // ---------- 英语翻译分区：与专业名词查询分离 ----------
@@ -840,9 +841,11 @@ async function runAi(q) {
   // 防重：请求进行中忽略再次触发（连按 Tab/Enter），避免并发请求重置会话
   if (aiStatus.value === "loading" || aiStatus.value === "streaming") return;
   if (!hasApiCandidate(settings.value)) {
-    view.value = "settings";
+    // 不再静默切到设置页：就地给出引导条，用户知道 AI 为何不可用
+    noApiHint.value = true;
     return;
   }
+  noApiHint.value = false;
   aiQuery.value = text;
   aiSaved.value = false;
   aiCanUpdate.value = false;
@@ -1105,11 +1108,35 @@ function startDrag(e) {
   if (e.buttons === 1) win.startDragging();
 }
 
-// 未命中空态入口：点击按钮直接问 AI（无 API Key 引导去设置）
+// 未命中空态入口：点击按钮直接问 AI（无 API Key 时就地引导去设置）
 function askAiFromEmpty() {
   if (!query.value.trim()) return;
   runAi(query.value);
 }
+
+// 内置词库加载失败 / 未配置 API Key 的引导状态（就地提示，不再静默跳页/伪装未命中）
+const termsError = ref(false);
+const noApiHint = ref(false);
+
+// 词库加载失败后的手动重试
+async function retryLoadTerms() {
+  termsError.value = false;
+  try {
+    await ensureTerms();
+    if (query.value.trim() && panel.value === "terms") searchTermsNow(query.value);
+  } catch (e) {
+    console.error("内置词库重试加载失败", e);
+    termsError.value = true;
+  }
+}
+
+// 配置好 API Key 后自动清除无 Key 引导（下次请求走 hasApiCandidate 判定）
+watch(
+  () => settings.value.apiKey,
+  () => {
+    if (noApiHint.value && hasApiCandidate(settings.value)) noApiHint.value = false;
+  }
+);
 
 // 归一化：小写 + 去空白，用于历史会话与搜索词的模糊匹配
 function norm(s) {
@@ -1918,37 +1945,54 @@ onUnmounted(() => {
             @open="openTab"
           />
           <div v-else-if="query.trim()" class="empty empty-ai">
-            <p class="empty-title">本地词库未命中</p>
-            <p class="empty-hint">
-              “{{ query.trim() }}” 不在词库里，可以让 AI 来解释
-            </p>
-            <p class="empty-tip">按 <kbd>Tab</kbd> 键可直接询问 AI，无需点击按钮</p>
-            <template v-if="emptyAiSession">
-              <button class="ask-ai-btn" @click="openAiSession(emptyAiSession)">
+            <template v-if="termsError">
+              <p class="empty-title">本地词库加载失败</p>
+              <p class="empty-hint">词库未能加载（文件缺失/被占用/损坏），搜索与联想可能不完整，AI 解释暂不可用。</p>
+              <button class="ask-ai-btn" @click="retryLoadTerms">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v8M8 12h8" />
+                </svg>
+                重试加载词库
+              </button>
+            </template>
+            <template v-else>
+              <p class="empty-title">本地词库未命中</p>
+              <p class="empty-hint">
+                “{{ query.trim() }}” 不在词库里，可以让 AI 来解释
+              </p>
+              <p class="empty-tip">按 <kbd>Tab</kbd> 键可直接询问 AI，无需点击按钮</p>
+              <p v-if="noApiHint" class="noapi-hint">
+                未配置 API Key，AI 暂不可用 ·
+                <button class="noapi-link" @click="openSettingsView">去设置</button>
+              </p>
+              <template v-if="emptyAiSession">
+                <button class="ask-ai-btn" @click="openAiSession(emptyAiSession)">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="1.6"
+                  >
+                    <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                  </svg>
+                  查看上次 AI 解释 · {{ fmtWhen(emptyAiSession.time) }}
+                </button>
+                <button class="ask-ai-btn ghost" @click="askAiFromEmpty">重新问 AI</button>
+              </template>
+              <button v-else class="ask-ai-btn" @click="askAiFromEmpty">
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
-                  stroke-width="1.6"
+                  stroke-width="1.7"
                 >
-                  <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 8v8M8 12h8" />
                 </svg>
-                查看上次 AI 解释 · {{ fmtWhen(emptyAiSession.time) }}
+                问 AI：{{ query.trim().slice(0, 18) }}{{ query.trim().length > 18 ? "…" : "" }}
               </button>
-              <button class="ask-ai-btn ghost" @click="askAiFromEmpty">重新问 AI</button>
             </template>
-            <button v-else class="ask-ai-btn" @click="askAiFromEmpty">
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="1.7"
-              >
-                <circle cx="12" cy="12" r="9" />
-                <path d="M12 8v8M8 12h8" />
-              </svg>
-              问 AI：{{ query.trim().slice(0, 18) }}{{ query.trim().length > 18 ? "…" : "" }}
-            </button>
           </div>
           <div v-else-if="recentMix.length" class="empty recent-terms">
             <div class="recent-head">
@@ -2000,6 +2044,10 @@ onUnmounted(() => {
         />
       </template>
       <div v-else-if="view === 'detail'" class="detail-wrap">
+        <p v-if="noApiHint" class="noapi-hint">
+          未配置 API Key，AI 解释暂不可用 ·
+          <button class="noapi-link" @click="openSettingsView">去设置</button>
+        </p>
         <button
           v-if="termAiSession"
           class="ai-entry"
@@ -2532,6 +2580,41 @@ body {
   border-radius: 8px;
   color: var(--accent);
   font-size: 13px;
+}
+
+/* 无 API Key 的就地引导条（空态/详情页共用） */
+.noapi-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 7px 12px;
+  background: rgba(180, 83, 83, 0.08);
+  border: 1px solid rgba(180, 83, 83, 0.28);
+  border-radius: 8px;
+  color: var(--danger);
+  font-size: 12.5px;
+}
+
+.detail-wrap .noapi-hint {
+  margin: 0 0 10px;
+}
+
+.noapi-link {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.noapi-link:hover {
+  color: #334f6b;
 }
 
 /* 空态有历史解释时：主按钮查看历史，副按钮重新问 */

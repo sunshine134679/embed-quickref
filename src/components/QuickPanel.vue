@@ -130,6 +130,8 @@ watch(q, () => {
 // 面板分区：terms(术语) | translate(翻译)
 const searching = ref(false);
 const error = ref("");
+// 内置词库加载失败：与"真未命中"区分展示（原实现静默吞错伪装成未命中）
+const termsFailed = ref(false);
 // 术语结果（简洁）：abbr/zh/definition 首行 + 分类
 const termResults = ref([]);
 // 当前查看的术语简介（快捷窗内展示，不跳主界面）；null 时显示列表
@@ -217,7 +219,13 @@ async function doSearch() {
   selectedTerm.value = null;
   transResult.value = null;
   if (panel.value === "terms") {
-    await ensureTerms().catch(() => {});
+    termsFailed.value = false;
+    try {
+      await ensureTerms();
+    } catch (e) {
+      console.error("内置词库加载失败", e);
+      termsFailed.value = true;
+    }
     const all = search(text);
     const key = text.trim().toLowerCase();
     // 精确命中（abbr 完全等于输入）：单条直接显示简介，一词多义（同缩写不同分类）列列表选择
@@ -458,7 +466,8 @@ onUnmounted(() => {
           </p>
         </div>
         <div v-else-if="q.trim()" class="q-empty">
-          本地词库未命中，试试翻译分区 · 按 <kbd>Tab</kbd> 用 AI 搜索
+          <template v-if="termsFailed">词库加载失败，请重启应用后重试</template>
+          <template v-else>本地词库未命中，试试翻译分区 · 按 <kbd>Tab</kbd> 用 AI 搜索</template>
         </div>
         <div v-else class="q-hint">输入缩写或关键词，如 I2C、DTS、bootcmd</div>
       </template>
