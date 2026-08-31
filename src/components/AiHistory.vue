@@ -5,7 +5,7 @@ defineProps({
   sessions: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["open", "remove"]);
+const emit = defineEmits(["open", "remove", "clear"]);
 
 // 摘要优先取首答的"定义"行，取不到就压平全文截断
 function preview(s) {
@@ -27,6 +27,7 @@ function extraTurns(s) {
     <div class="hd">
       <span>AI 解释历史</span>
       <span v-if="sessions.length" class="count">{{ sessions.length }}</span>
+      <button v-if="sessions.length" class="clear" title="清空全部 AI 解释历史" @click="emit('clear')">清空</button>
     </div>
     <div v-if="!sessions.length" class="empty">
       还没有 AI 解释记录。词库未命中时按 <kbd>Enter</kbd> 问 AI，记录会自动保存在这里。
@@ -65,6 +66,19 @@ function extraTurns(s) {
   color: #52708f;
   font-size: 11px;
   font-weight: 600;
+}
+
+.clear {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: #a3aebc;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.clear:hover {
+  color: #b45353;
 }
 
 .empty {

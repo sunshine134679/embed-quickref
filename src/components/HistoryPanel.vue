@@ -12,7 +12,7 @@ const props = defineProps({
   // 收藏词条（[{ abbr, category, full, zh }]）：术语 tab 顶部置顶回看
   favorites: { type: Array, default: () => [] },
 });
-const emit = defineEmits(["open-term", "open-translate", "open-ai", "remove-ai", "clear-terms", "clear-translate"]);
+const emit = defineEmits(["open-term", "open-translate", "open-ai", "remove-ai", "clear-terms", "clear-translate", "clear-ai"]);
 
 // tab 默认术语分区，props 有效时立即覆盖（immediate：异步组件首次挂载 props 可能未就绪，
 // 不能依赖 ref(props.initialTab) 的初始值，否则打开历史时 3 个 tab 都无选中态）
@@ -173,6 +173,7 @@ function openTranslate(h) {
         :sessions="aiSessions"
         @open="(s) => emit('open-ai', s)"
         @remove="(id) => emit('remove-ai', id)"
+        @clear="emit('clear-ai')"
       />
     </div>
   </div>

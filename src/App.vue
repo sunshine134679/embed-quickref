@@ -724,17 +724,25 @@ async function initAiHistory() {
   if (Array.isArray(saved)) aiSessions.value = saved;
 }
 
+// AI 单会话消息上限：超长追问链不拖垮历史面板与存储（截尾保留最近内容）
+const AI_SESSION_MESSAGE_LIMIT = 40;
+
 // 每轮回答完成后把当前会话写入历史（同一会话覆盖更新），最多保留 50 条
 async function saveAiSession() {
   if (!aiStore || !aiSessionId) return;
   const messages = aiMessages.value
     .filter((m) => m.role !== "system")
-    .map((m) => ({ role: m.role, content: m.content }));
+    .map((m) => ({ role: m.role, content: m.content }))
+    .slice(-AI_SESSION_MESSAGE_LIMIT);
   if (!messages.some((m) => m.role === "assistant")) return;
   const record = { id: aiSessionId, query: aiQuery.value, time: Date.now(), messages };
   const i = aiSessions.value.findIndex((s) => s.id === aiSessionId);
   if (i === -1) aiSessions.value.unshift(record);
-  else aiSessions.value[i] = record;
+  else {
+    // 追问后时间已刷新：移回列表顶部，展示序与“新会话在前”语义一致（原实现原地替换会出现时间新而位置旧）
+    aiSessions.value.splice(i, 1);
+    aiSessions.value.unshift(record);
+  }
   if (aiSessions.value.length > 50) aiSessions.value = aiSessions.value.slice(0, 50);
   try {
     await aiStore.set("sessions", aiSessions.value);
@@ -840,7 +848,9 @@ async function runAi(q) {
   aiCanUpdate.value = false;
   aiAppended.value = false;
   lastParsed = null;
-  aiSessionId = Date.now();
+  // 同词重复问 AI：复用同名历史会话 id（覆盖更新），历史列表不堆积重复条目
+  const existing = aiSessions.value.find((s) => norm(s.query) === norm(text));
+  aiSessionId = existing ? existing.id : Date.now();
   aiFromView.value = view.value; // 记录来源视图，供 Esc 逐级返回
   aiMessages.value = createSession(text);
   view.value = "ai";
@@ -977,6 +987,18 @@ async function removeAiSession(id) {
     await aiStore.save();
   } catch (e) {
     console.error("AI 历史保存失败", e);
+  }
+}
+
+// 清空全部 AI 解释历史（历史面板 AI tab「清空」按钮）
+async function clearAiHistory() {
+  aiSessions.value = [];
+  if (!aiStore) return;
+  try {
+    await aiStore.set("sessions", []);
+    await aiStore.save();
+  } catch (e) {
+    console.error("AI 历史清空失败", e);
   }
 }
 
@@ -2017,6 +2039,7 @@ onUnmounted(() => {
         @open-translate="replayHistory"
         @open-ai="openAiSession"
         @remove-ai="removeAiSession"
+        @clear-ai="clearAiHistory"
         @clear-terms="clearTermHist"
         @clear-translate="clearTransHist"
       />
