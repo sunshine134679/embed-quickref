@@ -356,6 +356,17 @@ ensureTerms().then(() => {
 
 // ---------- 英语翻译分区：与专业名词查询分离 ----------
 
+// 翻译流式中用户手动改输入：作废在途请求的结果（防止旧文本继续上屏与输入框错位）。
+// 只由用户键入触发（input 事件透传自 SearchBox 根元素）；历史回放/联想/快捷窗跳转等
+// 程序化回填只改 query 不产生 input 事件，保持"先改 query 再 runTranslateNow"路径不受影响
+function onUserEditQuery() {
+  if (panel.value !== "translate" || translateStatus.value !== "loading") return;
+  translateSeq++;
+  translateStatus.value = "idle";
+  translateResult.value = null;
+  translateError.value = "";
+}
+
 // 立即翻译（Enter/Tab/翻译按钮触发）
 function runTranslateNow() {
   const text = (query.value || "").trim();
@@ -1842,6 +1853,7 @@ onUnmounted(() => {
         v-model="query"
         :placeholder="panel === 'translate' ? '输入英语单词或句子，回车翻译' : '查询缩写 / 协议 / 术语…'"
         @focus="onSearchFocus"
+        @input="onUserEditQuery"
       />
       <button
         v-if="panel === 'translate'"
