@@ -631,11 +631,14 @@ async function applyDotPosition(p) {
   }
 }
 
-// 展开时默认视图：优先回到收起前正在看的页面——AI 解释会话保留在内存中，
-// 收起再展开应回到上次解释（否则 expandInitialView 的"详情或搜索"二选一
-// 会把用户丢到随机的旧详情/旧搜索结果页）；其余维持原逻辑
+// 展开时默认视图：回到收起前正在看的页面——
+// AI 解释会话保留在内存中（收起再展开应回到上次解释）；搜索/详情/历史也原样返回，
+// 避免旧逻辑"有标签就跳详情"把停在搜索页的用户丢到随机的旧详情页。
+// settings 属临时视图不恢复；冷启动 view 初值为 search，行为与旧版一致
 function expandInitialView() {
   if (view.value === "ai" && aiMessages.value.length) return "ai";
+  if (view.value === "detail") return "detail";
+  if (view.value === "search" || view.value === "history") return "search";
   return currentTerm.value ? "detail" : "search";
 }
 
