@@ -1627,7 +1627,8 @@ async function applyShortcuts(next, previous = {}) {
     }
   } catch (e) {
     for (const { shortcut } of registered) await unregister(shortcut).catch(() => {});
-    console.error("快捷键注册失败", e);
+    // 上抛给调用方（设置保存链）：热键被占用等失败不再只落日志，UI 可见
+    throw new Error(`快捷键注册失败：${e?.message || e}`);
   }
 }
 
@@ -1661,13 +1662,21 @@ async function onSaveSettings(next) {
 }
 
 // 设置页采用修改即保存：串行写入，避免连续改动时后一次保存覆盖前一次注册状态。
+// 保存/热键注册失败经 settingsSaveError 回传设置页真实展示（不再只显示乐观的"已自动保存"）
 let shortcutSaveTask = Promise.resolve();
+const settingsSaveError = ref("");
 function onAutoSaveSettings(next) {
-  shortcutSaveTask = shortcutSaveTask.then(async () => {
-    const prev = { ...settings.value };
-    await saveSettings(next);
-    await applyShortcuts(next, prev);
-  }).catch((e) => console.error("快捷键自动保存失败", e));
+  shortcutSaveTask = shortcutSaveTask
+    .then(async () => {
+      const prev = { ...settings.value };
+      await saveSettings(next);
+      await applyShortcuts(next, prev);
+      settingsSaveError.value = "";
+    })
+    .catch((e) => {
+      console.error("设置自动保存失败", e);
+      settingsSaveError.value = `保存失败：${String(e?.message || e)}`;
+    });
   return shortcutSaveTask;
 }
 
@@ -2190,10 +2199,10 @@ onUnmounted(() => {
       <SettingsPanel
         v-else-if="view === 'settings'"
         :settings="settings"
-         :mode="mode"
-         @save="onSaveSettings"
-         @auto-save="onAutoSaveSettings"
-         @cancel="view = 'search'; focusInput()"
+        :mode="mode"
+        :save-error="settingsSaveError"
+        @auto-save="onAutoSaveSettings"
+        @cancel="view = 'search'; focusInput()"
         @update:mode="onModeChange"
       />
     </main>

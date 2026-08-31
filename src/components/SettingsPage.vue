@@ -6,6 +6,8 @@ import { listSpeechVoices, subscribeSpeechVoices } from "../composables/useTrans
 const props = defineProps({
   settings: { type: Object, required: true },
   mode: { type: String, default: "floating" },
+  // 父级保存失败信息（磁盘写入/热键注册失败）：footer 以错误态展示，不再只显示乐观的"已自动保存"
+  saveError: { type: String, default: "" },
 });
 const emit = defineEmits(["auto-save", "cancel", "update:mode"]);
 
@@ -156,9 +158,14 @@ onMounted(() => {
   });
 });
 onUnmounted(() => {
-  clearTimeout(autoSaveTimer);
   clearTimeout(autoSavedTimer);
   stopSpeechVoices();
+  // 防抖窗口内的改动在卸载前强制落盘：Esc/返回/关设置页不再无声丢弃待保存项
+  if (autoSaveTimer) {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = null;
+    emit("auto-save", autoSavePayload());
+  }
 });
 </script>
 
@@ -237,7 +244,7 @@ onUnmounted(() => {
         </div>
       </section>
     </div>
-    <footer class="auto-save-status" :class="{ visible: autoSaved }">{{ autoSaved ? "更改已自动保存" : "更改会自动保存" }}</footer>
+    <footer class="auto-save-status" :class="{ visible: autoSaved, error: !!saveError }">{{ saveError || (autoSaved ? "更改已自动保存" : "更改会自动保存") }}</footer>
   </div>
 </template>
 
@@ -283,5 +290,5 @@ input,.provider-select { min-width:0; flex:1; height:32px; padding:0 10px; borde
 .field { margin-bottom:12px; } .field-label { display:block; margin-bottom:7px; color:#64748b; font-size:13px; } .mode-options { display:flex; flex-direction:column; gap:7px; } .mode-opt { display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid #dbe2ea; border-radius:8px; background:#fff; color:#64748b; font-size:13px; cursor:pointer; text-align:left; } .mode-opt.active { border-color:rgba(143,168,196,.8); background:rgba(82,112,143,.1); color:#52708f; } .mode-name { flex:none; min-width:56px; font-weight:600; } .mode-desc { color:#94a3b8; font-size:12px; }
 .accent-options { display:flex; gap:8px; } .accent-options button { height:32px; padding:0 16px; border:1px solid #dbe2ea; border-radius:8px; background:#fff; color:#64748b; font-size:13px; cursor:pointer; } .accent-options button.active { border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1); color:var(--accent); font-weight:600; }
 .speech-select { width:100%; height:34px; padding:0 10px; border:1px solid #dbe2ea; border-radius:7px; outline:none; background:#fff; color:#475569; font-size:13px; } .speech-select:focus { border-color:#8fa8c4; } .field-hint { margin-top:5px; color:#a3aebc; font-size:11px; line-height:1.45; }
-.auto-save-status { min-height:31px; padding-top:12px; border-top:1px solid rgba(203,213,225,.8); color:#a3aebc; font-size:12px; text-align:right; } .auto-save-status.visible { color:#6b9e78; }
+.auto-save-status { min-height:31px; padding-top:12px; border-top:1px solid rgba(203,213,225,.8); color:#a3aebc; font-size:12px; text-align:right; } .auto-save-status.visible { color:#6b9e78; } .auto-save-status.error { color:#b45353; }
 </style>
