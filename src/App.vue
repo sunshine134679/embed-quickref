@@ -548,7 +548,7 @@ async function enterExpanded(initialView = "search", opts = {}) {
     transition: "none",
   };
   // 展开主窗口时隐藏快捷查找窗：避免小窗叠在大窗口上（quick 窗口只服务圆点态 hover）
-  await invoke("hide_quick").catch(() => {});
+  await invoke("hide_quick").catch((e) => console.error("隐藏快捷查找窗口失败", e));
   clearTimeout(quickHideTimer);
   await win.setIgnoreCursorEvents(false).catch(() => {});
 
@@ -1400,6 +1400,8 @@ async function doShowQuick(ticket) {
     emitTo("quick", "quick-show", { focus }).catch(() => {});
   } catch (e) {
     console.error("显示快捷查找窗口失败", e);
+    // 高频链路失败可见化：快捷窗不弹出时至少让用户知道原因
+    showNotice("快捷查找窗口打开失败，请重试");
   }
 }
 
@@ -1418,7 +1420,10 @@ async function hideQuick() {
     return;
   }
   lastQuickHideAt = Date.now();
-  invoke("hide_quick").catch(() => {});
+  invoke("hide_quick").catch((e) => {
+    console.error("隐藏快捷查找窗口失败", e);
+    showNotice("快捷查找窗未能关闭，请重试");
+  });
 }
 
 function hideQuickDelayed() {

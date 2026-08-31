@@ -295,7 +295,7 @@ async function openDetail() {
   }
   if (!payload) return;
   await emitTo("main", "quick-open-detail", payload).catch(() => {});
-  await invoke("hide_quick").catch(() => {});
+  await invoke("hide_quick").catch((e) => console.error("隐藏快捷查找窗口失败", e));
 }
 
 // 本轮搜索对应的输入（防抖窗口内已改字时 Enter/Tab 按"改了字"处理，先搜索再打开）
@@ -359,7 +359,7 @@ function onKeydown(e) {
     doSearch();
   } else if (e.key === "Escape") {
     e.preventDefault();
-    invoke("hide_quick").catch(() => {});
+    invoke("hide_quick").catch((e) => console.error("隐藏快捷查找窗口失败", e));
   } else if (e.key === "ArrowDown") {
     e.preventDefault();
     if (panel.value === "terms" && !searching.value) moveList(1);
@@ -376,7 +376,7 @@ function onKeydown(e) {
         openDetail();
       } else {
         emitTo("main", "quick-ask-ai", { text }).catch(() => {});
-        invoke("hide_quick").catch(() => {});
+        invoke("hide_quick").catch((e) => console.error("隐藏快捷查找窗口失败", e));
       }
     }
   }
@@ -388,11 +388,11 @@ function onWindowKeydown(e) {
   if (e.key !== "Escape") return;
   if (e.target === inputRef.value) return; // 输入框场景由其自身 onKeydown 处理，避免双重触发
   e.preventDefault();
-  invoke("hide_quick").catch(() => {});
+  invoke("hide_quick").catch((e) => console.error("隐藏快捷查找窗口失败", e));
 }
 
 function closeSelf() {
-  invoke("hide_quick").catch(() => {});
+  invoke("hide_quick").catch((e) => console.error("隐藏快捷查找窗口失败", e));
 }
 
 // 隐藏即清：窗口真正隐藏后（Rust emit quick-hidden）清空查询与结果。
