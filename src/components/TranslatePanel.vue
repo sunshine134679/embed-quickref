@@ -233,6 +233,7 @@ async function saveWordToDict() {
     <article v-else-if="result && result.kind === 'word'" class="word-card" :class="{ stale: status === 'loading' }">
       <header class="word-head">
         <h1>{{ result.word }}</h1>
+        <span class="source-badge local" title="来自内置学习词典，非联网结果">本地词典</span>
         <span v-if="result.entry.pronunciation" class="pron">
           <span v-if="result.entry.pronunciation.uk" class="pron-item">英 {{ result.entry.pronunciation.uk }}</span>
           <span v-if="result.entry.pronunciation.us" class="pron-item">美 {{ result.entry.pronunciation.us }}</span>
@@ -290,6 +291,7 @@ async function saveWordToDict() {
     <article v-else-if="result && result.kind === 'word-ai'" class="word-card" :class="{ stale: status === 'loading' }">
       <header class="word-head">
         <h1>{{ result.text }}</h1>
+        <span class="source-badge ai" title="由 AI 模型生成，可能与真实词义有出入">AI 生成</span>
         <span class="head-spacer"></span>
         <button class="speak-btn" title="播放英语读音" @click="speakEnglish(result.text)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -673,6 +675,26 @@ async function saveWordToDict() {
   font-weight: 700;
   color: var(--text-1);
   letter-spacing: 0.2px;
+}
+
+/* 结果来源标识：本地词典（可信）与 AI 生成（模型输出，可能有出入）用不同色 */
+.source-badge {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.source-badge.local {
+  background: rgba(82, 112, 143, 0.1);
+  color: #52708f;
+}
+
+.source-badge.ai {
+  background: rgba(214, 148, 40, 0.12);
+  color: #a06a1d;
 }
 
 .head-spacer {
