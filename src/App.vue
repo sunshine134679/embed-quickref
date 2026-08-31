@@ -579,9 +579,10 @@ async function enterExpanded(initialView = "search", opts = {}) {
     };
     // 先准备最终页面内容；动画期间主面板不可见，避免动画结束后突然换页。
     view.value = initialView;
-    // 回到 AI 解释页时不做"恢复上次搜索"：那会把用户从解释页强行拽回旧搜索结果
+    // 回到 AI 解释页时不做"恢复上次搜索"：那会把用户从解释页强行拽回旧搜索结果；
+    // 历史页同理：恢复搜索会把历史视图覆盖回搜索
     const savedQuery = loadLastQuery();
-    if (!opts.skipRestore && savedQuery && initialView !== "settings" && initialView !== "ai") {
+    if (!opts.skipRestore && savedQuery && initialView !== "settings" && initialView !== "ai" && initialView !== "history") {
       view.value = "search";
       query.value = savedQuery;
     }
@@ -686,7 +687,9 @@ async function applyDotPosition(p) {
 function expandInitialView() {
   if (view.value === "ai" && aiMessages.value.length) return "ai";
   if (view.value === "detail") return "detail";
-  if (view.value === "search" || view.value === "history") return "search";
+  // 历史页同样原样恢复（记忆的 historyTab 保留在内存），与提交说明一致
+  if (view.value === "history") return "history";
+  if (view.value === "search") return "search";
   return currentTerm.value ? "detail" : "search";
 }
 
@@ -1684,6 +1687,16 @@ function onAutoSaveSettings(next) {
   return shortcutSaveTask;
 }
 
+// 托盘「退出」：先展示主窗再弹确认框（与顶栏关闭按钮一致，防误触直接退出）
+async function quitFromTray() {
+  await win.show().catch(() => {});
+  if (form.value === "compact") {
+    await enterExpanded(expandInitialView()).catch(() => {});
+  }
+  await win.setFocus().catch(() => {});
+  confirmQuit.value = true;
+}
+
 async function setupTray() {
   // HMR / 刷新时避免重复创建托盘图标
   const existing = await TrayIcon.getById("main-tray").catch(() => null);
@@ -1698,7 +1711,7 @@ async function setupTray() {
           await openSettingsView();
         },
       },
-      { id: "quit", text: "退出", action: quitApplication },
+      { id: "quit", text: "退出", action: quitFromTray },
     ],
   });
   await TrayIcon.new({
@@ -2233,7 +2246,7 @@ onUnmounted(() => {
       <template v-else>
         <span><kbd>Enter</kbd> 翻译</span>
       </template>
-      <span><kbd>Ctrl+H</kbd> AI 历史</span>
+      <span><kbd>Ctrl+H</kbd> 历史记录</span>
       <span><kbd>Esc</kbd> 返回 / 收起</span>
     </footer>
     <!-- 全局轻量通知（发音失败/保存失败等一次性提示） -->
