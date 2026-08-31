@@ -1459,9 +1459,19 @@ function onQuickTyping(e) {
   }
 }
 
-// 快捷窗口点"查看详情"：展开主窗口并打开对应内容（term 打开词条详情，translate 进入翻译分区）
+// 快捷窗跳主窗前的退场动画：emit quick-hide 等 140ms，再让 enterExpanded 真正隐藏
+async function animateQuickOutBeforeExpand() {
+  if (form.value !== "compact") return;
+  quickGen++; // 使 hideQuick 的退场竞态分支失效（本函数自行等待动画）
+  emitTo("quick", "quick-hide").catch(() => {});
+  await new Promise((r) => setTimeout(r, QUICK_FADE));
+}
+
+// 快捷窗点"查看详情"：展开主窗口并打开对应内容（term 打开词条详情，translate 进入翻译分区）
 async function onQuickOpenDetail(payload) {
   if (!payload) return;
+  // 展开前先播快捷窗退场动画（140ms），避免小窗"啪"地瞬消与主窗展开动画同时发生
+  await animateQuickOutBeforeExpand();
   await win.show();
   if (form.value === "compact") {
     await enterExpanded(payload.kind === "translate" ? "search" : "detail", { skipRestore: true });
@@ -1483,6 +1493,7 @@ async function onQuickOpenDetail(payload) {
 async function onQuickAskAi(payload) {
   const text = (payload?.text || "").trim();
   if (!text) return;
+  await animateQuickOutBeforeExpand();
   await win.show();
   if (form.value === "compact") {
     // noFocus：聚焦搜索框会触发 onSearchFocus 把 AI 视图覆盖回搜索

@@ -235,7 +235,8 @@ async function doSearch() {
     exactHit = exact.length > 0; // 未精确命中（仅模糊/无结果）时按 Tab 可问 AI
     exactHitQ = key;
     selectedTerm.value = exact.length === 1 ? exact[0] : null;
-    termResults.value = exact.length === 1 ? [] : (exact.length > 1 ? exact : all).slice(0, 5);
+    // 模糊命中全部展示（面板可滚动），不再截断 5 条——截断会让超出部分在快捷窗不可达
+    termResults.value = exact.length === 1 ? [] : exact.length > 1 ? exact : all;
     searching.value = false;
     notifyResultDone();
     return;
@@ -302,6 +303,9 @@ let lastSearchedQ = "";
 // 键盘选中的列表下标（↑↓ 导航；与鼠标预览保持一致）
 const listIndex = ref(0);
 const termListEl = ref(null);
+// 列表滚动容器与切换详情前的滚动位置：返回列表时恢复，长列表不因切换丢位置
+const quickBodyEl = ref(null);
+let savedScrollTop = 0;
 
 // 键盘移动选中：循环切换并同步预览（与鼠标点击 pickTerm 等价），高亮项滚动可见
 function moveList(delta) {
@@ -316,11 +320,20 @@ function moveList(delta) {
 
 // 选中术语列表里的某条：在快捷窗内展示简介（不跳主界面）；同步键盘高亮位
 function pickTerm(t) {
+  savedScrollTop = quickBodyEl.value?.scrollTop || 0; // 记住离开列表时的滚动位置
   selectedTerm.value = t;
   const i = termResults.value.findIndex((x) => x === t);
   if (i !== -1) listIndex.value = i;
   // 点选看简介同样刷新结果宽限：看完简介移开鼠标不立即收起（与回车出结果保护一致）
   notifyResultDone();
+}
+
+// 从简介返回列表：恢复进入前的滚动位置
+function backToList() {
+  selectedTerm.value = null;
+  nextTick(() => {
+    if (savedScrollTop) quickBodyEl.value && (quickBodyEl.value.scrollTop = savedScrollTop);
+  });
 }
 
 function speak() {
@@ -484,7 +497,7 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <main class="quick-body">
+    <main ref="quickBodyEl" class="quick-body">
       <!-- 等待 -->
       <div v-if="searching && !transResult" class="qdots"><i></i><i></i><i></i></div>
 
@@ -510,7 +523,7 @@ onUnmounted(() => {
             <code>{{ Array.isArray(selectedTerm.example) ? selectedTerm.example.join("\n") : selectedTerm.example }}</code>
           </div>
           <div class="qtd-actions">
-            <button v-if="termResults.length" class="q-mini-btn" @click="selectedTerm = null">返回列表</button>
+            <button v-if="termResults.length" class="q-mini-btn" @click="backToList">返回列表</button>
             <button class="q-detail-btn" @click="openDetail">查看详情 <kbd class="q-action-key">{{ settings.detailShortcut }}</kbd> ›</button>
           </div>
         </div>
