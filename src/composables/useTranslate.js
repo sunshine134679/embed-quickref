@@ -494,6 +494,29 @@ export async function translateQuery(text, settings, onDelta, signal) {
   return { kind: "sentence", text: input, target, translated };
 }
 
+// 设置页「测试连接」：发一次最小请求验证 baseUrl/model/apiKey 可用。
+// 分类返回可读结果（401/403/404/超时/网络错误），不向 UI 抛裸错误文案
+const TEST_PROMPT = "用一句话确认服务可用，输出：ok";
+
+export async function testApiConnection(settings) {
+  try {
+    await askOnce(
+      [
+        { role: "system", content: TEST_PROMPT },
+        { role: "user", content: "ping" },
+      ],
+      settings
+    );
+    return { ok: true, message: "连接成功，模型响应正常" };
+  } catch (e) {
+    const msg = String(e?.message || e);
+    if (/HTTP 401/.test(msg)) return { ok: false, message: "认证失败：API Key 无效或已过期" };
+    if (/HTTP 40[34]/.test(msg)) return { ok: false, message: "访问被拒（HTTP 403/404）：请检查 Base URL 与模型名" };
+    if (/超时/.test(msg)) return { ok: false, message: "请求超时：请检查网络连通性或 Base URL" };
+    return { ok: false, message: msg };
+  }
+}
+
 // 发音统一使用本机语音，不访问在线词典或下载音频。
 function getSpeechVoices() {
   if (typeof window === "undefined" || !window.speechSynthesis) return [];

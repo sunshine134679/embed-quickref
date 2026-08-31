@@ -1,7 +1,7 @@
 <script setup>
 import { reactive, ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { PROVIDERS, endpointFor, providerFor } from "../data/providers";
-import { listSpeechVoices, subscribeSpeechVoices } from "../composables/useTranslate";
+import { listSpeechVoices, subscribeSpeechVoices, testApiConnection } from "../composables/useTranslate";
 
 const props = defineProps({
   settings: { type: Object, required: true },
@@ -104,6 +104,27 @@ function startCapture(key) {
 
 function addFallback() { form.fallbacks.push(createFallback()); }
 function removeFallback(index) { form.fallbacks.splice(index, 1); }
+
+// 测试连接：用表单当前值直接发最小请求验证 baseUrl/model/apiKey，结果分类展示
+const testing = ref(false);
+const testResult = ref(null); // { ok, message }
+const canTest = computed(() => !!(form.apiKey && form.baseUrl && form.model));
+async function runTest() {
+  if (testing.value || !canTest.value) return;
+  testing.value = true;
+  testResult.value = null;
+  try {
+    testResult.value = await testApiConnection({
+      baseUrl: form.baseUrl,
+      model: form.model,
+      apiKey: form.apiKey,
+    });
+  } catch (e) {
+    testResult.value = { ok: false, message: String(e?.message || e) };
+  } finally {
+    testing.value = false;
+  }
+}
 function moveFallback(index, offset) {
   const target = index + offset;
   if (target < 0 || target >= form.fallbacks.length) return;
@@ -209,6 +230,12 @@ onUnmounted(() => {
           <label class="form-row"><span>模型名</span><input v-model="form.model" type="text" spellcheck="false" placeholder="deepseek-chat" /></label>
           <div v-if="currentProvider?.models?.length" class="model-chips"><button v-for="m in currentProvider.models" :key="m" type="button" class="model-chip" :class="{ active: form.model === m }" @click="form.model = m">{{ m }}</button></div>
           <p class="hint">接口：{{ endpoint === "responses" ? "OpenAI Responses (/responses)" : "OpenAI 兼容 (/chat/completions)" }} —— gpt-*/grok-* 模型自动走 /responses</p>
+          <div class="test-row">
+            <button type="button" class="test-btn" :disabled="testing || !canTest" @click="runTest">
+              {{ testing ? "测试中…" : "测试连接" }}
+            </button>
+            <span v-if="testResult" class="test-result" :class="{ ok: testResult.ok }">{{ testResult.message }}</span>
+          </div>
           <section class="fallback-settings">
             <button type="button" class="fallback-toggle" :aria-expanded="fallbackExpanded" @click="fallbackExpanded = !fallbackExpanded">
               <span class="fallback-toggle-main">
@@ -272,6 +299,7 @@ h2,h3 { color:#334155; } h2 { font-size:17px; font-weight:650; } h3 { font-size:
 input,.provider-select { min-width:0; flex:1; height:32px; padding:0 10px; border:1px solid #dbe2ea; border-radius:6px; outline:none; background:#fff; color:#1f2937; font-size:13px; } input:focus,.provider-select:focus { border-color:#8fa8c4; } .provider-select { padding:0 8px; cursor:pointer; }
 .model-chips { display:flex; flex-wrap:wrap; gap:6px; margin:-2px 0 10px 82px; } .model-chip { padding:3px 10px; border:1px solid #dbe2ea; border-radius:999px; background:#fff; color:#64748b; font-size:12px; cursor:pointer; } .model-chip.active { border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1); color:var(--accent); font-weight:600; }
 .hint { margin:8px 0 14px; line-height:1.5; }
+.test-row { display:flex; align-items:center; gap:10px; margin:-4px 0 14px; } .test-btn { height:30px; padding:0 14px; border:1px solid rgba(82,112,143,.55); border-radius:8px; background:rgba(82,112,143,.1); color:#52708f; font-size:12.5px; font-weight:600; cursor:pointer; } .test-btn:hover:not(:disabled) { background:rgba(82,112,143,.2); } .test-btn:disabled { opacity:.5; cursor:default; } .test-result { font-size:12.5px; color:#b45353; } .test-result.ok { color:#6b9e78; }
 .fallback-settings { margin:18px 0 14px; border-top:1px solid #e5eaf0; border-bottom:1px solid #e5eaf0; }
 .fallback-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:58px; padding:8px 2px; border:0; border-radius:0; background:transparent; color:#64748b; text-align:left; cursor:pointer; }
 .fallback-toggle:hover { background:rgba(241,245,249,.55); }
