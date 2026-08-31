@@ -15,7 +15,7 @@ const props = defineProps({
   appended: { type: Boolean, default: false },
 });
 
-const emit = defineEmits(["follow-up", "save-update", "append-followups"]);
+const emit = defineEmits(["follow-up", "save-update", "append-followups", "retry"]);
 
 const followText = ref("");
 const followInput = ref(null);
@@ -33,6 +33,12 @@ const followUps = computed(() => {
 const busy = computed(() => props.status === "loading" || props.status === "streaming");
 // 当前正在流式输出的是否是首答
 const streamingFirst = computed(() => busy.value && followUps.value.length === 0);
+// 出错但保留了部分输出（父级 catch 不再整段删除）：提供「重试」按钮重新发起
+const failedPartial = computed(() => {
+  if (props.status !== "error") return false;
+  const last = thread.value[thread.value.length - 1];
+  return !!last && last.role === "assistant" && last.content.trim() !== "";
+});
 
 function catStyle(cat) {
   const { fg, bg } = categoryColor(cat);
@@ -163,7 +169,10 @@ watch(
       <span v-else class="append-done">已并入词库 ✓</span>
     </div>
 
-    <p v-if="status === 'error'" class="error">{{ error }}</p>
+    <div v-if="status === 'error'" class="error-box">
+      <p class="error">{{ error }}</p>
+      <button v-if="failedPartial" class="retry-btn" @click="emit('retry')">重试</button>
+    </div>
     <div ref="bottomEl" class="bottom-anchor"></div>
 
     <!-- 追问输入 -->
@@ -382,6 +391,13 @@ watch(
   font-size: 13px;
 }
 
+.error-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .error {
   margin-top: 14px;
   padding: 12px 14px;
@@ -391,6 +407,30 @@ watch(
   color: #a05d5d;
   line-height: 1.6;
   word-break: break-all;
+}
+
+.error-box .error {
+  margin-top: 14px;
+  flex: 1 1 240px;
+  min-width: 0;
+}
+
+.retry-btn {
+  margin-top: 14px;
+  height: 32px;
+  padding: 0 18px;
+  border: 1px solid rgba(82, 112, 143, 0.55);
+  border-radius: 8px;
+  background: rgba(82, 112, 143, 0.1);
+  color: #52708f;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.retry-btn:hover {
+  background: rgba(82, 112, 143, 0.2);
 }
 
 .loading-dots {

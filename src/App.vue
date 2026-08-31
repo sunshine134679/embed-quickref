@@ -769,12 +769,19 @@ watch(view, (v) => {
 });
 
 // 发起请求并流式写入会话末尾的 assistant 消息
-async function streamAi(isFirstAnswer) {
+// reuseLast：重试时复用失败的占位消息（从空重新累积），不另起新消息
+async function streamAi(isFirstAnswer, reuseLast = false) {
   aiStatus.value = "loading";
   aiError.value = "";
   const payload = aiMessages.value.map((m) => ({ role: m.role, content: m.content }));
-  aiMessages.value.push({ role: "assistant", content: "" });
-  const idx = aiMessages.value.length - 1;
+  let idx;
+  if (reuseLast && aiMessages.value[aiMessages.value.length - 1]?.role === "assistant") {
+    idx = aiMessages.value.length - 1;
+    aiMessages.value[idx].content = ""; // 清掉失败残留，避免与新输出拼接
+  } else {
+    aiMessages.value.push({ role: "assistant", content: "" });
+    idx = aiMessages.value.length - 1;
+  }
   const seq = ++aiSeq;
   const ctrl = new AbortController();
   aiAbortCtrl = ctrl;
@@ -807,7 +814,11 @@ async function streamAi(isFirstAnswer) {
     await saveAiSession();
   } catch (e) {
     if (seq !== aiSeq) return; // 过期流式的失败不触碰已被替换的新会话
-    aiMessages.value.splice(idx, 1); // 失败的空占位不留在会话里
+    const partial = aiMessages.value[idx]?.content || "";
+    if (!partial) {
+      aiMessages.value.splice(idx, 1); // 尚无任何输出：空占位不留在会话里
+    }
+    // 已有部分输出：保留已显示内容（配合「重试」按钮重新发起），不整段抹掉用户读过的内容
     aiStatus.value = "error";
     aiError.value = String(e.message || e);
   } finally {
@@ -842,6 +853,17 @@ async function runFollowUp(q) {
   aiAppended.value = false; // 新追问到来，并入按钮复位
   aiMessages.value.push({ role: "user", content: text });
   await streamAi(false);
+}
+
+// 重试失败的回答：保留会话与问题上下文，清空失败残留后重新流式
+async function retryAi() {
+  if (aiStatus.value !== "error") return;
+  const i = aiMessages.value.findIndex((m) => m.role === "assistant");
+  if (i === -1) return; // 失败时无任何输出（占位已被删）：回到搜索重新发起
+  const isFirst = i === aiMessages.value.length - 1; // 失败的是首答才保留入库语义
+  aiSaved.value = false;
+  aiCanUpdate.value = false;
+  await streamAi(isFirst, true);
 }
 
 
@@ -1982,6 +2004,7 @@ onUnmounted(() => {
         :appending="aiAppending"
         :appended="aiAppended"
         @follow-up="runFollowUp"
+        @retry="retryAi"
         @save-update="updateCachedTerm"
         @append-followups="appendFollowupsToTerm"
       />
