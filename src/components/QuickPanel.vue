@@ -30,19 +30,22 @@ let resultShownAt = 0; // 结果展示时间戳：刚出结果短暂保护窗口
 let graceTimer = null; // 结果宽限期定时器
 const RESULT_GRACE_MS = 1000; // 结果展示后的宽限期：期间移开鼠标不收起
 
-function currentBusy() {
-  // 结果刚展示（宽限期内）→ 仍算"使用中"：用户刚回车，要给时间看结果
+// 统一 busy 计算：同一语义只有一份事实来源，各上报场景只换参数不再各写一套公式
+// scenario: "report"（通用上报，含 2s 聚焦保护）| "hover-out"（鼠标移出瞬间：
+// 聚焦保护不算——手正要离开窗口应立即可收；"停圆点→手放键盘→打字"由圆点离开路径兜底）
+function currentBusy(scenario = "report") {
+  // 结果刚展示（宽限期内）→ 仍算"使用中"：用户刚回车/点选，要给时间看结果
   if (resultGrace()) return true;
-  // 搜索已完成（结果已展示）→ 鼠标移开应收起（重新 hover 会恢复结果）；
-  // 但输入框仍聚焦且内容非空（用户在结果上继续输入/修改）→ 仍算"使用中"
-  if (transResult.value || termResults.value.length || selectedTerm.value) {
+  // 结果已展示（列表/简介/翻译）→ 只有继续输入才算使用中，鼠标移开应收起
+  if (resultShown()) {
     return inputFocused.value && q.value.trim() !== "";
   }
-  return inputFocused.value && (Date.now() - focusAt < 2000 || composing || q.value.trim() !== "");
+  const focusProtect = scenario === "report" && Date.now() - focusAt < 2000;
+  return inputFocused.value && (focusProtect || composing || q.value.trim() !== "");
 }
 // 统一的输入状态上报（聚焦/失焦/composition/内容变化都走这里）
 function reportTyping() {
-  emitTo("main", "quick-typing", { typing: inputFocused.value, busy: currentBusy() }).catch(() => {});
+  emitTo("main", "quick-typing", { typing: inputFocused.value, busy: currentBusy("report") }).catch(() => {});
 }
 function onHoverIn() {
   hovering.value = true;
@@ -52,17 +55,7 @@ function onHoverIn() {
 function onHoverOut() {
   hovering.value = false;
   leftAt = Date.now();
-  // 移出窗口的"使用中"判定：结果宽限期内 → 保护（用户刚回车要看结果）；
-  // 结果已展示且过宽限期 → 不算；否则只认"真在输入"（内容非空/输入法组合中）。
-  // 聚焦 2s 保护（还没输入）不算——鼠标正离开窗口（如移开轨迹穿过窗口）应立即收起，
-  // 否则要等聚焦保护到期（最长 2s）窗口才收，延迟明显。"停圆点 → 手放键盘 → 打字"
-  // 场景由圆点离开路径（hideQuickOnLeave）的 busy 兜底
-  const busy = resultGrace()
-    ? true
-    : resultShown()
-      ? false
-      : inputFocused.value && (composing || q.value.trim() !== "");
-  emitTo("main", "quick-hover-out", { busy }).catch(() => {});
+  emitTo("main", "quick-hover-out", { busy: currentBusy("hover-out") }).catch(() => {});
 }
 // 结果已展示（术语列表/简介/翻译结果）→ 搜索完成，不算"使用中"
 function resultShown() {
@@ -112,6 +105,9 @@ function onInputFocus() {
 }
 function onInputBlur() {
   inputFocused.value = false;
+  // 输入法组合被失焦打断时可能不触发 compositionend：强制复位，
+  // 否则 composing 残留会让之后空输入聚焦也被误判"使用中"
+  composing = false;
   clearTimeout(focusGuardTimer);
   reportTyping();
 }
@@ -323,6 +319,8 @@ function pickTerm(t) {
   selectedTerm.value = t;
   const i = termResults.value.findIndex((x) => x === t);
   if (i !== -1) listIndex.value = i;
+  // 点选看简介同样刷新结果宽限：看完简介移开鼠标不立即收起（与回车出结果保护一致）
+  notifyResultDone();
 }
 
 function speak() {
