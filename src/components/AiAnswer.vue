@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref, watch, nextTick, onUnmounted } from "vue";
 import { categoryColor } from "../utils/categories";
+import { parseAnswer } from "../composables/useAi";
 
 const props = defineProps({
   query: { type: String, required: true },
@@ -71,32 +72,9 @@ watch(
   { immediate: true, flush: "post" }
 );
 
-const FIELD_RE = /^(缩写|全称|中文名|分类|定义)[:：]\s*(.*)$/;
-
-// AI 首答是固定结构的纯文本，流式过程中逐行解析成结构化字段
-const parsed = computed(() => {
-  const out = { abbr: "", full: "", zh: "", category: "", definition: "", points: [], extra: [] };
-  let hasField = false;
-  for (const raw of shownFirst.value.split("\n")) {
-    const line = raw.trim();
-    if (!line || /^要点[:：]?$/.test(line)) continue;
-    const m = line.match(FIELD_RE);
-    if (m) {
-      hasField = true;
-      const v = m[2].trim();
-      if (m[1] === "缩写") out.abbr = v;
-      else if (m[1] === "全称") out.full = v === "-" ? "" : v;
-      else if (m[1] === "中文名") out.zh = v;
-      else if (m[1] === "分类") out.category = v;
-      else out.definition = v;
-    } else if (/^[-•]\s*/.test(line)) {
-      out.points.push(line.replace(/^[-•]\s*/, ""));
-    } else {
-      out.extra.push(line);
-    }
-  }
-  return hasField ? out : null;
-});
+// AI 首答是固定结构的纯文本；解析统一走 useAi.parseAnswer 单一实现
+// （入库解析与展示解析同源，改提示词字段不再需要两处同步维护）
+const parsed = computed(() => parseAnswer(shownFirst.value));
 
 function send() {
   const t = followText.value.trim();
@@ -244,7 +222,6 @@ onUnmounted(() => {
         <ul v-if="parsed.points.length" class="points">
           <li v-for="(p, i) in parsed.points" :key="i">{{ p }}</li>
         </ul>
-        <p v-for="(l, i) in parsed.extra" :key="'x' + i" class="extra">{{ l }}</p>
         <span v-if="streamingFirst && status === 'streaming'" class="caret"></span>
       </article>
       <template v-else>
@@ -463,13 +440,6 @@ onUnmounted(() => {
   height: 5px;
   border-radius: 50%;
   background: rgba(82, 112, 143, 0.45);
-}
-
-.extra {
-  margin-top: 8px;
-  color: #64748b;
-  font-size: 13px;
-  line-height: 1.7;
 }
 
 /* 追问的问题：右对齐浅蓝灰气泡 */
