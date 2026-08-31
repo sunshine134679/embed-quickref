@@ -1382,8 +1382,10 @@ async function doShowQuick(ticket) {
     // 刚隐藏过（用户刚用完移开、鼠标又路过圆点）→ 重新弹出不抢焦点，避免反复打断
     const focus = Date.now() - lastQuickHideAt > QUICK_FOCUS_COOLDOWN;
     await invoke("show_quick", { x: pos.x, y: pos.y, focus });
-    // 清除可能残留的退场动画类（退场中重新弹出时恢复内容可见）
-    emitTo("quick", "quick-show").catch(() => {});
+    // 清除可能残留的退场动画类（退场中重新弹出时恢复内容可见）；
+    // 携带 focus 标志：冷却期重弹（focus=false）时快捷窗不再自动聚焦输入框，
+    // 避免"刚用完移开、鼠标又路过圆点"的误触再次劫持键盘输入
+    emitTo("quick", "quick-show", { focus }).catch(() => {});
   } catch (e) {
     console.error("显示快捷查找窗口失败", e);
   }
@@ -1395,12 +1397,12 @@ async function hideQuick() {
   emitTo("quick", "quick-hide").catch(() => {});
   await new Promise((r) => setTimeout(r, QUICK_FADE));
   if (g !== quickGen) {
-    emitTo("quick", "quick-show").catch(() => {}); // 退场期间重新弹出：恢复内容
+    emitTo("quick", "quick-show", { focus: false }).catch(() => {}); // 退场期间重新弹出：恢复内容
     return;
   }
   // 退场期间用户重新使用（回窗 hover/继续输入）：放弃隐藏，恢复内容
   if (quickBusy || quickWindowHovered) {
-    emitTo("quick", "quick-show").catch(() => {});
+    emitTo("quick", "quick-show", { focus: false }).catch(() => {});
     return;
   }
   lastQuickHideAt = Date.now();

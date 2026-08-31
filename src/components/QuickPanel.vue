@@ -98,12 +98,17 @@ function onInputFocus() {
   inputFocused.value = true;
   focusAt = Date.now();
   reportTyping();
-  // 2s 聚焦保护到期后重新评估并上报：若此时未输入内容，busy 应变 false，
-  // 否则主窗口侧 quickBusy 一直停在 true，鼠标快速移开圆点（没碰快捷窗）时窗口永不收起
+  // 聚焦保护：短暂视为"使用中"（手正放上键盘）。600ms 后若仍无输入且鼠标从未进入
+  // 面板，判定为误触（划过圆点弹出抢焦点），提前解除保护让主窗口立即收起——
+  // 滞留从最长 ~2.5s 降到 ~1.1s；真正打字/进入面板则保留完整 2s 保护
   clearTimeout(focusGuardTimer);
   focusGuardTimer = setTimeout(() => {
-    if (inputFocused.value) reportTyping();
-  }, 2000);
+    if (!inputFocused.value) return;
+    if (!hovering.value && !composing && !q.value.trim()) {
+      focusAt = 0; // 清除聚焦保护时间窗（reportTyping 按"无保护且空输入"计算 busy）
+    }
+    reportTyping();
+  }, 600);
 }
 function onInputBlur() {
   inputFocused.value = false;
@@ -390,9 +395,12 @@ onMounted(async () => {
       .then((u) => unlisteners.push(u))
       .catch(() => {});
   // 先注册显示/焦点事件，再等待词库和设置异步加载，避免启动早期首次弹出丢失 quick-show。
-  on("quick-show", () => {
+  on("quick-show", (e) => {
     shellRef.value?.classList.remove("closing");
-    setTimeout(() => focusAndSelectInput(inputRef.value), 30);
+    // focus=false（隐藏冷却期内重弹）：不自动聚焦输入框，避免误触再次劫持键盘输入
+    if (e?.payload?.focus !== false) {
+      setTimeout(() => focusAndSelectInput(inputRef.value), 30);
+    }
   });
   on("quick-hide", () => shellRef.value?.classList.add("closing"));
   on("quick-open-detail-shortcut", openDetail);
