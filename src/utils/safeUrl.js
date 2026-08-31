@@ -26,6 +26,29 @@ export function assertSafeApiUrl(raw) {
   return u;
 }
 
+// 端点主机一致性（纵深防御）：请求 URL 与配置 baseUrl 必须同主机同端口，
+// 防止配置被污染/篡改后把请求（含 Authorization 头）发往其他端点。
+// 注：capabilities http:default 保持 https://** 以支持自定义 baseUrl，
+// 运行时校验兜底；配合 assertSafeApiUrl（拦截私有/localhost）构成双层防线
+export function assertEndpointMatches(urlStr, baseUrlStr) {
+  let u;
+  try {
+    u = new URL(urlStr);
+  } catch {
+    throw new Error("请求地址不是合法的 URL");
+  }
+  let b;
+  try {
+    b = new URL(baseUrlStr);
+  } catch {
+    throw new Error("API 地址不是合法的 URL");
+  }
+  if (u.host.toLowerCase() !== b.host.toLowerCase()) {
+    throw new Error("请求地址与配置的 API 端点不一致，已阻止请求");
+  }
+  return u;
+}
+
 function isPrivateV4(host) {
   const parts = host.split(".").map(Number);
   if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return false;

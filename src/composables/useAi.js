@@ -1,6 +1,6 @@
 import { fetch } from "@tauri-apps/plugin-http";
 import { endpointFor } from "../data/providers";
-import { assertSafeApiUrl } from "../utils/safeUrl";
+import { assertSafeApiUrl, assertEndpointMatches } from "../utils/safeUrl";
 import { withApiFallback } from "../utils/apiCandidates";
 
 const SYSTEM_PROMPT = `你是嵌入式 Linux 领域的资深专家，专门解释网络协议、总线/通信协议、内核机制、构建工具链、硬件与存储、文件系统相关的术语与缩写。
@@ -108,6 +108,7 @@ async function askAiOnce(messages, settings, onDelta, externalSignal) {
 
 async function streamCompletions(settings, messages, signal, onDelta) {
   const url = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  assertEndpointMatches(url, settings.baseUrl); // 路径再拼也不会脱出配置端点
   const res = await fetch(url, {
     method: "POST",
     headers: {
@@ -158,6 +159,7 @@ async function streamCompletions(settings, messages, signal, onDelta) {
 // OpenAI Responses 端点：input 内容项为 input_text，流式事件为 response.output_text.delta
 async function streamResponses(settings, messages, signal, onDelta) {
   const url = `${settings.baseUrl.replace(/\/+$/, "")}/responses`;
+  assertEndpointMatches(url, settings.baseUrl); // 路径再拼也不会脱出配置端点
   const res = await fetch(url, {
     method: "POST",
     headers: {

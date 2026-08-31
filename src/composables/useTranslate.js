@@ -2,7 +2,7 @@ import { fetch } from "@tauri-apps/plugin-http";
 import { invoke } from "@tauri-apps/api/core";
 import { useSettings } from "./useSettings";
 import { endpointFor } from "../data/providers";
-import { assertSafeApiUrl } from "../utils/safeUrl";
+import { assertSafeApiUrl, assertEndpointMatches } from "../utils/safeUrl";
 import { withApiFallback } from "../utils/apiCandidates";
 import { invokeNativeSpeech, prepareSpeechSynthesis } from "../utils/speechSynthesis";
 import learningDictionary from "../data/learning-dictionary";
@@ -189,6 +189,7 @@ async function askOnce(messages, settings, externalSignal) {
   try {
     const endpoint = endpointFor(settings.model);
     const url = `${settings.baseUrl.replace(/\/+$/, "")}/${endpoint === "responses" ? "responses" : "chat/completions"}`;
+    assertEndpointMatches(url, settings.baseUrl); // 路径再拼也不会脱出配置端点
     const body = endpoint === "responses"
       ? {
           model: settings.model,
@@ -258,6 +259,7 @@ async function askStream(messages, settings, onDelta, externalSignal) {
   try {
     const endpoint = endpointFor(settings.model);
     const url = `${settings.baseUrl.replace(/\/+$/, "")}/${endpoint === "responses" ? "responses" : "chat/completions"}`;
+    assertEndpointMatches(url, settings.baseUrl); // 路径再拼也不会脱出配置端点
     const body = endpoint === "responses"
       ? {
           model: settings.model,
