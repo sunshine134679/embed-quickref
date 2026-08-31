@@ -198,21 +198,19 @@ async function saveWordToDict() {
       </div>
     </div>
 
-    <!-- 输入联想：英文单词输入中实时拼写建议（防手快输错），点击即翻译 -->
-    <div v-else-if="suggestions.length && status !== 'done'" class="suggest-area">
+    <!-- 输入联想：英文单词输入中实时拼写建议（防手快输错），点击即翻译；
+         仅在空闲态展示——loading/error 时让位给进度指示与错误提示（旧实现错误被建议区顶掉） -->
+    <div v-else-if="suggestions.length && status === 'idle'" class="suggest-area">
       <WordSuggest :suggestions="suggestions" @pick="(w) => emit('use-suggestion', w)" />
     </div>
 
-    <!-- 等待中：仅在还没有任何结果时显示（句子流式翻译期间 result 已有部分内容，直接展示） -->
-    <div v-else-if="status === 'loading' && !result" class="loading-dots"><i></i><i></i><i></i></div>
-
-    <!-- 错误 -->
+    <!-- 错误：优先于结果卡展示，失败原因不被任何内容遮挡 -->
     <p v-else-if="status === 'error'" class="error">
       {{ error === "no-api-key" ? "翻译需要 API Key，请先在设置中配置" : error }}
     </p>
 
     <!-- 未找到：拼写错误/不完整单词——明确报错，不硬编结果 -->
-    <article v-else-if="result && result.kind === 'word-not-found'" class="not-found-card">
+    <article v-else-if="result && result.kind === 'word-not-found'" class="not-found-card" :class="{ stale: status === 'loading' }">
       <p class="nf-title">未找到「{{ result.text }}」</p>
       <p v-if="!result.suggestions.length" class="nf-hint">该单词不存在或拼写有误，请检查后重试</p>
       <template v-else>
@@ -232,7 +230,7 @@ async function saveWordToDict() {
     </article>
 
     <!-- 本地学习词典命中的单词卡片 -->
-    <article v-else-if="result && result.kind === 'word'" class="word-card">
+    <article v-else-if="result && result.kind === 'word'" class="word-card" :class="{ stale: status === 'loading' }">
       <header class="word-head">
         <h1>{{ result.word }}</h1>
         <span v-if="result.entry.pronunciation" class="pron">
@@ -289,7 +287,7 @@ async function saveWordToDict() {
     </article>
 
     <!-- AI 词典式解释（单词未命中本地词典） -->
-    <article v-else-if="result && result.kind === 'word-ai'" class="word-card">
+    <article v-else-if="result && result.kind === 'word-ai'" class="word-card" :class="{ stale: status === 'loading' }">
       <header class="word-head">
         <h1>{{ result.text }}</h1>
         <span class="head-spacer"></span>
@@ -344,7 +342,7 @@ async function saveWordToDict() {
     </article>
 
     <!-- 句子翻译 -->
-    <article v-else-if="result && result.kind === 'sentence'" class="sentence-card">
+    <article v-else-if="result && result.kind === 'sentence'" class="sentence-card" :class="{ stale: status === 'loading' }">
       <div class="dir-row">
         <span class="dir-chip">{{ result.target === "zh" ? "英 → 中" : "中 → 英" }}</span>
         <span class="dir-dot">●</span>
@@ -385,6 +383,9 @@ async function saveWordToDict() {
       </div>
       <p class="hint">按 <kbd>Esc</kbd> 返回</p>
     </article>
+
+    <!-- 等待中：loading 且无旧结果时显示进度（有旧结果时上方卡片降透明度占位） -->
+    <div v-else-if="status === 'loading'" class="loading-dots"><i></i><i></i><i></i></div>
 
     <!-- 已输入但未翻译：等待手动触发 -->
     <div v-else class="empty muted">按 <kbd>Enter</kbd> 或点「翻译」按钮</div>
@@ -602,6 +603,12 @@ async function saveWordToDict() {
 
 .history-all:hover {
   background: rgba(var(--accent-rgb), 0.18);
+}
+
+/* 翻译中旧结果：降透明度占位，明确"这是上一次的结果"，新结果到来即恢复 */
+.stale {
+  opacity: 0.55;
+  transition: opacity 0.15s ease;
 }
 
 /* ---------- 加载 ---------- */
