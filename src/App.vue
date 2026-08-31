@@ -1196,6 +1196,13 @@ function onSearchFocus() {
   if (view.value !== "search") view.value = "search";
 }
 
+// 详情页「AI 展开讲讲」/ Tab 快捷键共用入口：无历史会话时也可见
+function askAiExplainTerm() {
+  const t = currentTerm.value;
+  if (!t) return;
+  runAi(`详细讲讲 ${t.abbr}${t.full ? `（${t.full}）` : ""}`);
+}
+
 function onKeydown(e) {
   if (e.key === "Escape") {
     e.preventDefault();
@@ -1224,8 +1231,7 @@ function onKeydown(e) {
   if (view.value === "detail") {
     if (e.key === "Tab") {
       e.preventDefault();
-      const t = currentTerm.value;
-      runAi(`详细讲讲 ${t.abbr}${t.full ? `（${t.full}）` : ""}`);
+      askAiExplainTerm();
     }
     return;
   }
@@ -2059,6 +2065,18 @@ onUnmounted(() => {
           </svg>
           <span class="ai-entry-text">已用 AI 解释过 · {{ fmtWhen(termAiSession.time) }}</span>
           <span class="ai-entry-arrow">查看解释 ›</span>
+        </button>
+        <button
+          v-else
+          class="ai-entry"
+          title="让 AI 展开讲讲这个词条（也可按 Tab）"
+          @click="askAiExplainTerm"
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+            <path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" />
+          </svg>
+          <span class="ai-entry-text">让 AI 展开讲讲</span>
+          <span class="ai-entry-arrow">Tab 或点击 ›</span>
         </button>
         <TermCard :term="currentTerm" :starred="isFavorite(favorites, currentTerm)" @toggle-star="onToggleStar" />
       </div>
