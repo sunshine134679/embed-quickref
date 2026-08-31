@@ -278,8 +278,6 @@ async function doPersist() {
   try {
     await stateStore.set("tabs", tabs.value);
     await stateStore.set("activeTab", activeTab.value);
-    await stateStore.set("pinned", pinned.value);
-    await stateStore.set("mode", mode.value);
     await stateStore.set("panel", panel.value);
     await stateStore.set("dotPosition", dotPosition.value);
     await stateStore.save();
@@ -292,11 +290,12 @@ async function restoreState() {
   stateStore = await load("state.json", { autoSave: false });
   const savedTabs = await stateStore.get("tabs");
   if (Array.isArray(savedTabs) && savedTabs.length) tabs.value = savedTabs;
-  if ((await stateStore.get("pinned")) === true) {
+  // mode/pinned 自 settings.json 恢复（v0.2 起统一持久化；initSettings 已完成迁移）
+  if (settings.value.pinned === true) {
     pinned.value = true;
     await applyPinned();
   }
-  const savedMode = await stateStore.get("mode");
+  const savedMode = settings.value.mode;
   if (["floating", "popup", "pinned"].includes(savedMode)) mode.value = savedMode;
   const savedPanel = await stateStore.get("panel");
   if (["terms", "translate"].includes(savedPanel)) panel.value = savedPanel;
@@ -714,6 +713,7 @@ async function togglePin() {
     console.error("切换固定模式失败", e);
   }
   persistState();
+  saveSettings({ pinned: pinned.value }).catch((e) => console.error("固定状态持久化失败", e));
 }
 
 function openTab(term) {
@@ -1637,6 +1637,7 @@ async function onModeChange(m) {
   if (mode.value === m) return;
   mode.value = m;
   persistState();
+  saveSettings({ mode: m }).catch((e) => console.error("界面模式持久化失败", e));
   if (m === "floating") {
     await enterCompact();
     await win.setSkipTaskbar(true).catch(() => {});
@@ -1706,10 +1707,10 @@ const unlisteners = [];
 onMounted(async () => {
   // 快捷查找窗口：不初始化主界面逻辑
   if (isQuick) return;
-  // 并行初始化：settings / 用户词库 / 状态恢复 / 内置词库预加载互不依赖，
-  // 一次 IPC 往返并行减少启动等待（词库拆独立 chunk 后台拉取，不阻塞首屏）
+  // 并行初始化：设置必须先加载（restoreState 依赖其中的 mode/pinned），
+  // 其余互不依赖（用户词库/状态恢复/内置词库预加载）并行；词库拆独立 chunk 后台拉取不阻塞首屏
+  await initSettings().catch((e) => console.error("设置加载失败", e));
   await Promise.allSettled([
-    initSettings(),
     initUserTerms(),
     restoreState(),
     ensureTerms(),

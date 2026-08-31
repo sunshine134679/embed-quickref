@@ -43,7 +43,9 @@ export const DEFAULT_SETTINGS = {
   fallbacks: [],
   accent: "us", // 发音口音：us(美式) | en(英式)
   voiceName: "", // 留空时按口音自动选择本机英语语音
-  pronunciationSource: "system", // 保留旧配置字段，当前统一使用本机语音
+  // 界面模式/固定状态随其余设置统一持久化（v0.2 起迁入 settings.json；旧 state.json 一次性迁移）
+  mode: "floating", // floating(悬浮圆点) | popup(弹窗) | pinned(固定)
+  pinned: false,
 };
 
 const settings = ref({ ...DEFAULT_SETTINGS });
@@ -92,6 +94,29 @@ export async function initSettings() {
       }
       await store.save();
     } catch (e) {}
+  }
+  // 一次性迁移：旧版界面模式（mode/pinned）存于 state.json，迁入 settings.json 统一持久化
+  if (saved.mode === undefined || saved.pinned === undefined) {
+    try {
+      const stateStore = await load("state.json", { autoSave: false });
+      if (saved.mode === undefined) {
+        const m = await stateStore.get("mode");
+        if (["floating", "popup", "pinned"].includes(m)) {
+          settings.value.mode = m;
+          await store.set("mode", m);
+        }
+      }
+      if (saved.pinned === undefined) {
+        const p = await stateStore.get("pinned");
+        if (p === true || p === false) {
+          settings.value.pinned = p === true;
+          await store.set("pinned", p === true);
+        }
+      }
+      await store.save();
+    } catch (e) {
+      console.error("界面模式迁移失败", e); // 迁移失败不阻断启动，沿用默认值
+    }
   }
   return settings.value;
 }
