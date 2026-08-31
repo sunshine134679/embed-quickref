@@ -1654,14 +1654,6 @@ async function onModeChange(m) {
   }
 }
 
-async function onSaveSettings(next) {
-  const prev = { ...settings.value };
-  await saveSettings(next);
-  await applyShortcuts(next, prev);
-  view.value = "search";
-  focusInput();
-}
-
 // 设置页采用修改即保存：串行写入，避免连续改动时后一次保存覆盖前一次注册状态。
 // 保存/热键注册失败经 settingsSaveError 回传设置页真实展示（不再只显示乐观的"已自动保存"）
 let shortcutSaveTask = Promise.resolve();
