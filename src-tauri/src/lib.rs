@@ -1,4 +1,4 @@
-use tauri::{AppHandle, Manager, PhysicalPosition};
+use tauri::{AppHandle, Emitter, Manager, PhysicalPosition};
 use std::process::Command;
 use std::sync::Mutex;
 
@@ -211,6 +211,9 @@ fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String>
 fn hide_quick(app: AppHandle) -> Result<(), String> {
     let quick = app.get_webview_window("quick").ok_or("no quick window")?;
     quick.hide().map_err(|e| e.to_string())?;
+    // 通知主窗口快捷窗已真正隐藏：复位 busy/typing 状态（隐藏路径多，单一事件收敛复位），
+    // 快捷窗侧同时清空陈旧结果——热键"查看详情"不再打开早已不显示的内容
+    let _ = app.emit("quick-hidden", ());
     // 归还焦点：仅当 OS 前台仍是快捷窗时，把键盘焦点还给弹出前借用的窗口
     // （用户已点击其他窗口则不打扰）
     #[cfg(windows)]

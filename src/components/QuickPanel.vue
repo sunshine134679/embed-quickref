@@ -382,6 +382,24 @@ function closeSelf() {
   invoke("hide_quick").catch(() => {});
 }
 
+// 隐藏即清：窗口真正隐藏后（Rust emit quick-hidden）清空查询与结果。
+// 全局热键"查看详情"不再打开早已不显示的内容；下次 hover 从干净态开始
+function resetSearchState() {
+  q.value = "";
+  termResults.value = [];
+  selectedTerm.value = null;
+  listIndex.value = 0;
+  transResult.value = null;
+  error.value = "";
+  searching.value = false;
+  exactHit = false;
+  exactHitQ = "";
+  lastSearchedQ = "";
+  seq++; // 作废可能仍在途的请求回调（过期结果不再写回已清空的面板）
+  clearTimeout(timer);
+  clearTimeout(graceTimer);
+}
+
 const shellRef = ref(null);
 const inputRef = ref(null);
 const unlisteners = []; // 事件反注册函数：组件卸载时清理（主要防开发环境 HMR 重复回调）
@@ -401,6 +419,13 @@ onMounted(async () => {
     }
   });
   on("quick-hide", () => shellRef.value?.classList.add("closing"));
+  // 真正隐藏后清空查询与结果（见 resetSearchState 注释）
+  on("quick-hidden", () => {
+    resetSearchState();
+    inputFocused.value = false;
+    composing = false;
+    clearTimeout(focusGuardTimer);
+  });
   on("quick-open-detail-shortcut", openDetail);
   win
     .onFocusChanged(({ payload: focused }) => {

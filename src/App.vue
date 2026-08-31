@@ -1507,6 +1507,12 @@ async function setupQuickListeners() {
     unlisteners.push(await listen("quick-hover-out", onQuickHoverOut));
     unlisteners.push(await listen("quick-typing", onQuickTyping));
     unlisteners.push(await listen("quick-blur", onQuickBlur));
+    // 快捷窗真正隐藏后统一复位输入状态：无论隐藏路径（Esc/收起按钮/跳主窗/失焦收起），
+    // 双端 busy/typing 状态不再依赖 DOM blur 事件对冲
+    unlisteners.push(await listen("quick-hidden", () => {
+      quickTyping = false;
+      quickBusy = false;
+    }));
   } catch (err) {
     console.error("快捷窗口事件监听失败", err);
   }
