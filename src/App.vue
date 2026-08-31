@@ -1640,8 +1640,9 @@ async function onModeChange(m) {
   if (m === "floating") {
     await enterCompact();
     await win.setSkipTaskbar(true).catch(() => {});
-    // 从固定切出：置顶必须复位（圆点态基线为不置顶，与冷启动 floating 一致）
-    await win.setAlwaysOnTop(false).catch(() => {});
+    // 统一置顶基线：与冷启动浮动态（tauri.conf alwaysOnTop:true）一致。
+    // 悬浮圆点常驻桌面，若被其他窗口覆盖则 hover 失效、整个快捷词条功能不可达
+    await win.setAlwaysOnTop(true).catch(() => {});
   } else {
     // 固定模式保留任务栏图标，弹窗模式不显示图标
     await win.setSkipTaskbar(m !== "pinned").catch(() => {});
