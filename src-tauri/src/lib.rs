@@ -117,37 +117,50 @@ fn exit_app(app: AppHandle) -> Result<(), String> {
 // 快捷查找窗口：显示在悬浮圆点旁（默认右侧，越界翻到左侧/上移），物理像素定位
 const QUICK_W: f64 = 440.0;
 const QUICK_H: f64 = 240.0; // 与 tauri.conf.json quick 窗口尺寸保持一致
-const DOT_W: f64 = 64.0;
+const DOT_W: f64 = 64.0; // 圆点态窗口物理宽（含透明边距）
+const DOT_VISUAL: f64 = 44.0; // 视觉圆点直径（居中于窗口）——定位基准，消除视觉断带
 const GAP: f64 = 10.0;
 
 #[tauri::command]
-fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String> {
+fn show_quick(
+    app: AppHandle,
+    x: f64,
+    y: f64,
+    focus: bool,
+    scale: Option<f64>,
+    area_x: Option<f64>,
+    area_y: Option<f64>,
+    area_w: Option<f64>,
+    area_h: Option<f64>,
+) -> Result<(), String> {
     // 非法坐标防御：Inf 会命中"放左侧"分支把窗口送到工作区外（NaN 会被 clamp/max 吸收，无需特判）
     if !x.is_finite() || !y.is_finite() {
         return Err("非法的快捷窗坐标".to_string());
     }
     let quick = app.get_webview_window("quick").ok_or("no quick window")?;
     let main = app.get_webview_window("main").ok_or("no main window")?;
-    // 主窗口可能仍处于展开态（hover 触发时圆点刚挂载），以传入的圆点位置为准
+    // 显示器参数由前端 monitorForPoint 按圆点实际坐标解析后传入：
+    // 圆点悬在副屏时不再错用主窗口所在屏的 scale/work_area 钳制
     let monitor = main
         .current_monitor()
         .map_err(|e| e.to_string())?
         .ok_or("no monitor")?;
-    // 使用目标显示器的缩放比例。主窗口刚跨屏移动时，main.scale_factor() 可能仍是旧屏幕比例，
-    // 会导致快捷窗的物理尺寸和定位偏移，表现为与圆点重叠或部分出屏。
-    let scale = monitor.scale_factor();
+    let s = scale.unwrap_or_else(|| monitor.scale_factor());
     let area = monitor.work_area();
-    let area_x = area.position.x as f64;
-    let area_y = area.position.y as f64;
-    let area_w = area.size.width as f64;
-    let area_h = area.size.height as f64;
+    let area_x = area_x.unwrap_or(area.position.x as f64);
+    let area_y = area_y.unwrap_or(area.position.y as f64);
+    let area_w = area_w.unwrap_or(area.size.width as f64);
+    let area_h = area_h.unwrap_or(area.size.height as f64);
 
-    let dot = DOT_W * scale;
-    let gap = GAP * scale;
-    let qw = QUICK_W * scale;
-    let qh = QUICK_H * scale;
-    let right_x = x + dot + gap;
-    let left_x = x - qw - gap;
+    let dot = DOT_W * s;
+    let gap = GAP * s;
+    // 视觉圆点（44px）居中于 64px 窗口：定位基准修正到视觉边缘（原按窗口边缘算，
+    // 面板与圆点的实际间隙为 20px 而非 10px，形成"视觉断带"）
+    let vis_off = (DOT_W - DOT_VISUAL) / 2.0 * s;
+    let qw = QUICK_W * s;
+    let qh = QUICK_H * s;
+    let right_x = x + dot + gap - vis_off;
+    let left_x = x - qw - gap + vis_off;
     let max_x = (area_x + area_w - qw).max(area_x);
     let qx = if right_x + qw <= area_x + area_w {
         right_x
@@ -157,9 +170,20 @@ fn show_quick(app: AppHandle, x: f64, y: f64, focus: bool) -> Result<(), String>
         // 两侧都放不下时居中，保证快捷窗完整可见，不覆盖圆点作为唯一 fallback。
         (area_x + (area_w - qw) / 2.0).clamp(area_x, max_x)
     };
-    // 垂直方向以圆点中心对齐，再按工作区钳制；比顶边对齐更不容易遮住原应用关键区域。
+    // 垂直方向优先"面板顶对齐圆点底缘"（鼠标从圆点下行入面板路径顺）；
+    // 放不下翻到"面板底对齐圆点顶缘"；仍放不下才居中钳制。
+    // 旧实现只做中心对齐 + clamp：圆点贴工作区底部时面板会整个盖住圆点，
+    // 鼠标回不到圆点（右键/展开都够不着）。翻转分支彻底消除该问题。
     let max_y = (area_y + area_h - qh).max(area_y);
-    let qy = (y + (dot - qh) / 2.0).clamp(area_y, max_y);
+    let below_y = y + dot;
+    let above_y = y - qh - gap + vis_off;
+    let qy = if below_y + qh <= area_y + area_h {
+        below_y
+    } else if above_y >= area_y {
+        above_y
+    } else {
+        (area_y + (area_h - qh) / 2.0).clamp(area_y, max_y)
+    };
     // qx 与 qy 对称做上界钳制：异常大的 x（跨屏/过期坐标）不会再把快捷窗放到工作区外不可见
     quick
         .set_position(PhysicalPosition::new(

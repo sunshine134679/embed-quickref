@@ -1381,7 +1381,19 @@ async function doShowQuick(ticket) {
     if (ticket !== quickShowTicket || !dotHovered || form.value !== "compact" || !dotReady.value) return;
     // 刚隐藏过（用户刚用完移开、鼠标又路过圆点）→ 重新弹出不抢焦点，避免反复打断
     const focus = Date.now() - lastQuickHideAt > QUICK_FOCUS_COOLDOWN;
-    await invoke("show_quick", { x: pos.x, y: pos.y, focus });
+    // 按圆点实际坐标解析所在显示器并传给 Rust：副屏上的圆点不再被主屏参数错屏钳制
+    const mon = await monitorForPoint(pos.x, pos.y);
+    const wa = mon?.workArea;
+    await invoke("show_quick", {
+      x: pos.x,
+      y: pos.y,
+      focus,
+      scale: mon?.scaleFactor ?? null,
+      areaX: wa ? wa.position.x : null,
+      areaY: wa ? wa.position.y : null,
+      areaW: wa ? wa.size.width : null,
+      areaH: wa ? wa.size.height : null,
+    });
     // 清除可能残留的退场动画类（退场中重新弹出时恢复内容可见）；
     // 携带 focus 标志：冷却期重弹（focus=false）时快捷窗不再自动聚焦输入框，
     // 避免"刚用完移开、鼠标又路过圆点"的误触再次劫持键盘输入
