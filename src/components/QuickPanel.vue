@@ -309,6 +309,7 @@ function speak() {
 function onKeydown(e) {
   if (e.key === "Enter") {
     e.preventDefault();
+    if (searching.value) return; // 与查找按钮禁用一致：在途不重复发起
     clearTimeout(timer);
     doSearch();
   } else if (e.key === "Escape") {

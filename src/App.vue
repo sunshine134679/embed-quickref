@@ -362,6 +362,8 @@ ensureTerms().then(() => {
 function onUserEditQuery() {
   if (panel.value !== "translate" || translateStatus.value !== "loading") return;
   translateSeq++;
+  translateAbortCtrl?.abort();
+  translateAbortCtrl = null;
   translateStatus.value = "idle";
   translateResult.value = null;
   translateError.value = "";
@@ -375,7 +377,12 @@ function runTranslateNow() {
 }
 
 // 序号守卫：只采纳最后一次触发的翻译结果（快速改输入时丢弃过期响应）
+// 每次触发同时中止上一次仍在途的请求：真实取消网络占用，而非只丢弃显示
+let translateAbortCtrl = null;
 async function runTranslate(text) {
+  translateAbortCtrl?.abort();
+  const ctrl = new AbortController();
+  translateAbortCtrl = ctrl;
   const seq = ++translateSeq;
   translateStatus.value = "loading";
   translateError.value = "";
@@ -384,7 +391,7 @@ async function runTranslate(text) {
       // 流式上屏：长句翻译逐段更新结果卡片；过期响应丢弃
       if (seq !== translateSeq) return;
       translateResult.value = { kind: "sentence", text, target, translated: partial };
-    });
+    }, ctrl.signal);
     if (seq !== translateSeq) return;
     translateResult.value = result;
     translateStatus.value = "done";
@@ -399,6 +406,8 @@ async function runTranslate(text) {
     // no-api-key 是内部错误码，直接展示对用户无意义
     translateError.value = msg === "no-api-key" ? "尚未配置 API Key：请到设置页添加服务商与密钥" : msg;
     translateStatus.value = "error";
+  } finally {
+    if (translateAbortCtrl === ctrl) translateAbortCtrl = null; // 只清理本次句柄，不误伤新请求
   }
 }
 
@@ -407,6 +416,8 @@ function switchPanel(p) {
   if (panel.value !== p) {
     panel.value = p;
     translateSeq++; // 作废进行中的翻译
+    translateAbortCtrl?.abort();
+    translateAbortCtrl = null;
     query.value = "";
     results.value = [];
     selectedIndex.value = 0;
@@ -1247,10 +1258,11 @@ function onKeydown(e) {
     return;
   }
   if (view.value !== "search") return;
-  // 翻译分区：无结果列表，Enter/Tab 均立即翻译
+  // 翻译分区：无结果列表，Enter/Tab 均立即翻译（在途时不重复触发，与翻译按钮禁用一致）
   if (panel.value === "translate") {
     if (e.key === "Enter" || e.key === "Tab") {
       e.preventDefault();
+      if (translateStatus.value === "loading") return;
       runTranslateNow();
     }
     return;

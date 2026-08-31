@@ -142,9 +142,12 @@ function setCache(key, value) {
 
 // 调用 OpenAI 兼容接口（DeepSeek/OpenCode Go 等），非流式，返回完整文本。
 // 端点自动判定：gpt-*/grok-* 模型走 OpenAI Responses（/responses），其余走 /chat/completions
-async function askOnce(messages, settings) {
+// externalSignal：外部取消（新翻译触发/用户改输入）时中止请求，不再占用带宽
+async function askOnce(messages, settings, externalSignal) {
   assertSafeApiUrl(settings.baseUrl);
   const ctrl = new AbortController();
+  const onExternalAbort = () => ctrl.abort();
+  externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
     const endpoint = endpointFor(settings.model);
@@ -182,10 +185,14 @@ async function askOnce(messages, settings) {
     if (!content) throw new Error("翻译服务返回为空");
     return content.trim();
   } catch (e) {
-    if (e.name === "AbortError") throw new Error(`翻译请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请重试`);
+    if (e.name === "AbortError") {
+      if (externalSignal?.aborted) throw e; // 外部取消：不算超时
+      throw new Error(`翻译请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请重试`);
+    }
     throw e;
   } finally {
     clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
   }
 }
 
@@ -205,9 +212,11 @@ function extractResponsesText(data) {
 }
 
 // 流式版（SSE）：长句翻译逐段上屏，减少等待感；onDelta 可选——不传则仅返回最终文本
-async function askStream(messages, settings, onDelta) {
+async function askStream(messages, settings, onDelta, externalSignal) {
   assertSafeApiUrl(settings.baseUrl);
   const ctrl = new AbortController();
+  const onExternalAbort = () => ctrl.abort();
+  externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
     const endpoint = endpointFor(settings.model);
@@ -269,10 +278,14 @@ async function askStream(messages, settings, onDelta) {
     }
     return full.trim();
   } catch (e) {
-    if (e.name === "AbortError") throw new Error(`翻译请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请重试`);
+    if (e.name === "AbortError") {
+      if (externalSignal?.aborted) throw e; // 外部取消：不算超时
+      throw new Error(`翻译请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请重试`);
+    }
     throw e;
   } finally {
     clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
   }
 }
 
@@ -373,7 +386,8 @@ const NOT_FOUND_RE = /未找到|不存在|拼写错误|不是(一个|个)?(有�
 // onDelta(partialText, target)：句子流式翻译时随内容增长回调（快捷窗不传则静默等最终结果）
 // 返回 Promise；无 apiKey 时仅在真正需要网络的分支抛错——
 // 本地词典命中与缓存命中零网络返回，不因未配置 Key 而拦截
-export async function translateQuery(text, settings, onDelta) {
+// signal：外部取消（新翻译触发/用户改输入）时中止请求
+export async function translateQuery(text, settings, onDelta, signal) {
   const input = (text || "").trim();
   if (!input) return null;
   const fp = settingsFingerprint(settings);
@@ -398,8 +412,11 @@ export async function translateQuery(text, settings, onDelta) {
             { role: "system", content: WORD_PROMPT },
             { role: "user", content: input },
           ],
-          candidate
-        )
+          candidate,
+          signal
+        ),
+        undefined,
+        signal
       );
       setCache(key, reply);
     } else if (NOT_FOUND_RE.test(reply)) {
@@ -429,9 +446,11 @@ export async function translateQuery(text, settings, onDelta) {
           { role: "user", content: input },
         ],
         candidate,
-        onDelta ? (partial) => onDelta(partial, target) : undefined
+        onDelta ? (partial) => onDelta(partial, target) : undefined,
+        signal
       ),
-      () => onDelta?.("", target)
+      () => onDelta?.("", target),
+      signal
     );
     setCache(key, translated);
   }
