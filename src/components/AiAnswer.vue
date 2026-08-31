@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch, nextTick } from "vue";
+import { computed, ref, watch, nextTick, onUnmounted } from "vue";
 import { categoryColor } from "../utils/categories";
 
 const props = defineProps({
@@ -23,7 +23,7 @@ const bottomEl = ref(null);
 
 // 去掉 system 后的对话线程
 const thread = computed(() => props.messages.filter((m) => m.role !== "system"));
-// 首条 AI 回答（固定格式，解析成结构化卡片）
+// 首条 AI 回答（固定格式，解析成结构化卡片）——流式期间经节流后写入 shownFirst
 const firstAnswer = computed(() => thread.value.find((m) => m.role === "assistant")?.content ?? "");
 // 首答之后的追问问答对（自由文本）
 const followUps = computed(() => {
@@ -45,13 +45,39 @@ function catStyle(cat) {
   return { color: fg, background: bg };
 }
 
+// 流式渲染节流：内容仍即时写入会话，但展示副本按 50ms 合并提交，
+// 避免每个 SSE 分片都触发一次全量解析 + 整块重渲染（长回答 O(n²) 主线程开销）
+let firstFlushTimer = null;
+let firstFlushAt = 0;
+const shownFirst = ref("");
+watch(
+  () => firstAnswer.value,
+  (t) => {
+    const now = performance.now();
+    const apply = () => {
+      shownFirst.value = t;
+    };
+    if (props.status === "streaming" && now - firstFlushAt < 50) {
+      clearTimeout(firstFlushTimer);
+      firstFlushTimer = setTimeout(() => {
+        firstFlushAt = performance.now();
+        apply();
+      }, 50);
+    } else {
+      firstFlushAt = now;
+      apply();
+    }
+  },
+  { immediate: true, flush: "post" }
+);
+
 const FIELD_RE = /^(缩写|全称|中文名|分类|定义)[:：]\s*(.*)$/;
 
 // AI 首答是固定结构的纯文本，流式过程中逐行解析成结构化字段
 const parsed = computed(() => {
   const out = { abbr: "", full: "", zh: "", category: "", definition: "", points: [], extra: [] };
   let hasField = false;
-  for (const raw of firstAnswer.value.split("\n")) {
+  for (const raw of shownFirst.value.split("\n")) {
     const line = raw.trim();
     if (!line || /^要点[:：]?$/.test(line)) continue;
     const m = line.match(FIELD_RE);
@@ -79,12 +105,27 @@ function send() {
   followText.value = "";
 }
 
-// 流式输出时保持滚动到底部；回答完成后聚焦追问输入框
+// 最近的可滚动祖先（回答流式溢出后 .content 才是滚动容器）
+function scrollParent(el) {
+  for (let p = el; p; p = p.parentElement) {
+    if (p.scrollHeight > p.clientHeight + 1) return p;
+  }
+  return null;
+}
+
+// 仅当用户停在底部附近时才自动跟随滚动：上翻阅读历史时不被每个分片拽回底部
+function isNearBottom() {
+  const el = scrollParent(bottomEl.value);
+  if (!el) return true;
+  return el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+}
+
+// 流式输出时（节流副本更新后）保持滚动到底部；回答完成后聚焦追问输入框
 watch(
-  () => thread.value.map((m) => m.content.length).join(","),
+  () => `${shownFirst.value.length},${followUps.value.map((m) => m.content.length).join(",")}`,
   async () => {
     await nextTick();
-    bottomEl.value?.scrollIntoView({ block: "end" });
+    if (isNearBottom()) bottomEl.value?.scrollIntoView({ block: "end" });
   }
 );
 
@@ -97,6 +138,10 @@ watch(
     }
   }
 );
+
+onUnmounted(() => {
+  clearTimeout(firstFlushTimer);
+});
 </script>
 
 <template>
@@ -118,8 +163,8 @@ watch(
       </button>
     </div>
 
-    <!-- 首答：结构化卡片 -->
-    <template v-if="firstAnswer">
+    <!-- 首答：结构化卡片（流式期间按 50ms 节流副本渲染） -->
+    <template v-if="shownFirst">
       <article v-if="parsed" class="card">
         <div class="title-row">
           <span class="abbr">{{ parsed.abbr || "…" }}</span>
@@ -134,7 +179,10 @@ watch(
         <p v-for="(l, i) in parsed.extra" :key="'x' + i" class="extra">{{ l }}</p>
         <span v-if="streamingFirst && status === 'streaming'" class="caret"></span>
       </article>
-      <pre v-else class="answer">{{ firstAnswer }}</pre>
+      <pre v-else class="answer">{{ shownFirst }}<span
+        v-if="status === 'streaming' && streamingFirst"
+        class="caret"
+      ></span></pre>
     </template>
     <div v-else-if="streamingFirst" class="loading-dots"><i></i><i></i><i></i></div>
 
