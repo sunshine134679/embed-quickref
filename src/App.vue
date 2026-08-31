@@ -369,6 +369,17 @@ function onUserEditQuery() {
   translateError.value = "";
 }
 
+// ---------- 全局轻量通知（toast）：发音失败/保存失败等一次性提示 ----------
+const notice = ref(null); // { text, kind: "error" | "info" }
+let noticeTimer = null;
+function showNotice(text, kind = "error") {
+  notice.value = { text, kind };
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => {
+    notice.value = null;
+  }, 3200);
+}
+
 // 立即翻译（Enter/Tab/翻译按钮触发）
 function runTranslateNow() {
   const text = (query.value || "").trim();
@@ -380,6 +391,16 @@ function runTranslateNow() {
 // 每次触发同时中止上一次仍在途的请求：真实取消网络占用，而非只丢弃显示
 let translateAbortCtrl = null;
 async function runTranslate(text) {
+  // 与发音截断上限一致的输入侧拦截：超长文本直接报错，避免白等 30s 网络超时
+  if ((text || "").trim().length > 6000) {
+    translateAbortCtrl?.abort();
+    translateAbortCtrl = null;
+    translateSeq++;
+    translateStatus.value = "error";
+    translateResult.value = null;
+    translateError.value = "文本过长（超过 6000 字符），请分段翻译";
+    return;
+  }
   translateAbortCtrl?.abort();
   const ctrl = new AbortController();
   translateAbortCtrl = ctrl;
@@ -1810,6 +1831,7 @@ onUnmounted(() => {
   clearTimeout(quickShowTimer);
   clearTimeout(quickHideTimer);
   clearTimeout(focusReconcileTimer);
+  clearTimeout(noticeTimer);
   window.removeEventListener("keydown", onKeydown);
   document.removeEventListener("mouseenter", onPointerEnter);
   document.removeEventListener("mouseleave", onPointerLeave);
@@ -2069,9 +2091,10 @@ onUnmounted(() => {
           :history="translateHistory"
           @replay="replayHistory"
           @clear-history="translateHistory = []; clearHistory()"
-          @open-full="openFullHistory('translate')"
-          @use-suggestion="onUseSuggestion"
-        />
+@open-full="openFullHistory('translate')"
+        @use-suggestion="onUseSuggestion"
+        @speak-fail="showNotice('无法播放发音：未找到可用的英语语音，请在设置中检查')"
+      />
       </template>
       <div v-else-if="view === 'detail'" class="detail-wrap">
         <p v-if="noApiHint" class="noapi-hint">
@@ -2168,6 +2191,10 @@ onUnmounted(() => {
       <span><kbd>Ctrl+H</kbd> AI 历史</span>
       <span><kbd>Esc</kbd> 返回 / 收起</span>
     </footer>
+    <!-- 全局轻量通知（发音失败/保存失败等一次性提示） -->
+    <Transition name="notice">
+      <div v-if="notice" class="toast" :class="notice.kind">{{ notice.text }}</div>
+    </Transition>
     </div></Transition>
   </div>
 </template>
@@ -2977,5 +3004,38 @@ kbd {
 
 .btn-quit:hover {
   background: var(--danger-hover);
+}
+
+/* ---------- 全局轻量通知 toast ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 46px;
+  transform: translateX(-50%);
+  z-index: 120;
+  max-width: 80%;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: rgba(30, 41, 59, 0.92);
+  color: #fff;
+  font-size: 12.5px;
+  line-height: 1.5;
+  box-shadow: 0 6px 20px rgba(30, 41, 59, 0.25);
+  pointer-events: none;
+}
+
+.toast.error {
+  background: rgba(160, 62, 62, 0.95);
+}
+
+.notice-enter-active,
+.notice-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.notice-enter-from,
+.notice-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(6px);
 }
 </style>

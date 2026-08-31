@@ -512,10 +512,10 @@ export function subscribeSpeechVoices(callback) {
   return () => window.speechSynthesis.removeEventListener?.("voiceschanged", refresh);
 }
 
-function speakWithSystemVoice(text, settings) {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
+function speakWithSystemVoice(text, settings, onFail) {
+  if (typeof window === "undefined" || !window.speechSynthesis) return false;
   const Utterance = window.SpeechSynthesisUtterance || globalThis.SpeechSynthesisUtterance;
-  if (typeof Utterance !== "function") return;
+  if (typeof Utterance !== "function") return false;
   prepareSpeechSynthesis(window.speechSynthesis);
   const accent = settings.accent === "en" ? "en-GB" : "en-US";
   const voices = getSpeechVoices();
@@ -526,20 +526,26 @@ function speakWithSystemVoice(text, settings) {
   utterance.voice = selected || exact || regional || null;
   utterance.lang = utterance.voice?.lang || accent;
   utterance.rate = 0.85;
-  // 播放失败原本完全静默（点了发音没声音无从排查）：至少留日志
-  utterance.onerror = (e) => console.error("Web 语音播放失败", e?.error || e);
+  // 播放失败时通知调用方（UI 展示提示），不再完全静默
+  utterance.onerror = (e) => {
+    console.error("Web 语音播放失败", e?.error || e);
+    onFail?.();
+  };
   window.speechSynthesis.speak(utterance);
+  return true;
 }
 
-export async function speakEnglish(text) {
+// 返回是否已开始播放（native 或 web 兜底）；两者都不可用时调用 onFail 供 UI 提示
+export async function speakEnglish(text, onFail) {
   const input = String(text || "").trim();
-  if (!input) return;
+  if (!input) return false;
   const { settings } = useSettings();
   window.speechSynthesis?.cancel();
 
   // 原生 Windows SAPI 负责直接发音，Web Speech 仅作为本机调用失败时的兜底。
   const nativeStarted = await invokeNativeSpeech(invoke, input, settings.value.accent);
-  if (!nativeStarted) speakWithSystemVoice(input, settings.value);
+  if (!nativeStarted) return speakWithSystemVoice(input, settings.value, onFail);
+  return true;
 }
 
 // ---------- 翻译历史：每次成功翻译写入，空态下快捷回看 ----------

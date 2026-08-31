@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onUnmounted } from "vue";
 import { speakEnglish, isSingleWord, suggestWords } from "../composables/useTranslate";
 import { addUserTerm } from "../composables/useSearch";
 import WordSuggest from "./WordSuggest.vue";
@@ -12,25 +12,35 @@ const props = defineProps({
   history: { type: Array, default: () => [] },
 });
 
-const emit = defineEmits(["replay", "clear-history", "open-full", "use-suggestion"]);
+const emit = defineEmits(["replay", "clear-history", "open-full", "use-suggestion", "speak-fail"]);
 
 // 输入联想：英文单词输入时（未翻译）在搜索栏下方实时给出拼写建议（前缀补全 + 模糊匹配）
+// 150ms 防抖：避免每击键全量扫描词表（数千词 × 编辑距离）+ 首次加载 600KB chunk
 const suggestions = ref([]);
 let suggestSeq = 0;
+let suggestTimer = null;
 watch(
   () => props.query,
-  async (q) => {
+  (q) => {
+    clearTimeout(suggestTimer);
     const seq = ++suggestSeq;
     if (q && isSingleWord(q) && props.status !== "done") {
-      const list = await suggestWords(q).catch(() => []);
-      // suggestWords 首次调用会动态加载约 600KB 词库 chunk：加载窗口内旧查询可能最后返回，
-      // 无守卫会用过期建议覆盖新查询（点击后用过期词触发翻译）
-      if (seq === suggestSeq) suggestions.value = list;
+      suggestTimer = setTimeout(async () => {
+        const list = await suggestWords(q).catch(() => []);
+        // suggestWords 首次调用会动态加载约 600KB 词库 chunk：加载窗口内旧查询可能最后返回，
+        // 无守卫会用过期建议覆盖新查询（点击后用过期词触发翻译）
+        if (seq === suggestSeq) suggestions.value = list;
+      }, 150);
     } else if (seq === suggestSeq) {
       suggestions.value = [];
     }
   }
 );
+
+// 发音：播放失败（本机无英语语音等）通知父级弹全局提示，不再静默无反应
+function speak(text) {
+  speakEnglish(text, () => emit("speak-fail"));
+}
 
 // 历史条目时间显示：今天显示时分，其余显示月日
 function fmtTime(t) {
@@ -166,6 +176,10 @@ async function saveWordToDict() {
     termSaved.value = "error";
   }
 }
+
+onUnmounted(() => {
+  clearTimeout(suggestTimer);
+});
 </script>
 
 <template>
@@ -242,7 +256,7 @@ async function saveWordToDict() {
         <button
           class="speak-btn"
           title="播放英语读音"
-          @click="speakEnglish(result.spokenText || result.word)"
+          @click="speak(result.spokenText || result.word)"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
             <path d="M4 9v6h4l5 4V5L8 9H4z" />
@@ -293,7 +307,7 @@ async function saveWordToDict() {
         <h1>{{ result.text }}</h1>
         <span class="source-badge ai" title="由 AI 模型生成，可能与真实词义有出入">AI 生成</span>
         <span class="head-spacer"></span>
-        <button class="speak-btn" title="播放英语读音" @click="speakEnglish(result.text)">
+        <button class="speak-btn" title="播放英语读音" @click="speak(result.text)">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
             <path d="M4 9v6h4l5 4V5L8 9H4z" />
             <path d="M16.5 8.5a5 5 0 0 1 0 7" />
@@ -374,7 +388,7 @@ async function saveWordToDict() {
           </svg>
           {{ copied === "dst" ? "已复制" : "复制译文" }}
         </button>
-        <button class="act-btn" title="播放英语读音" @click="speakEnglish(speakableText(result))">
+        <button class="act-btn" title="播放英语读音" @click="speak(speakableText(result))">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
             <path d="M4 9v6h4l5 4V5L8 9H4z" />
             <path d="M16.5 8.5a5 5 0 0 1 0 7" />
