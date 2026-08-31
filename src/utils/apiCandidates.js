@@ -29,7 +29,8 @@ export function hasApiCandidate(settings) {
 
 // 逐个尝试候选模型；request(candidate) 抛错后才进入下一项。
 // onRetry 用于清理已经上屏的失败模型的流式内容。
-export async function withApiFallback(settings, request, onRetry) {
+// signal：外部取消（视图离开/手动停止）时立即停止整个备用链，不再尝试下一个模型
+export async function withApiFallback(settings, request, onRetry, signal) {
   const candidates = apiCandidates(settings);
   if (!candidates.length) throw new Error("no-api-key");
 
@@ -38,6 +39,8 @@ export async function withApiFallback(settings, request, onRetry) {
     try {
       return await request(candidates[index], index);
     } catch (error) {
+      // 外部已取消：原样上抛，跳过备用模型（继续尝试只会打更多无意义的请求）
+      if (signal?.aborted) throw error;
       lastError = error;
       if (index < candidates.length - 1) onRetry?.(error, candidates[index], candidates[index + 1]);
     }

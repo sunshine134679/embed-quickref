@@ -69,19 +69,24 @@ const REQUEST_TIMEOUT_MS = 120_000;
 // OpenAI 兼容接口，SSE 流式；走 tauri http 插件绕开 CORS
 // messages 为完整多轮对话（含 system），追问时把历史一起带上
 // 端点自动判定：gpt-*/grok-* 模型走 OpenAI Responses（/responses），其余走 /chat/completions
-export async function askAi(messages, settings, onDelta) {
+// signal：外部取消（离开视图/手动停止等）——中止当前请求，备用链路随之停止
+export async function askAi(messages, settings, onDelta, signal) {
   return withApiFallback(
     settings,
-    (candidate) => askAiOnce(messages, candidate, onDelta),
-    () => onDelta?.("")
+    (candidate) => askAiOnce(messages, candidate, onDelta, signal),
+    () => onDelta?.(""),
+    signal
   );
 }
 
-async function askAiOnce(messages, settings, onDelta) {
+async function askAiOnce(messages, settings, onDelta, externalSignal) {
   assertSafeApiUrl(settings.baseUrl);
   const endpoint = endpointFor(settings.model);
   // 超时保护：plugin-http 支持 AbortSignal，中止后 Rust 侧请求一并取消
   const ctrl = new AbortController();
+  // 外部取消转发到内部 ctrl：同一请求只保留一个信号源，避免多次 abort 语义混乱
+  const onExternalAbort = () => ctrl.abort();
+  externalSignal?.addEventListener("abort", onExternalAbort, { once: true });
   const timer = setTimeout(() => ctrl.abort(), REQUEST_TIMEOUT_MS);
   try {
     const full = endpoint === "responses"
@@ -90,11 +95,14 @@ async function askAiOnce(messages, settings, onDelta) {
     return full;
   } catch (e) {
     if (e.name === "AbortError") {
+      // 外部取消不算超时：调用方已按“视图离开”处理，不抛误导性的超时文案
+      if (externalSignal?.aborted) throw e;
       throw new Error(`AI 请求超时（${REQUEST_TIMEOUT_MS / 1000} 秒），请重试`);
     }
     throw e;
   } finally {
     clearTimeout(timer);
+    externalSignal?.removeEventListener("abort", onExternalAbort);
   }
 }
 

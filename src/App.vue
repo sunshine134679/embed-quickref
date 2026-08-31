@@ -747,6 +747,26 @@ async function saveAiSession() {
 // 会话代次：openAiSession 等整体替换会话时递增，让进行中流式回调按旧代次整体失效，
 // 防止流式期间打开历史会话时旧流把内容写进新会话（串话/TypeError/误删消息/坏数据落盘）
 let aiSeq = 0;
+// 当前流式请求的取消句柄：离开 AI 视图/切换会话时中止网络请求，
+// 旧流不再继续写会话、不入库、不落历史（配合 aiSeq 代次双保险）
+let aiAbortCtrl = null;
+
+// 离开 AI 视图（Esc/切视图/聚焦搜索框/切换会话）：中止在途请求并复位状态
+function cancelAiStream() {
+  aiSeq++;
+  aiAbortCtrl?.abort();
+  aiAbortCtrl = null;
+  if (aiStatus.value === "loading" || aiStatus.value === "streaming") {
+    aiStatus.value = "idle";
+  }
+}
+
+// 离开 AI 视图即中止在途请求：一条 watcher 覆盖 Esc/切视图/历史会话等全部退出路径
+watch(view, (v) => {
+  if (v !== "ai" && (aiStatus.value === "loading" || aiStatus.value === "streaming")) {
+    cancelAiStream();
+  }
+});
 
 // 发起请求并流式写入会话末尾的 assistant 消息
 async function streamAi(isFirstAnswer) {
@@ -756,13 +776,15 @@ async function streamAi(isFirstAnswer) {
   aiMessages.value.push({ role: "assistant", content: "" });
   const idx = aiMessages.value.length - 1;
   const seq = ++aiSeq;
+  const ctrl = new AbortController();
+  aiAbortCtrl = ctrl;
   try {
     const answer = await askAi(payload, settings.value, (t) => {
       if (seq !== aiSeq) return; // 会话已被整体替换（如流式期间打开历史），丢弃过期输出
       const m = aiMessages.value[idx];
       if (m && m.role === "assistant") m.content = t;
       aiStatus.value = "streaming";
-    });
+    }, ctrl.signal);
     if (seq !== aiSeq) return; // 过期流式：不写回、不落历史、不改状态
     if (!answer) throw new Error("AI 返回了空回答"); // 空回答按错误处理，不再静默显示空气泡并落盘
     aiMessages.value[idx].content = answer;
@@ -788,6 +810,8 @@ async function streamAi(isFirstAnswer) {
     aiMessages.value.splice(idx, 1); // 失败的空占位不留在会话里
     aiStatus.value = "error";
     aiError.value = String(e.message || e);
+  } finally {
+    if (aiAbortCtrl === ctrl) aiAbortCtrl = null; // 只清理本次请求的句柄，不误伤新请求
   }
 }
 
@@ -910,7 +934,7 @@ async function appendFollowupsToTerm() {
 
 // 从历史打开会话：还原上下文，可继续追问
 function openAiSession(s) {
-  aiSeq++; // 使进行中流式回调整体失效（onDelta/收尾/catch 均按代次丢弃）
+  cancelAiStream(); // 使进行中流式回调整体失效并中止网络请求（onDelta/收尾/catch 均按代次丢弃）
   aiSessionId = s.id;
   aiQuery.value = s.query;
   aiFromView.value = view.value; // 记录来源视图（history/search），供 Esc 逐级返回
