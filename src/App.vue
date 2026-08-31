@@ -531,8 +531,9 @@ async function enterExpanded(initialView = "search", opts = {}) {
     };
     // 先准备最终页面内容；动画期间主面板不可见，避免动画结束后突然换页。
     view.value = initialView;
+    // 回到 AI 解释页时不做"恢复上次搜索"：那会把用户从解释页强行拽回旧搜索结果
     const savedQuery = loadLastQuery();
-    if (!opts.skipRestore && savedQuery && initialView !== "settings") {
+    if (!opts.skipRestore && savedQuery && initialView !== "settings" && initialView !== "ai") {
       view.value = "search";
       query.value = savedQuery;
     }
@@ -630,8 +631,11 @@ async function applyDotPosition(p) {
   }
 }
 
-// 展开时默认视图：若恢复了上次打开的标签则直接展示该词条，否则回搜索
+// 展开时默认视图：优先回到收起前正在看的页面——AI 解释会话保留在内存中，
+// 收起再展开应回到上次解释（否则 expandInitialView 的"详情或搜索"二选一
+// 会把用户丢到随机的旧详情/旧搜索结果页）；其余维持原逻辑
 function expandInitialView() {
+  if (view.value === "ai" && aiMessages.value.length) return "ai";
   return currentTerm.value ? "detail" : "search";
 }
 
