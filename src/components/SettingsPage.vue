@@ -8,6 +8,8 @@ const props = defineProps({
   mode: { type: String, default: "floating" },
   // 父级保存失败信息（磁盘写入/热键注册失败）：footer 以错误态展示，不再只显示乐观的"已自动保存"
   saveError: { type: String, default: "" },
+  // 密钥落盘/解密状态：encrypted | plain | reveal-failed（详见 useSettings）
+  secretStatus: { type: String, default: "encrypted" },
 });
 const emit = defineEmits(["auto-save", "cancel", "update:mode"]);
 
@@ -149,12 +151,23 @@ function autoSavePayload() {
 
 function scheduleAutoSave() {
   clearTimeout(autoSaveTimer);
-  autoSaveTimer = setTimeout(() => {
-    emit("auto-save", autoSavePayload());
-    autoSaved.value = true;
-    clearTimeout(autoSavedTimer);
-    autoSavedTimer = setTimeout(() => { autoSaved.value = false; }, 1800);
-  }, 260);
+  autoSaveTimer = setTimeout(saveNow, 260);
+}
+
+function saveNow() {
+  clearTimeout(autoSaveTimer);
+  emit("auto-save", autoSavePayload());
+  autoSaved.value = true;
+  clearTimeout(autoSavedTimer);
+  autoSavedTimer = setTimeout(() => { autoSaved.value = false; }, 1800);
+}
+
+// apiKey 输入中不自动落盘（避免每击键触发全量 DPAPI 加密+写盘），失焦时一次性保存
+const apiKeyDirty = ref(false);
+function flushApiKey() {
+  if (!apiKeyDirty.value) return;
+  apiKeyDirty.value = false;
+  saveNow();
 }
 
 watch(() => form.baseUrl, (url) => {
@@ -171,7 +184,26 @@ watch(providerId, (id) => {
 watch(() => form.fallbacks.map((row) => row.baseUrl), () => {
   for (const row of form.fallbacks) row.providerId = providerFor(row.baseUrl, row.model)?.id || "";
 });
-watch(form, () => scheduleAutoSave(), { deep: true });
+// 除 apiKey 外的字段变化 → 防抖自动保存；apiKey 输入只标记 dirty（blur 一次性落盘）
+watch(
+  () => ({
+    baseUrl: form.baseUrl,
+    model: form.model,
+    accent: form.accent,
+    voiceName: form.voiceName,
+    shortcut: form.shortcut,
+    detailShortcut: form.detailShortcut,
+    settingsShortcut: form.settingsShortcut,
+    fallbacks: form.fallbacks.map((f) => ({ providerId: f.providerId, baseUrl: f.baseUrl, model: f.model })),
+  }),
+  () => scheduleAutoSave()
+);
+watch(
+  () => [form.apiKey, ...form.fallbacks.map((f) => f.apiKey)],
+  () => {
+    apiKeyDirty.value = true;
+  }
+);
 onMounted(() => {
   speechVoices.value = listSpeechVoices();
   stopSpeechVoices = subscribeSpeechVoices((voices) => {
@@ -224,7 +256,7 @@ onUnmounted(() => {
 
         <div v-else-if="activeCategory === 'api'" class="settings-section">
           <div class="section-title"><span class="section-kicker">服务连接</span><h3>API 设置</h3><p>配置主模型，以及请求失败时按顺序启用的备用模型。</p></div>
-          <label class="form-row"><span>API Key</span><input v-model="form.apiKey" type="password" spellcheck="false" placeholder="sk-…（仅保存在本机）" /></label>
+          <label class="form-row"><span>API Key</span><input v-model="form.apiKey" type="password" spellcheck="false" placeholder="sk-…（仅保存在本机）" @blur="flushApiKey" /></label>
           <label class="form-row"><span>服务商</span><select v-model="providerId" class="provider-select"><option value="">自定义</option><option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.name }}</option></select></label>
           <label class="form-row"><span>Base URL</span><input v-model="form.baseUrl" type="text" spellcheck="false" placeholder="https://api.deepseek.com" /></label>
           <label class="form-row"><span>模型名</span><input v-model="form.model" type="text" spellcheck="false" placeholder="deepseek-chat" /></label>
@@ -249,13 +281,15 @@ onUnmounted(() => {
               <div v-if="form.fallbacks.length" class="fallback-list">
                 <div v-for="(row, index) in form.fallbacks" :key="index" class="fallback-card">
                   <div class="fallback-card-head"><span>备用 {{ index + 1 }}</span><div class="fallback-controls"><button type="button" :disabled="index === 0" title="上移" @click="moveFallback(index, -1)">↑</button><button type="button" :disabled="index === form.fallbacks.length - 1" title="下移" @click="moveFallback(index, 1)">↓</button><button type="button" class="remove-button" @click="removeFallback(index)">删除</button></div></div>
-                  <div class="fallback-grid"><select :value="row.providerId" class="provider-select" @change="setFallbackProvider(row, $event.target.value)"><option value="">自定义</option><option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.name }}</option></select><input v-model="row.model" type="text" spellcheck="false" placeholder="模型名，如 deepseek-chat" /><input v-model="row.baseUrl" type="text" spellcheck="false" placeholder="留空复用主 Base URL" /><input v-model="row.apiKey" type="password" spellcheck="false" placeholder="留空复用主 API Key" /></div>
+                  <div class="fallback-grid"><select :value="row.providerId" class="provider-select" @change="setFallbackProvider(row, $event.target.value)"><option value="">自定义</option><option v-for="p in PROVIDERS" :key="p.id" :value="p.id">{{ p.name }}</option></select><input v-model="row.model" type="text" spellcheck="false" placeholder="模型名，如 deepseek-chat" /><input v-model="row.baseUrl" type="text" spellcheck="false" placeholder="留空复用主 Base URL" /><input v-model="row.apiKey" type="password" spellcheck="false" placeholder="留空复用主 API Key" @blur="flushApiKey" /></div>
                   <div v-if="fallbackProvider(row)?.models?.length" class="model-chips fallback-chips"><button v-for="m in fallbackProvider(row).models" :key="m" type="button" class="model-chip" :class="{ active: row.model === m }" @click="row.model = m">{{ m }}</button></div>
                 </div>
               </div>
               <p v-else class="empty-fallback">暂未添加。添加后，主模型失败会按顺序继续尝试。</p>
             </div>
           </section>
+          <p v-if="secretStatus === 'plain'" class="secret-warn">⚠ 系统加密不可用，API Key 将明文保存在本机配置文件中。建议修复系统后再重新输入。</p>
+          <p v-else-if="secretStatus === 'reveal-failed'" class="secret-warn">⚠ 本机解密失败（可能是换机/系统重置），API Key 已清空，请重新填写。</p>
           <p class="hint">API Key 只写入本机配置文件，不会出现在代码或 git 仓库中。</p>
         </div>
 
@@ -300,6 +334,7 @@ input,.provider-select { min-width:0; flex:1; height:32px; padding:0 10px; borde
 .model-chips { display:flex; flex-wrap:wrap; gap:6px; margin:-2px 0 10px 82px; } .model-chip { padding:3px 10px; border:1px solid #dbe2ea; border-radius:999px; background:#fff; color:#64748b; font-size:12px; cursor:pointer; } .model-chip.active { border-color:rgba(var(--accent-rgb),.6); background:rgba(var(--accent-rgb),.1); color:var(--accent); font-weight:600; }
 .hint { margin:8px 0 14px; line-height:1.5; }
 .test-row { display:flex; align-items:center; gap:10px; margin:-4px 0 14px; } .test-btn { height:30px; padding:0 14px; border:1px solid rgba(82,112,143,.55); border-radius:8px; background:rgba(82,112,143,.1); color:#52708f; font-size:12.5px; font-weight:600; cursor:pointer; } .test-btn:hover:not(:disabled) { background:rgba(82,112,143,.2); } .test-btn:disabled { opacity:.5; cursor:default; } .test-result { font-size:12.5px; color:#b45353; } .test-result.ok { color:#6b9e78; }
+.secret-warn { margin:8px 0 14px; padding:8px 12px; border:1px solid rgba(180,83,83,.3); border-radius:8px; background:rgba(180,83,83,.07); color:#b45353; font-size:12px; line-height:1.6; }
 .fallback-settings { margin:18px 0 14px; border-top:1px solid #e5eaf0; border-bottom:1px solid #e5eaf0; }
 .fallback-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; min-height:58px; padding:8px 2px; border:0; border-radius:0; background:transparent; color:#64748b; text-align:left; cursor:pointer; }
 .fallback-toggle:hover { background:rgba(241,245,249,.55); }

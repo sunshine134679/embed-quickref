@@ -31,7 +31,7 @@ import { load } from "@tauri-apps/plugin-store";
 const win = getCurrentWindow();
 // 快捷查找窗口（label=quick）只渲染 QuickPanel，主窗口渲染完整界面
 const isQuick = win.label === "quick";
-const { settings, saveSettings } = useSettings();
+const { settings, saveSettings, secretStatus } = useSettings();
 
 function catStyle(cat) {
   const { fg, bg } = categoryColor(cat);
@@ -2194,6 +2194,7 @@ onUnmounted(() => {
         :settings="settings"
         :mode="mode"
         :save-error="settingsSaveError"
+        :secret-status="secretStatus"
         @auto-save="onAutoSaveSettings"
         @cancel="view = 'search'; focusInput()"
         @update:mode="onModeChange"

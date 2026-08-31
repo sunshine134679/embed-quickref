@@ -8,12 +8,17 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 // 内存中保持明文供请求使用；旧版明文值首次加载时静默迁移（仅主窗口执行，避免双窗口并发写）
 const KEY_PREFIX = "dpapi:";
 
+// 密钥落盘/解密状态（设置页展示，不再无痕降级）：
+// encrypted 正常加密 | plain 加密失败退化为明文 | reveal-failed 本机解密失败（Key 已清空）
+const secretStatus = ref("encrypted");
+
 async function revealKey(val) {
   if (typeof val === "string" && val.startsWith(KEY_PREFIX)) {
     try {
       return await invoke("secret_reveal", { blob: val.slice(KEY_PREFIX.length) });
     } catch (e) {
-      return ""; // 解密失败（换机/系统重置）：视为无 Key，用户重新填写
+      secretStatus.value = "reveal-failed"; // 换机/系统重置：提示用户重新填写，而非静默变空
+      return "";
     }
   }
   return typeof val === "string" ? val : "";
@@ -23,7 +28,8 @@ async function protectKey(plain) {
   try {
     return KEY_PREFIX + (await invoke("secret_protect", { plain }));
   } catch (e) {
-    return plain; // 加密失败不阻断保存，退化为明文
+    secretStatus.value = "plain"; // 加密失败：明文落盘并让 UI 明确提示，不再无痕降级
+    return plain;
   }
 }
 
@@ -109,6 +115,8 @@ export async function saveSettings(next) {
     await store.set(key, val);
   }
   await store.save();
+  // 主 Key 已正常加密（或未配置 Key）：清除降级提示（若 protectKey 失败会保持 plain）
+  if (!settings.value.apiKey || disk.apiKey.startsWith(KEY_PREFIX)) secretStatus.value = "encrypted";
   // 设置在各 WebView 是独立内存快照（快捷窗启动时加载一次）：落盘后广播，
   // 让快捷窗重新 initSettings，否则改 API Key/model 后快捷窗翻译一直用旧值。
   // 载荷剥离明文 apiKey：快捷窗收到事件后自行从 store 重读，不需要也不应持有 Key 明文
@@ -117,5 +125,5 @@ export async function saveSettings(next) {
 }
 
 export function useSettings() {
-  return { settings, saveSettings };
+  return { settings, saveSettings, secretStatus };
 }
