@@ -12,11 +12,48 @@ import developmentDictionary from "../data/development-dictionary";
 const localDictionary = { ...developmentDictionary, ...learningDictionary };
 
 // 本地学习词典：精确命中 + 词形索引（interrupted -> interrupt）
-// 词形索引在模块加载时构建一次，命中后返回原型词条
-const formIndex = new Map();
-for (const [headword, entry] of Object.entries(localDictionary)) {
-  formIndex.set(normalizeWord(headword), headword);
-  for (const form of entry.forms || []) formIndex.set(normalizeWord(form), headword);
+// 词形索引模块加载时构建一次；个人词库同步后重建合并表（mergedDictionary）
+function buildFormIndex(dict) {
+  const m = new Map();
+  for (const [headword, entry] of Object.entries(dict)) {
+    m.set(normalizeWord(headword), headword);
+    for (const form of entry.forms || []) m.set(normalizeWord(form), headword);
+  }
+  return m;
+}
+const builtinFormIndex = buildFormIndex(localDictionary);
+let mergedDictionary = localDictionary;
+let formIndex = builtinFormIndex;
+
+// ---- 个人词库并入翻译本地词典 ----
+// 用户词条（AI 缓存、翻译分区「并入词库」）在翻译分区与内置学习词典同等级命中；
+// useSearch 在加载/写入用户词库后调用本函数重建合并表与词形索引
+export function setUserTermsForTranslate(terms) {
+  const list = Array.isArray(terms) ? terms.filter((t) => t && (t.abbr || "").trim()) : [];
+  if (!list.length) {
+    mergedDictionary = localDictionary;
+    formIndex = builtinFormIndex;
+    return;
+  }
+  const merged = {};
+  for (const t of list) {
+    // key 保留原样大小写（与内置词典一致：formIndex 存「归一化 → 原样」映射）
+    merged[(t.abbr || "").trim()] = toLocalEntry(t);
+  }
+  // 内置学习词典优先：用户条目不覆盖已收录词义（与术语搜索"内置优先"一致）
+  for (const [k, v] of Object.entries(localDictionary)) merged[k] = v;
+  mergedDictionary = merged;
+  formIndex = buildFormIndex(merged);
+}
+
+// 用户词条转学习词典条目形状（primary/forms/usage/senses 与内置一致，缺失字段兜底）
+function toLocalEntry(t) {
+  return {
+    primary: t.zh || t.definition || t.abbr || "",
+    forms: [],
+    usage: t.usage || "",
+    senses: (t.points || []).map((p) => ({ pos: "", field: "", meaning: p, example: "", exampleZh: "" })),
+  };
 }
 
 function normalizeWord(s) {
@@ -32,13 +69,13 @@ export function isSingleWord(text) {
   return /^[A-Za-z]+(?:['-][A-Za-z]+)?$/.test((text || "").trim());
 }
 
-// 本地学习词典命中：输入单词或词形，返回 { word, entry }；未命中返回 null
+// 本地学习词典命中（含个人词库合并表）：输入单词或词形，返回 { word, entry }；未命中返回 null
 export function lookupWord(text) {
   const key = normalizeWord(text);
   if (!key) return null;
   const headword = deriveLemmaCandidates(key).map((candidate) => formIndex.get(candidate)).find(Boolean);
   if (!headword) return null;
-  return { word: headword, entry: localDictionary[headword] };
+  return { word: headword, entry: mergedDictionary[headword] };
 }
 
 // 对没有显式登记的常见词形做保守词干推导；只有推导结果已存在于本地词库时才命中。

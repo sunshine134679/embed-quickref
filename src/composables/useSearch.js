@@ -2,6 +2,12 @@ import { ref } from "vue";
 import { load } from "@tauri-apps/plugin-store";
 import { emit } from "@tauri-apps/api/event";
 import { buildTermSearchIndex, searchTermIndex } from "../utils/termSearchIndex";
+import { setUserTermsForTranslate } from "./useTranslate";
+
+// 个人词库变更后同步给翻译本地词典（合并表重建）：`并入词库`的词在翻译区立即可命中
+function syncTranslateDictionary() {
+  setUserTermsForTranslate(userTerms.value);
+}
 
 // 词库懒加载：terms.json 约 600KB，拆成独立 chunk 后台预加载，首屏不阻塞
 let builtinTerms = null;
@@ -30,6 +36,7 @@ export async function initUserTerms() {
   const saved = await store.get("terms");
   // 存储损坏/被手改为非数组时回退空表，否则后续 some/for-of 全链路 TypeError（搜索无结果且无提示）
   userTerms.value = Array.isArray(saved) ? saved : [];
+  syncTranslateDictionary();
   cachedAll = null;
   cachedSearchIndex = builtinTerms ? buildTermSearchIndex(allTerms()) : null;
 }
@@ -87,6 +94,7 @@ export async function addUserTerm(term) {
   await store.set("terms", userTerms.value);
   await store.save();
   notifyTermsChanged();
+  syncTranslateDictionary();
   return "added";
 }
 
@@ -104,6 +112,7 @@ export async function updateUserTerm(term) {
   await store.set("terms", userTerms.value);
   await store.save();
   notifyTermsChanged();
+  syncTranslateDictionary();
   return true;
 }
 
@@ -126,6 +135,7 @@ export async function appendUserTermPoints(abbr, extra, fallback) {
   await store.set("terms", userTerms.value);
   await store.save();
   notifyTermsChanged();
+  syncTranslateDictionary();
   return true;
 }
 
