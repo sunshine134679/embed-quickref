@@ -36,6 +36,22 @@ async function copyText(text, key) {
   }, 1200);
 }
 
+// 释义/用法中的 http(s) 链接渲染为可点击外链（此前全纯文本，词条内 URL 无法跳转）
+function linkify(text) {
+  const s = String(text || "");
+  const parts = [];
+  const re = /(https?:\/\/[^\s<>"']+)/g;
+  let last = 0;
+  let m;
+  while ((m = re.exec(s))) {
+    if (m.index > last) parts.push({ type: "text", t: s.slice(last, m.index) });
+    parts.push({ type: "link", t: m[0] });
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) parts.push({ type: "text", t: s.slice(last) });
+  return parts.length ? parts : [{ type: "text", t: s }];
+}
+
 function catStyle(cat) {
   const { fg, bg } = categoryColor(cat);
   return { color: fg, background: bg };
@@ -70,7 +86,12 @@ function catStyle(cat) {
       >
         {{ copied === "usage" ? "已复制 ✓" : "复制" }}
       </button>
-      <p class="usage">{{ term.usage }}</p>
+      <p class="usage">
+        <template v-for="(c, i) in linkify(term.usage)" :key="i">
+          <a v-if="c.type === 'link'" class="usage-link" :href="c.t" target="_blank" rel="noreferrer">{{ c.t }}</a>
+          <template v-else>{{ c.t }}</template>
+        </template>
+      </p>
     </div>
     <div v-if="term.example" class="code-block example-block">
       <span class="example-label">示例</span>
@@ -99,7 +120,12 @@ function catStyle(cat) {
       >
         {{ copied === "definition" ? "已复制 ✓" : "复制" }}
       </button>
-      <p class="definition">{{ term.definition }}</p>
+      <p class="definition">
+        <template v-for="(c, i) in linkify(term.definition)" :key="i">
+          <a v-if="c.type === 'link'" class="usage-link" :href="c.t" target="_blank" rel="noreferrer">{{ c.t }}</a>
+          <template v-else>{{ c.t }}</template>
+        </template>
+      </p>
     </div>
     <ul v-if="term.points && term.points.length" class="points">
       <li v-for="(p, i) in term.points" :key="i">{{ p }}</li>
@@ -285,6 +311,25 @@ h1 {
   border-radius: 8px;
   line-height: 1.7;
   color: var(--text-2);
+}
+
+/* 词条文本中的外链：accent 色下划线，允许换行断词 */
+.usage-link {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+
+.usage-link:hover {
+  color: #334f6b;
+}
+
+/* 无 hover 设备（触屏/笔输入）：复制按钮常显，避免找不到复制入口 */
+@media (hover: none) {
+  .code-block .copy-btn {
+    opacity: 1;
+  }
 }
 
 .points {

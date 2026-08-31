@@ -317,6 +317,11 @@ function searchTermsNow(q) {
   if (view.value !== "search") view.value = "search";
 }
 
+// 列表 hover 选中：移出列表复位到首项（键盘 Enter 不会打开"划过就停在"的旧项）
+function onResultHover(i) {
+  selectedIndex.value = i < 0 ? 0 : i;
+}
+
 watch(query, (q) => {
   clearTimeout(termSearchTimer);
   // 记忆最近一次搜索内容：展开主窗口时恢复（术语/翻译共用）
@@ -2032,7 +2037,7 @@ onUnmounted(() => {
             :results="results"
             :selected-index="selectedIndex"
             :query="query"
-            @hover="selectedIndex = $event"
+            @hover="onResultHover"
             @open="openTab"
           />
           <div v-else-if="query.trim()" class="empty empty-ai">

@@ -60,6 +60,7 @@ function catStyle(cat) {
       :key="t.abbr + '-' + i"
       :class="{ active: i === selectedIndex }"
       @mousemove="emit('hover', i)"
+      @mouseleave="emit('hover', -1)"
       @click="emit('open', t)"
     >
       <span class="abbr">
